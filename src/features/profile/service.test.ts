@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import type { Clock } from "@/lib/clock";
+import type { EmailProvider } from "@/lib/email";
 import type { StorageProvider } from "@/lib/storage";
+import { sr } from "@/content/sr";
 import { createProfileService } from "./service";
 import type { PreferenceRecord, ProfileRecord, ProfileRepository } from "./repository";
 
@@ -17,6 +19,12 @@ function createFakeStorage(): StorageProvider & {
   return {
     put: vi.fn().mockResolvedValue({ url: "https://blob.example/new.jpg" }),
     remove: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createFakeEmail(): EmailProvider & { send: ReturnType<typeof vi.fn> } {
+  return {
+    send: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -92,6 +100,9 @@ function createFakeRepo(overrides: Partial<ProfileRepository> = {}): ProfileRepo
     updatePreferenceDraft: vi.fn().mockResolvedValue(createFakePreference()),
     updateProfilePhoto: vi.fn().mockResolvedValue({ oldPhotoUrl: null }),
     submitProfile: vi.fn().mockResolvedValue(true),
+    listProfilesByStatus: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    approveProfile: vi.fn().mockResolvedValue({ email: "user@example.com" }),
+    rejectProfile: vi.fn().mockResolvedValue({ email: "user@example.com" }),
     ...overrides,
   };
 }
@@ -100,7 +111,7 @@ describe("createProfileService.uploadPhoto", () => {
   it("baca VALIDATION_ERROR za nevalidan content type", async () => {
     const repo = createFakeRepo();
     const storage = createFakeStorage();
-    const service = createProfileService({ repo, storage, clock: createFakeClock() });
+    const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
 
     await expect(
       service.uploadPhoto("user-1", { buffer: Buffer.from("x"), contentType: "image/gif", size: 10 }),
@@ -111,7 +122,7 @@ describe("createProfileService.uploadPhoto", () => {
   it("baca VALIDATION_ERROR za prevelik fajl", async () => {
     const repo = createFakeRepo();
     const storage = createFakeStorage();
-    const service = createProfileService({ repo, storage, clock: createFakeClock() });
+    const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
 
     await expect(
       service.uploadPhoto("user-1", {
@@ -135,7 +146,7 @@ describe("createProfileService.uploadPhoto", () => {
     storage.remove.mockImplementation(async () => {
       callOrder.push("storage.remove");
     });
-    const service = createProfileService({ repo, storage, clock: createFakeClock() });
+    const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
 
     const url = await service.uploadPhoto("user-1", {
       buffer: Buffer.from("x"),
@@ -156,7 +167,12 @@ describe("createProfileService.submitProfile", () => {
         .fn()
         .mockResolvedValue({ profile: completeProfile({ photoUrl: null }), preference: null }),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await expect(service.submitProfile("user-1")).rejects.toMatchObject({ code: "PROFILE_INCOMPLETE" });
     expect(repo.submitProfile).not.toHaveBeenCalled();
@@ -168,7 +184,12 @@ describe("createProfileService.submitProfile", () => {
         .fn()
         .mockResolvedValue({ profile: completeProfile({ intro: null }), preference: null }),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await expect(service.submitProfile("user-1")).rejects.toMatchObject({
       code: "PROFILE_INCOMPLETE",
@@ -182,7 +203,12 @@ describe("createProfileService.submitProfile", () => {
       getProfileAndPreference: vi.fn().mockResolvedValue({ profile: completeProfile(), preference: null }),
       submitProfile: vi.fn().mockResolvedValue(false),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await expect(service.submitProfile("user-1")).rejects.toMatchObject({ code: "INVALID_STATUS" });
   });
@@ -192,7 +218,12 @@ describe("createProfileService.submitProfile", () => {
       getProfileAndPreference: vi.fn().mockResolvedValue({ profile: completeProfile(), preference: null }),
       submitProfile: vi.fn().mockResolvedValue(true),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     const status = await service.submitProfile("user-1");
 
@@ -204,7 +235,12 @@ describe("createProfileService.submitProfile", () => {
 describe("createProfileService.updateProfile", () => {
   it("poziva repo.updateProfileDraft sa tačnim argumentima", async () => {
     const repo = createFakeRepo();
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await service.updateProfile("user-1", { firstName: "Ana" });
 
@@ -216,7 +252,12 @@ describe("createProfileService.updateProfile", () => {
     const repo = createFakeRepo({
       updateProfileDraft: vi.fn().mockRejectedValue(new ApiError("PROFILE_LOCKED", "Profil je zaključan.")),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await expect(service.updateProfile("user-1", { firstName: "Ana" })).rejects.toMatchObject({
       code: "PROFILE_LOCKED",
@@ -227,7 +268,12 @@ describe("createProfileService.updateProfile", () => {
 describe("createProfileService.updatePreference", () => {
   it("poziva repo.updatePreferenceDraft sa tačnim argumentima", async () => {
     const repo = createFakeRepo();
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await service.updatePreference("user-1", { lookingFor: "Tehnički co-founder" });
 
@@ -239,10 +285,113 @@ describe("createProfileService.updatePreference", () => {
     const repo = createFakeRepo({
       updatePreferenceDraft: vi.fn().mockRejectedValue(new ApiError("PROFILE_LOCKED", "Profil je zaključan.")),
     });
-    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock() });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
 
     await expect(service.updatePreference("user-1", { lookingFor: "x" })).rejects.toMatchObject({
       code: "PROFILE_LOCKED",
     });
+  });
+});
+
+describe("createProfileService.listPendingProfiles", () => {
+  it("poziva repo.listProfilesByStatus sa PENDING_REVIEW i mapira rezultate preko toProfileView", async () => {
+    const repo = createFakeRepo({
+      listProfilesByStatus: vi.fn().mockResolvedValue({ items: [completeProfile()], nextCursor: "user-1" }),
+    });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
+
+    const result = await service.listPendingProfiles("cursor-0", 10);
+
+    expect(repo.listProfilesByStatus).toHaveBeenCalledWith("PENDING_REVIEW", "cursor-0", 10);
+    expect(result.nextCursor).toBe("user-1");
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).not.toHaveProperty("birthDate");
+    expect(result.items[0]?.userId).toBe("user-1");
+  });
+});
+
+describe("createProfileService.approveProfile", () => {
+  it("baca NOT_FOUND kad repo vrati NOT_FOUND", async () => {
+    const repo = createFakeRepo({ approveProfile: vi.fn().mockResolvedValue("NOT_FOUND") });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await expect(service.approveProfile("user-1")).rejects.toMatchObject({ code: "NOT_FOUND" });
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("baca INVALID_STATUS kad repo vrati INVALID_STATUS", async () => {
+    const repo = createFakeRepo({ approveProfile: vi.fn().mockResolvedValue("INVALID_STATUS") });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await expect(service.approveProfile("user-1")).rejects.toMatchObject({ code: "INVALID_STATUS" });
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("šalje email odobrenja sa tačnim subjektom nakon uspješne transakcije", async () => {
+    const repo = createFakeRepo({
+      approveProfile: vi.fn().mockResolvedValue({ email: "ana@example.com" }),
+    });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await service.approveProfile("user-1");
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "ana@example.com", subject: sr.admin.emails.approved.subject }),
+    );
+  });
+});
+
+describe("createProfileService.rejectProfile", () => {
+  it("baca NOT_FOUND kad repo vrati NOT_FOUND", async () => {
+    const repo = createFakeRepo({ rejectProfile: vi.fn().mockResolvedValue("NOT_FOUND") });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await expect(service.rejectProfile("user-1", "Nepotpune informacije")).rejects.toMatchObject({
+      code: "NOT_FOUND",
+    });
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("baca INVALID_STATUS kad repo vrati INVALID_STATUS", async () => {
+    const repo = createFakeRepo({ rejectProfile: vi.fn().mockResolvedValue("INVALID_STATUS") });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await expect(service.rejectProfile("user-1", "Nepotpune informacije")).rejects.toMatchObject({
+      code: "INVALID_STATUS",
+    });
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("šalje email odbijanja sa razlogom u tekstu nakon uspješne transakcije", async () => {
+    const repo = createFakeRepo({
+      rejectProfile: vi.fn().mockResolvedValue({ email: "ana@example.com" }),
+    });
+    const email = createFakeEmail();
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+
+    await service.rejectProfile("user-1", "Nepotpune informacije");
+
+    expect(email.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "ana@example.com",
+        subject: sr.admin.emails.rejected.subject,
+        text: expect.stringContaining("Nepotpune informacije"),
+      }),
+    );
   });
 });

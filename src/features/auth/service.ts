@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/errors";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateAuthToken, hashAuthToken } from "@/lib/auth/tokens";
 import { signSessionToken } from "@/lib/auth/jwt";
+import { isAdminEmail } from "@/lib/auth/isAdminEmail";
 import type { EmailProvider } from "@/lib/email";
 import { sr } from "@/content/sr";
 import type { AuthRepository } from "./repository";
@@ -21,14 +22,6 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // api.md: 429 ako je prethodni mail mlađ
 
 export function createAuthService(deps: AuthServiceDeps) {
   const { repo, email, clock } = deps;
-
-  function isAdminEmail(userEmail: string): boolean {
-    const admins = (process.env.ADMIN_EMAILS ?? "")
-      .split(",")
-      .map((entry) => entry.trim().toLowerCase())
-      .filter(Boolean);
-    return admins.includes(userEmail.toLowerCase());
-  }
 
   async function sendVerificationEmail(userId: string, userEmail: string) {
     const { raw, hash } = generateAuthToken();

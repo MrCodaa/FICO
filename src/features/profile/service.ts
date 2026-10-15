@@ -1,9 +1,10 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
+import type { EmailProvider } from "@/lib/email";
 import type { StorageProvider } from "@/lib/storage";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";
-import { toProfileDraft, toPreferenceDraft } from "./mappers";
+import { toProfileDraft, toPreferenceDraft, toProfileView } from "./mappers";
 import { profileSubmitSchema } from "./schemas";
 import type { ProfileDraftInput, PreferenceDraftInput } from "./schemas";
 
@@ -11,13 +12,14 @@ export interface ProfileServiceDeps {
   repo: ProfileRepository;
   storage: StorageProvider;
   clock: Clock;
+  email: EmailProvider;
 }
 
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
 
 export function createProfileService(deps: ProfileServiceDeps) {
-  const { repo, storage, clock } = deps;
+  const { repo, storage, clock, email } = deps;
 
   return {
     async getProfile(userId: string) {
@@ -78,6 +80,33 @@ export function createProfileService(deps: ProfileServiceDeps) {
       const ok = await repo.submitProfile(userId, clock.now());
       if (!ok) throw new ApiError("INVALID_STATUS", "Profil nije u stanju koje dozvoljava slanje.");
       return "PENDING_REVIEW" as const;
+    },
+
+    async listPendingProfiles(cursor?: string, limit = 20) {
+      const { items, nextCursor } = await repo.listProfilesByStatus("PENDING_REVIEW", cursor, limit);
+      return { items: items.map((p) => toProfileView(p, clock.now())), nextCursor };
+    },
+
+    async approveProfile(userId: string) {
+      const result = await repo.approveProfile(userId, clock.now());
+      if (result === "NOT_FOUND") throw new ApiError("NOT_FOUND", "Profil ne postoji.");
+      if (result === "INVALID_STATUS") throw new ApiError("INVALID_STATUS", "Profil nije na pregledu.");
+      await email.send({
+        to: result.email,
+        subject: sr.admin.emails.approved.subject,
+        text: sr.admin.emails.approved.body,
+      });
+    },
+
+    async rejectProfile(userId: string, reason: string) {
+      const result = await repo.rejectProfile(userId, reason, clock.now());
+      if (result === "NOT_FOUND") throw new ApiError("NOT_FOUND", "Profil ne postoji.");
+      if (result === "INVALID_STATUS") throw new ApiError("INVALID_STATUS", "Profil nije na pregledu.");
+      await email.send({
+        to: result.email,
+        subject: sr.admin.emails.rejected.subject,
+        text: sr.admin.emails.rejected.body(reason),
+      });
     },
   };
 }

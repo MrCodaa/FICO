@@ -5,6 +5,7 @@ import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
 import { getSessionPayload } from "@/lib/auth/session";
+import { isAdminEmail } from "@/lib/auth/isAdminEmail";
 
 export type GuardName = "public" | "auth" | "verified" | "onboarded" | "approved" | "admin";
 
@@ -25,13 +26,14 @@ async function requireSessionUser(req: NextRequest) {
   if (!payload) throw new ApiError("UNAUTHENTICATED", "Niste prijavljeni.");
   const user = await db.user.findUnique({
     where: { id: payload.sub },
-    select: { tokenVersion: true, deactivatedAt: true, emailVerifiedAt: true, agreementAcceptedAt: true },
+    select: { email: true, tokenVersion: true, deactivatedAt: true, emailVerifiedAt: true, agreementAcceptedAt: true },
   });
   if (!user || user.tokenVersion !== payload.tv || user.deactivatedAt) {
     throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
   }
   return {
     userId: payload.sub,
+    email: user.email,
     emailVerifiedAt: user.emailVerifiedAt,
     agreementAcceptedAt: user.agreementAcceptedAt,
   };
@@ -55,5 +57,9 @@ export const guards: Record<GuardName, Guard> = {
     return { userId };
   },
   approved: pending("approved"),
-  admin: pending("admin"),
+  admin: async (req) => {
+    const { userId, email } = await requireSessionUser(req);
+    if (!isAdminEmail(email)) throw new ApiError("FORBIDDEN", "Nemaš pristup.");
+    return { userId };
+  },
 };

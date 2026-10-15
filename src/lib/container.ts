@@ -24,7 +24,7 @@ export function createContainer(): Container {
     email,
     storage,
     authService: createAuthService({ repo: authRepository, email, clock }),
-    profileService: createProfileService({ repo: profileRepository, storage, clock }),
+    profileService: createProfileService({ repo: profileRepository, storage, email, clock }),
   };
 }
 

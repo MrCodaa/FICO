@@ -70,6 +70,17 @@ export interface ProfileRepository {
   updatePreferenceDraft(userId: string, data: Record<string, unknown>): Promise<PreferenceRecord>;
   updateProfilePhoto(userId: string, photoUrl: string): Promise<{ oldPhotoUrl: string | null }>;
   submitProfile(userId: string, now: Date): Promise<boolean>;
+  listProfilesByStatus(
+    status: ProfileStatus,
+    cursor: string | undefined,
+    limit: number,
+  ): Promise<{ items: ProfileRecord[]; nextCursor: string | null }>;
+  approveProfile(userId: string, now: Date): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
+  rejectProfile(
+    userId: string,
+    reason: string,
+    now: Date,
+  ): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
 }
 
 export const profileRepository: ProfileRepository = {
@@ -112,5 +123,47 @@ export const profileRepository: ProfileRepository = {
       data: { status: "PENDING_REVIEW", submittedAt: now },
     });
     return result.count === 1;
+  },
+
+  async listProfilesByStatus(status, cursor, limit) {
+    const items = await db.profile.findMany({
+      where: { status },
+      orderBy: { submittedAt: "asc" },
+      take: limit + 1,
+      ...(cursor ? { cursor: { userId: cursor }, skip: 1 } : {}),
+    });
+    const hasMore = items.length > limit;
+    const page = hasMore ? items.slice(0, limit) : items;
+    return { items: page, nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null };
+  },
+
+  async approveProfile(userId, now) {
+    const existing = await db.profile.findUnique({ where: { userId }, select: { status: true } });
+    if (!existing) return "NOT_FOUND";
+    return db.$transaction(async (tx) => {
+      const result = await tx.profile.updateMany({
+        where: { userId, status: "PENDING_REVIEW" },
+        data: { status: "APPROVED", reviewedAt: now },
+      });
+      if (result.count === 0) return "INVALID_STATUS" as const;
+      await tx.notification.create({ data: { userId, type: "PROFILE_APPROVED" } });
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
+      return { email: user.email };
+    });
+  },
+
+  async rejectProfile(userId, reason, now) {
+    const existing = await db.profile.findUnique({ where: { userId }, select: { status: true } });
+    if (!existing) return "NOT_FOUND";
+    return db.$transaction(async (tx) => {
+      const result = await tx.profile.updateMany({
+        where: { userId, status: "PENDING_REVIEW" },
+        data: { status: "REJECTED", reviewedAt: now, rejectionReason: reason },
+      });
+      if (result.count === 0) return "INVALID_STATUS" as const;
+      await tx.notification.create({ data: { userId, type: "PROFILE_REJECTED" } });
+      const user = await tx.user.findUniqueOrThrow({ where: { id: userId }, select: { email: true } });
+      return { email: user.email };
+    });
   },
 };

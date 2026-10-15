@@ -187,6 +187,8 @@ export default function ProfilePage() {
             submitting={submitMutation.isPending}
             submitError={submitError}
             submitSuccess={submitSuccess}
+            status={profileQuery.data?.profile?.status}
+            rejectionReason={profileQuery.data?.profile?.rejectionReason}
           />
         )}
 

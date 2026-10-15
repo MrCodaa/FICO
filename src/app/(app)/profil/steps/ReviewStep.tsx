@@ -12,6 +12,8 @@ interface ReviewStepProps {
   submitting: boolean;
   submitError: { code: string; fields?: Record<string, unknown> } | null;
   submitSuccess: boolean;
+  status?: string;
+  rejectionReason?: string | null;
 }
 
 const basic = sr.profile.steps.basic;
@@ -50,7 +52,15 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export function ReviewStep({ values, onSubmit, submitting, submitError, submitSuccess }: ReviewStepProps) {
+export function ReviewStep({
+  values,
+  onSubmit,
+  submitting,
+  submitError,
+  submitSuccess,
+  status,
+  rejectionReason,
+}: ReviewStepProps) {
   const t = sr.profile.steps.review;
   const interestLabels = values.interests
     .map((code) => interestCatalog.find((i) => i.code === code)?.label ?? code)
@@ -62,6 +72,13 @@ export function ReviewStep({ values, onSubmit, submitting, submitError, submitSu
   return (
     <div className="flex flex-col gap-6">
       <p className="text-muted-foreground text-sm">{t.description}</p>
+
+      {status === "REJECTED" && rejectionReason && (
+        <div className="border-destructive/50 bg-destructive/5 flex flex-col gap-1 rounded-md border p-3">
+          <span className="text-destructive text-sm font-medium">{t.rejectedNotice}</span>
+          <span className="text-sm">{rejectionReason}</span>
+        </div>
+      )}
 
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold">{basic.title}</h2>

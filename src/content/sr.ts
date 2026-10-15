@@ -206,6 +206,7 @@ export const sr = {
         description: "Provjeri podatke prije slanja na pregled.",
         submit: "Pošalji na pregled",
         incomplete: "Profil nije kompletan. Vrati se i popuni označena polja.",
+        rejectedNotice: "Profil je odbijen. Razlog:",
       },
     },
     errors: {
@@ -215,6 +216,33 @@ export const sr = {
       photoTooLarge: "Slika je prevelika (maksimalno 4 MB).",
       photoInvalidType: "Dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
+    },
+  },
+  admin: {
+    queue: {
+      title: "Profili na pregledu",
+      empty: "Nema profila na pregledu.",
+      approve: "Odobri",
+      reject: "Odbij",
+      reasonLabel: "Razlog odbijanja",
+      reasonPlaceholder: "Objasni zašto se profil odbija...",
+      reasonRequired: "Razlog je obavezan.",
+      confirmReject: "Odbij profil",
+      cancel: "Otkaži",
+      forbidden: "Nemaš pristup ovoj stranici.",
+      loadMore: "Učitaj još",
+    },
+    emails: {
+      approved: {
+        subject: "Tvoj FICO profil je odobren",
+        body:
+          "Zdravo,\n\nTvoj profil je odobren i sada je vidljiv drugim korisnicima na FICO platformi. Prijavi se i počni da otkrivaš kandidate.",
+      },
+      rejected: {
+        subject: "Tvoj FICO profil treba izmjene",
+        body: (reason: string) =>
+          `Zdravo,\n\nTvoj profil nije odobren iz sljedećeg razloga:\n${reason}\n\nMožeš ga ispraviti i poslati ponovo na pregled.`,
+      },
     },
   },
 } as const;
