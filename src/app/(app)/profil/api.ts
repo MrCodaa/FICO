@@ -2,11 +2,13 @@ import { emptyFormValues, type ProfileFormValues } from "./types";
 
 export class ApiError extends Error {
   code: string;
+  status: number;
   fields?: Record<string, unknown>;
 
-  constructor(code: string, message?: string, fields?: Record<string, unknown>) {
+  constructor(code: string, status: number, message?: string, fields?: Record<string, unknown>) {
     super(message ?? code);
     this.code = code;
+    this.status = status;
     this.fields = fields;
   }
 }
@@ -18,7 +20,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   if (!res.ok) {
     const error = (body as { error?: { code?: string; message?: string; fields?: Record<string, unknown> } })
       .error ?? {};
-    throw new ApiError(error.code ?? "GENERIC", error.message, error.fields);
+    throw new ApiError(error.code ?? "GENERIC", res.status, error.message, error.fields);
   }
   return body as T;
 }
