@@ -350,4 +350,59 @@ export const sr = {
     connectionLost: "Veza prekinuta, pokušavam ponovo...",
     backToList: "Nazad na poruke",
   },
+  safety: {
+    block: {
+      action: "Blokiraj",
+      confirm: "Blokiraj ovog korisnika?",
+      confirmDescription:
+        "Nećete više vidjeti jedno drugo, a aktivni zahtjevi između vas će biti odbijeni.",
+      cancel: "Otkaži",
+      success: "Korisnik je blokiran.",
+    },
+    report: {
+      action: "Prijavi",
+      title: "Prijavi korisnika",
+      reasonLabel: "Razlog",
+      reasons: {
+        SPAM: "Spam",
+        SELLING_SERVICES: "Prodaja usluga",
+        HIRING: "Oglašavanje posla",
+        HARASSMENT: "Uznemiravanje",
+        FAKE_PROFILE: "Lažni profil",
+        OTHER: "Ostalo",
+      },
+      detailsLabel: "Dodatni detalji (opciono)",
+      detailsPlaceholder: "Opiši šta se desilo...",
+      submit: "Pošalji prijavu",
+      cancel: "Otkaži",
+      success: "Prijava je poslata.",
+      generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+    },
+  },
+  adminReports: {
+    title: "Prijave",
+    empty: "Nema otvorenih prijava.",
+    resolve: "Riješi",
+    dismiss: "Odbaci",
+    deactivateUser: "Deaktiviraj korisnika",
+    statusLabel: {
+      OPEN: "Otvorena",
+      RESOLVED: "Riješena",
+      DISMISSED: "Odbačena",
+    },
+  },
+  misc: {
+    curriculum: {
+      title: "Kurikulum",
+      comingSoon: "Uskoro.",
+    },
+    faq: {
+      title: "FAQ",
+      placeholder: "Često postavljana pitanja dolaze uskoro.",
+    },
+    help: {
+      title: "Pomoć",
+      placeholder: "Stranica za pomoć dolazi uskoro.",
+    },
+  },
 } as const;

@@ -14,6 +14,8 @@ import { notificationRepository } from "@/features/notifications/repository";
 import { createNotificationService } from "@/features/notifications/service";
 import { chatRepository } from "@/features/chat/repository";
 import { createChatService } from "@/features/chat/service";
+import { safetyRepository } from "@/features/safety/repository";
+import { createSafetyService } from "@/features/safety/service";
 
 export interface Container {
   clock: Clock;
@@ -25,6 +27,7 @@ export interface Container {
   requestService: ReturnType<typeof createRequestService>;
   notificationService: ReturnType<typeof createNotificationService>;
   chatService: ReturnType<typeof createChatService>;
+  safetyService: ReturnType<typeof createSafetyService>;
 }
 
 export function createContainer(): Container {
@@ -41,6 +44,7 @@ export function createContainer(): Container {
     requestService: createRequestService({ repo: requestRepository, email, clock }),
     notificationService: createNotificationService({ repo: notificationRepository, clock }),
     chatService: createChatService({ repo: chatRepository, clock }),
+    safetyService: createSafetyService({ repo: safetyRepository, clock }),
   };
 }
 

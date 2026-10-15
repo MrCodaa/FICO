@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
 
 const t = sr.discover;
+const safety = sr.safety;
+type ReportReason = keyof typeof safety.report.reasons;
 
 class DiscoverApiError extends Error {
   status: number;
@@ -111,11 +113,38 @@ async function putDecision(targetId: string, type: DecisionType): Promise<void> 
   }
 }
 
+class SafetyApiError extends Error {
+  status: number;
+
+  constructor(status: number, message?: string) {
+    super(message ?? "SAFETY_API_ERROR");
+    this.status = status;
+  }
+}
+
+async function reportUser(reportedId: string, reason: ReportReason, details: string): Promise<void> {
+  const res = await fetch("/api/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ reportedId, reason, details: details || undefined }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new SafetyApiError(res.status, body?.error?.message);
+  }
+}
+
 export default function DiscoverPage() {
   const queryClient = useQueryClient();
   const [isLiking, setIsLiking] = useState(false);
   const [likeMessage, setLikeMessage] = useState("");
   const [likeError, setLikeError] = useState<string | null>(null);
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReason>("SPAM");
+  const [reportDetails, setReportDetails] = useState("");
+  const [reportSuccess, setReportSuccess] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
   const nextQuery = useQuery({ queryKey: ["discover", "next"], queryFn: fetchNext });
 
@@ -148,6 +177,20 @@ export default function DiscoverPage() {
       } else {
         setLikeError(sr.requests.like.generic);
       }
+    },
+  });
+
+  const reportMutation = useMutation({
+    mutationFn: ({ reportedId, reason, details }: { reportedId: string; reason: ReportReason; details: string }) =>
+      reportUser(reportedId, reason, details),
+    onSuccess: () => {
+      setShowReportForm(false);
+      setReportSuccess(true);
+      setReportDetails("");
+      setReportError(null);
+    },
+    onError: () => {
+      setReportError(safety.report.generic);
     },
   });
 
@@ -314,7 +357,80 @@ export default function DiscoverPage() {
               >
                 {t.notInterested}
               </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowReportForm((v) => !v);
+                  setReportSuccess(false);
+                  setReportError(null);
+                }}
+              >
+                {safety.report.action}
+              </Button>
             </div>
+
+            {reportSuccess && (
+              <p className="text-muted-foreground text-center text-sm">{safety.report.success}</p>
+            )}
+
+            {showReportForm && (
+              <div className="flex flex-col gap-2 rounded-md border p-4">
+                <p className="text-sm font-medium">{safety.report.title}</p>
+                <label htmlFor="report-reason" className="text-xs font-medium">
+                  {safety.report.reasonLabel}
+                </label>
+                <select
+                  id="report-reason"
+                  value={reportReason}
+                  onChange={(e) => setReportReason(e.target.value as ReportReason)}
+                  disabled={reportMutation.isPending}
+                  className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
+                >
+                  {Object.entries(safety.report.reasons).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+                <label htmlFor="report-details" className="text-xs font-medium">
+                  {safety.report.detailsLabel}
+                </label>
+                <Textarea
+                  id="report-details"
+                  value={reportDetails}
+                  onChange={(e) => setReportDetails(e.target.value)}
+                  placeholder={safety.report.detailsPlaceholder}
+                  disabled={reportMutation.isPending}
+                />
+                {reportError && <p className="text-destructive text-xs">{reportError}</p>}
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    disabled={reportMutation.isPending}
+                    onClick={() =>
+                      reportMutation.mutate({
+                        reportedId: candidate.userId,
+                        reason: reportReason,
+                        details: reportDetails.trim(),
+                      })
+                    }
+                  >
+                    {safety.report.submit}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={reportMutation.isPending}
+                    onClick={() => setShowReportForm(false)}
+                  >
+                    {safety.report.cancel}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <p className="text-muted-foreground text-center text-xs">{t.likesRemaining(likesRemaining)}</p>
           </div>

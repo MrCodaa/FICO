@@ -1,0 +1,1299 @@
+{
+  "info": {
+    "name": "FICO API",
+    "description": "Kolekcija za FICO REST API (`/api`). Sesija ide preko `fico_session` cookie-ja (httpOnly, Secure, SameSite=Lax) koji vraća /api/auth/login ili /api/auth/register. Prijavi se preko /api/auth/login — Postman će sam čuvati sesijski cookie (cookie jar) za sve naredne zahtjeve u ovoj kolekciji, pa nije potrebno ručno dodavati cookie header. Greške dolaze u obliku { \"error\": { \"code\", \"message\", \"fields?\" } }. Promijeni vrijednosti path varijabli (npr. userId, id, targetId) na stvarne id-eve iz baze prije slanja.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "cronSecret",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Nalog",
+      "item": [
+        {
+          "name": "Registracija",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "register"
+              ]
+            },
+            "description": "Kreira novi nalog (User + prazan Profile u DRAFT + prazan Preference). Vraća 201 Me + sesijski cookie i šalje mail za potvrdu emaila. 409 EMAIL_TAKEN ako email već postoji.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"lozinka123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Prijava",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login"
+              ]
+            },
+            "description": "Prijavljuje korisnika i vraća 200 Me + sesijski cookie. 401 INVALID_CREDENTIALS ako su podaci netačni.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\",\n  \"password\": \"lozinka123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Odjava",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Odjavljuje trenutnog korisnika (auth guard) i briše sesijski cookie. Vraća 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Potvrda emaila",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-email"
+              ]
+            },
+            "description": "Potvrđuje email na osnovu tokena iz mail linka. Vraća 204. 400 TOKEN_INVALID ako je token nevažeći ili istekao.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"REPLACE_WITH_TOKEN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Ponovno slanje potvrde",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "description": "Šalje novi mail za potvrdu emaila prijavljenom korisniku (auth guard). Vraća 204; 429 TOO_MANY_REQUESTS ako je prethodni mail mlađi od 60 sekundi."
+          },
+          "response": []
+        },
+        {
+          "name": "Zaboravljena lozinka",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/forgot-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "forgot-password"
+              ]
+            },
+            "description": "Šalje link za reset lozinke na email ako nalog postoji. Uvijek vraća 204, bez otkrivanja postojanja naloga.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"test@example.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reset lozinke",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "description": "Postavlja novu lozinku na osnovu tokena iz mail linka i inkrementira tokenVersion (odjavljuje sve sesije). Vraća 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"REPLACE_WITH_TOKEN\",\n  \"password\": \"novaLozinka123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Trenutni korisnik (me)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me"
+              ]
+            },
+            "description": "Vraća osnovne podatke o prijavljenom korisniku: id, email, emailVerified, agreementAccepted, profileStatus, isAdmin (auth guard)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pravila platforme",
+      "item": [
+        {
+          "name": "Prihvatanje pravila",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/agreement",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "agreement"
+              ]
+            },
+            "description": "Potvrđuje svih 6 pravila platforme (verified guard). Vraća 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"confirmations\": [\n    true,\n    true,\n    true,\n    true,\n    true,\n    true\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Profil",
+      "item": [
+        {
+          "name": "Učitaj profil i preferencu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile"
+              ]
+            },
+            "description": "Vraća { profile, preference } prijavljenog korisnika (onboarded guard)."
+          },
+          "response": []
+        },
+        {
+          "name": "Izmijeni profil",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile"
+              ]
+            },
+            "description": "Ažurira parcijalna polja profila (onboarded guard). Vraća 200 { profile }; 409 PROFILE_LOCKED dok je profil na pregledu.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Marko\",\n  \"lastName\": \"Marković\",\n  \"city\": \"Beograd\",\n  \"country\": \"Srbija\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Izmijeni preferencu",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/preference",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "preference"
+              ]
+            },
+            "description": "Ažurira parcijalna polja preference (onboarded guard). Vraća 200 { preference }; 409 PROFILE_LOCKED dok je profil na pregledu.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"location\": \"SAME_COUNTRY\",\n  \"ageMin\": 25,\n  \"ageMax\": 40\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Upload slike profila",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/photo",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "photo"
+              ]
+            },
+            "description": "Upload slike profila kao multipart/form-data, polje \"file\" (jpeg/png/webp, maksimalno 4 MB). Stara slika se briše. Vraća 200 { photoUrl } (onboarded guard).",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pošalji profil na pregled",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profile/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profile",
+                "submit"
+              ]
+            },
+            "description": "Šalje kompletan profil na admin pregled (onboarded guard). Vraća 200 { status }; 400 PROFILE_INCOMPLETE sa fields; 409 ako profil nije DRAFT ili REJECTED."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin — profili",
+      "item": [
+        {
+          "name": "Lista profila na pregledu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/profiles?status=PENDING_REVIEW&cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "profiles"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "PENDING_REVIEW",
+                  "disabled": false
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu profila za admin pregled (admin guard): { items: ProfileView[], nextCursor }."
+          },
+          "response": []
+        },
+        {
+          "name": "Odobri profil",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/profiles/:userId/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "profiles",
+                ":userId",
+                "approve"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Odobrava profil korisnika (admin guard). Vraća 204, kreira obavještenje i šalje mail korisniku."
+          },
+          "response": []
+        },
+        {
+          "name": "Odbij profil",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/profiles/:userId/reject",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "profiles",
+                ":userId",
+                "reject"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Odbija profil korisnika sa razlogom (admin guard). Vraća 204, kreira obavještenje i šalje mail korisniku.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Nedostaje opis ideje.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Discover i odluke",
+      "item": [
+        {
+          "name": "Sledeći kandidat (Discover)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/discover/next",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "discover",
+                "next"
+              ]
+            },
+            "description": "Vraća sledećeg kandidata za otkrivanje uz procenat poklapanja i razloge (approved guard): { candidate, match: { score, reasons[] }, likesRemaining }."
+          },
+          "response": []
+        },
+        {
+          "name": "Profil kandidata",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/profiles/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "profiles",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Vraća profil određenog korisnika uz podatke o poklapanju (approved guard): { profile, match }. 404 NOT_FOUND ako nije vidljiv."
+          },
+          "response": []
+        },
+        {
+          "name": "Postavi odluku (razmisliću / ne zanima me)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/decisions/:targetId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "decisions",
+                ":targetId"
+              ],
+              "variable": [
+                {
+                  "key": "targetId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Postavlja odluku THINKING ili NOT_INTERESTED za ciljani profil (approved guard), idempotentno. Vraća 200 { decision }.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"THINKING\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Poništi odluku",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/decisions/:targetId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "decisions",
+                ":targetId"
+              ],
+              "variable": [
+                {
+                  "key": "targetId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Poništava prethodno postavljenu odluku prema ciljanom profilu (approved guard). Vraća 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Lista odluka",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/decisions?type=THINKING&cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "decisions"
+              ],
+              "query": [
+                {
+                  "key": "type",
+                  "value": "THINKING",
+                  "disabled": false
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu profila sa postavljenom odlukom određenog tipa (approved guard): { items: [{ profile, match, decidedAt }], nextCursor }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Zahtjevi i obavještenja",
+      "item": [
+        {
+          "name": "Pošalji zahtjev (lajk)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "requests"
+              ]
+            },
+            "description": "Šalje zahtjev (lajk) sa porukom primaocu (approved guard). Vraća 201 { request, likesRemaining }; 429 LIKE_LIMIT_REACHED; 409 REQUEST_EXISTS.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"receiverId\": \"REPLACE_WITH_USER_ID\",\n  \"message\": \"Zdravo, mislim da bismo mogli biti odličan tim!\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Primljeni zahtjevi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/requests/received?cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "received"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu aktivnih primljenih zahtjeva (approved guard): { items: [{ id, message, createdAt, expiresAt, sender, match }], nextCursor }."
+          },
+          "response": []
+        },
+        {
+          "name": "Poslati zahtjevi",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/requests/sent?cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                "sent"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu poslatih zahtjeva sa displayStatus (approved guard): { items: [{ id, displayStatus, receiver, matchId? }], nextCursor }."
+          },
+          "response": []
+        },
+        {
+          "name": "Prihvati zahtjev",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/requests/:id/accept",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                ":id",
+                "accept"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Prihvata primljeni zahtjev, kreira Match i prvu poruku (approved guard, mora biti primalac). Vraća 200 { matchId }; 409 REQUEST_NOT_PENDING."
+          },
+          "response": []
+        },
+        {
+          "name": "Odbij zahtjev",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/requests/:id/decline",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "requests",
+                ":id",
+                "decline"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Odbija primljeni zahtjev, bez obavještenja i mejla (approved guard, mora biti primalac). Vraća 204; 409 REQUEST_NOT_PENDING."
+          },
+          "response": []
+        },
+        {
+          "name": "Lista obavještenja",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications?cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications"
+              ],
+              "query": [
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu obavještenja prijavljenog korisnika (auth guard): { items: [{ id, type, actor?, entityId, readAt, createdAt }], nextCursor }."
+          },
+          "response": []
+        },
+        {
+          "name": "Obilježi obavještenja kao pročitana",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/notifications/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "notifications",
+                "read"
+              ]
+            },
+            "description": "Obilježava navedena obavještenja kao pročitana; bez polja ids obilježava sva (auth guard). Vraća 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [\n    \"REPLACE_WITH_NOTIFICATION_ID\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Brojevi nepročitanog (me/counts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/me/counts",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "me",
+                "counts"
+              ]
+            },
+            "description": "Vraća broj nepročitanih stavki za navigaciju (auth guard): { notifications, requests, messages }."
+          },
+          "response": []
+        },
+        {
+          "name": "Istek zahtjeva (cron)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{cronSecret}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/cron/expire-requests",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "cron",
+                "expire-requests"
+              ]
+            },
+            "description": "Cron endpoint koji ističe PENDING zahtjeve kojima je prošao expiresAt. Zahtijeva Authorization: Bearer CRON_SECRET header. Vraća 200 { expired }."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Poruke",
+      "item": [
+        {
+          "name": "Lista matcheva",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches"
+              ]
+            },
+            "description": "Vraća listu svih matcheva prijavljenog korisnika sa posljednjom porukom i brojem nepročitanih (approved guard): { items: [{ id, other, lastMessage, unread, lastMessageAt }] }."
+          },
+          "response": []
+        },
+        {
+          "name": "Poruke u matchu",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/:id/messages?before=&limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                ":id",
+                "messages"
+              ],
+              "query": [
+                {
+                  "key": "before",
+                  "value": "",
+                  "disabled": false
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": false
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu poruka u matchu, najnovije prvo (approved guard, mora biti član): { items: MessageView[], nextBefore }."
+          },
+          "response": []
+        },
+        {
+          "name": "Pošalji poruku",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/:id/messages",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                ":id",
+                "messages"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Šalje novu poruku u matchu (approved guard, mora biti član). Vraća 201 MessageView.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Zdravo! Kako ide?\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obilježi poruke kao pročitane",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/:id/read",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                ":id",
+                "read"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Obilježava sve poruke u matchu kao pročitane (approved guard, mora biti član). Vraća 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Stream poruka uživo (SSE)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Last-Event-ID",
+                "value": ""
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/matches/:id/stream",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "matches",
+                ":id",
+                "stream"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "NAPOMENA: ovo je Server-Sent Events (text/event-stream) endpoint, ne običan JSON odgovor — Postman ga prikazuje kao sirov tekstualni stream i neće ga lijepo parsirati. Šalje event: message sa id: <messageId> za nove poruke u matchu i zatvara konekciju nakon oko 50 sekundi (approved guard, mora biti član). Opcioni header Last-Event-ID za nastavak od posljednjeg primljenog događaja."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sigurnost i admin",
+      "item": [
+        {
+          "name": "Blokiraj korisnika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/blocks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "blocks"
+              ]
+            },
+            "description": "Blokira korisnika i odbija sve PENDING zahtjeve između njih (approved guard). Vraća 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userId\": \"REPLACE_WITH_USER_ID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Odblokiraj korisnika",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/blocks/:userId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "blocks",
+                ":userId"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Uklanja blokadu prema navedenom korisniku (approved guard). Vraća 204."
+          },
+          "response": []
+        },
+        {
+          "name": "Prijavi korisnika",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/reports",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "reports"
+              ]
+            },
+            "description": "Prijavljuje korisnika administratorima sa razlogom i opcionim detaljima (approved guard). Vraća 201.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reportedId\": \"REPLACE_WITH_USER_ID\",\n  \"reason\": \"SPAM\",\n  \"details\": \"Slao je reklame za svoj proizvod.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Lista prijava (admin)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reports?status=OPEN&cursor=",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reports"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "OPEN",
+                  "disabled": false
+                },
+                {
+                  "key": "cursor",
+                  "value": "",
+                  "disabled": false
+                }
+              ]
+            },
+            "description": "Vraća paginiranu listu prijava korisnika (admin guard): { items, nextCursor }."
+          },
+          "response": []
+        },
+        {
+          "name": "Riješi prijavu (admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/reports/:id/resolve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "reports",
+                ":id",
+                "resolve"
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Rješava ili odbacuje prijavu, uz opcionu deaktivaciju prijavljenog korisnika (admin guard). Vraća 204.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"RESOLVED\",\n  \"deactivateUser\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deaktiviraj korisnika (admin)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users/:userId/deactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "admin",
+                "users",
+                ":userId",
+                "deactivate"
+              ],
+              "variable": [
+                {
+                  "key": "userId",
+                  "value": "REPLACE_ME"
+                }
+              ]
+            },
+            "description": "Deaktivira nalog korisnika (admin guard). Vraća 204."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
