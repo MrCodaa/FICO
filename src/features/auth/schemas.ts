@@ -20,8 +20,13 @@ export const resetPasswordSchema = z.object({
   password: z.string().min(8),
 });
 
+export const agreementSchema = z.object({
+  confirmations: z.array(z.literal(true)).length(6),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type VerifyEmailInput = z.infer<typeof verifyEmailSchema>;
 export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.infer<typeof resetPasswordSchema>;
+export type AgreementInput = z.infer<typeof agreementSchema>;

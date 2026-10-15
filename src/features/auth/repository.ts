@@ -31,6 +31,7 @@ export interface AuthRepository {
     passwordHash: string,
     now: Date,
   ): Promise<boolean>;
+  acceptAgreement(userId: string, now: Date): Promise<void>;
 }
 
 export const authRepository: AuthRepository = {
@@ -109,5 +110,9 @@ export const authRepository: AuthRepository = {
       });
       return true;
     });
+  },
+
+  async acceptAgreement(userId, now) {
+    await db.user.update({ where: { id: userId }, data: { agreementAcceptedAt: now } });
   },
 };

@@ -28,6 +28,7 @@ function createFakeRepo(overrides: Partial<AuthRepository> = {}): AuthRepository
     findLatestAuthToken: vi.fn().mockResolvedValue(null),
     consumeAuthTokenAndVerifyEmail: vi.fn().mockResolvedValue(true),
     consumeAuthTokenAndResetPassword: vi.fn().mockResolvedValue(true),
+    acceptAgreement: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -188,5 +189,16 @@ describe("createAuthService.resetPassword", () => {
     await expect(service.resetPassword({ token: "bad-token", password: "password1" })).rejects.toMatchObject({
       code: "TOKEN_INVALID",
     });
+  });
+});
+
+describe("createAuthService.acceptAgreement", () => {
+  it("poziva repo.acceptAgreement sa trenutnim vremenom", async () => {
+    const repo = createFakeRepo();
+    const service = createAuthService({ repo, email: createFakeEmail(), clock: createFakeClock() });
+
+    await service.acceptAgreement("user-1");
+
+    expect(repo.acceptAgreement).toHaveBeenCalledWith("user-1", NOW);
   });
 });

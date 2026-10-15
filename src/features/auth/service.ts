@@ -125,6 +125,10 @@ export function createAuthService(deps: AuthServiceDeps) {
       if (!user) throw new ApiError("NOT_FOUND", "Korisnik ne postoji.");
       return toMe(user, isAdminEmail(user.email));
     },
+
+    async acceptAgreement(userId: string) {
+      await repo.acceptAgreement(userId, clock.now());
+    },
   };
 }
 

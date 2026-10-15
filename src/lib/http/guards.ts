@@ -16,26 +16,44 @@ export type Guard = (req: NextRequest) => Promise<GuardContext>;
 
 function pending(name: GuardName): Guard {
   return async () => {
-    throw new Error(`Guard "${name}" nije implementiran (dolazi u Fazi 2).`);
+    throw new Error(`Guard "${name}" nije implementiran (dolazi u kasnijoj fazi).`);
+  };
+}
+
+async function requireSessionUser(req: NextRequest) {
+  const payload = await getSessionPayload(req);
+  if (!payload) throw new ApiError("UNAUTHENTICATED", "Niste prijavljeni.");
+  const user = await db.user.findUnique({
+    where: { id: payload.sub },
+    select: { tokenVersion: true, deactivatedAt: true, emailVerifiedAt: true, agreementAcceptedAt: true },
+  });
+  if (!user || user.tokenVersion !== payload.tv || user.deactivatedAt) {
+    throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
+  }
+  return {
+    userId: payload.sub,
+    emailVerifiedAt: user.emailVerifiedAt,
+    agreementAcceptedAt: user.agreementAcceptedAt,
   };
 }
 
 export const guards: Record<GuardName, Guard> = {
   public: async () => ({}),
   auth: async (req) => {
-    const payload = await getSessionPayload(req);
-    if (!payload) throw new ApiError("UNAUTHENTICATED", "Niste prijavljeni.");
-    const user = await db.user.findUnique({
-      where: { id: payload.sub },
-      select: { tokenVersion: true, deactivatedAt: true },
-    });
-    if (!user || user.tokenVersion !== payload.tv || user.deactivatedAt) {
-      throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
-    }
-    return { userId: payload.sub };
+    const { userId } = await requireSessionUser(req);
+    return { userId };
   },
-  verified: pending("verified"),
-  onboarded: pending("onboarded"),
+  verified: async (req) => {
+    const { userId, emailVerifiedAt } = await requireSessionUser(req);
+    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    return { userId };
+  },
+  onboarded: async (req) => {
+    const { userId, emailVerifiedAt, agreementAcceptedAt } = await requireSessionUser(req);
+    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    return { userId };
+  },
   approved: pending("approved"),
   admin: pending("admin"),
 };

@@ -98,4 +98,18 @@ export const sr = {
       },
     },
   },
+  agreement: {
+    title: "Pravila platforme",
+    subtitle: "Prije nego nastaviš, potvrdi da prihvataš sljedeća pravila.",
+    items: [
+      "Profil koji pravim je moj i podaci u njemu su tačni.",
+      "Neću koristiti platformu za prodaju usluga, oglašavanje ili spam.",
+      "Neću koristiti platformu za oglašavanje posla ili zapošljavanje — FICO je samo za traženje co-foundera.",
+      "Ponašaću se s poštovanjem prema drugim korisnicima i neću ih uznemiravati.",
+      "Imam najmanje 18 godina.",
+      "Razumijem da administratori ručno pregledaju profile i mogu odbiti ili ukloniti nalog koji krši ova pravila.",
+    ],
+    submit: "Prihvatam i nastavljam",
+    error: "Moraš potvrditi svih 6 pravila da bi nastavio/la.",
+  },
 } as const;
