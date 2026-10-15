@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { areBlocked } from "@/lib/isBlocked";
 import type { ProfileRecord } from "@/features/profile/repository";
 
 export interface MatchRow {
@@ -53,15 +54,7 @@ export const chatRepository: ChatRepository = {
     if (!match) return false;
     if (match.userAId !== userId && match.userBId !== userId) return false;
     const otherId = match.userAId === userId ? match.userBId : match.userAId;
-    const blocked = await db.block.findFirst({
-      where: {
-        OR: [
-          { blockerId: userId, blockedId: otherId },
-          { blockerId: otherId, blockedId: userId },
-        ],
-      },
-    });
-    return !blocked;
+    return !(await areBlocked(userId, otherId));
   },
 
   async getMatch(matchId) {
@@ -77,6 +70,19 @@ export const chatRepository: ChatRepository = {
 
     const otherIds = matches.map((match) => (match.userAId === userId ? match.userBId : match.userAId));
     const profiles = await fetchProfilesByUserId(otherIds);
+    const blockedIds = new Set(
+      (
+        await db.block.findMany({
+          where: {
+            OR: [
+              { blockerId: userId, blockedId: { in: otherIds } },
+              { blockedId: userId, blockerId: { in: otherIds } },
+            ],
+          },
+          select: { blockerId: true, blockedId: true },
+        })
+      ).map((b) => (b.blockerId === userId ? b.blockedId : b.blockerId)),
+    );
 
     const [lastMessages, unreadCounts] = await Promise.all([
       Promise.all(
@@ -94,6 +100,7 @@ export const chatRepository: ChatRepository = {
       const match = matches[i];
       if (!match) continue;
       const otherId = match.userAId === userId ? match.userBId : match.userAId;
+      if (blockedIds.has(otherId)) continue;
       const otherProfile = profiles.get(otherId);
       if (!otherProfile) continue;
       items.push({

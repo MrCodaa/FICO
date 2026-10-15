@@ -1,4 +1,4 @@
-import { criteria } from "./config";
+import { criteria, FALLBACK_AREAS_WEIGHT, FALLBACK_INTERESTS_WEIGHT } from "./config";
 import { interestsCriterion } from "./criteria/interests";
 import type { Criterion, CriterionEvaluation } from "./criteria/types";
 import type { MatchPerson } from "./types";
@@ -32,7 +32,10 @@ function fallbackFit(
 ): number {
   const areasOverlap = overlapRatio(viewer.profile.areas, candidate.profile.areas);
   const interestsOverlap = evaluations.get(interestsCriterion)?.score ?? 0;
-  return (3 * areasOverlap + 2 * interestsOverlap) / 5;
+  return (
+    (FALLBACK_AREAS_WEIGHT * areasOverlap + FALLBACK_INTERESTS_WEIGHT * interestsOverlap) /
+    (FALLBACK_AREAS_WEIGHT + FALLBACK_INTERESTS_WEIGHT)
+  );
 }
 
 function evaluateAll(viewer: MatchPerson, candidate: MatchPerson, now: Date): Map<Criterion, CriterionEvaluation> {

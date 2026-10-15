@@ -2,29 +2,14 @@ import { db } from "@/lib/db";
 import { visibleTo } from "@/lib/visibleTo";
 import type { DecisionType, Prisma } from "@/generated/prisma/client";
 import type { ProfileRecord } from "@/features/profile/repository";
-import type { MatchPerson, MatchPreference } from "@/lib/matching/types";
+import type { MatchPerson } from "@/lib/matching/types";
+import { buildMatchPerson } from "@/lib/matching/buildMatchPerson";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const THINKING_WINDOW_MS = 30 * MS_PER_DAY;
 const NOT_INTERESTED_WINDOW_MS = 90 * MS_PER_DAY;
 const WEEKLY_LIKE_WINDOW_MS = 7 * MS_PER_DAY;
 const WEEKLY_LIKE_LIMIT = 20;
-
-const DEFAULT_PREFERENCE: MatchPreference = {
-  technical: null,
-  technicalImportance: null,
-  wantedAreas: [],
-  areasImportance: null,
-  idea: null,
-  ideaImportance: null,
-  timingImportance: null,
-  location: null,
-  locationImportance: null,
-  ageMin: null,
-  ageMax: null,
-  ageImportance: null,
-  interestsImportance: null,
-};
 
 // Profile i Preference su oba keyed po userId ali NEMAJU direktnu Prisma relaciju
 // među sobom (oba su odvojeno vezani na User) — preference se dovlači posebnim
@@ -41,25 +26,6 @@ function toProfileRecord(row: CandidateProfileRow): ProfileRecord {
   return profile;
 }
 
-function toMatchPreference(preference: Prisma.PreferenceGetPayload<object> | undefined): MatchPreference {
-  if (!preference) return DEFAULT_PREFERENCE;
-  return {
-    technical: preference.technical,
-    technicalImportance: preference.technicalImportance,
-    wantedAreas: preference.wantedAreas,
-    areasImportance: preference.areasImportance,
-    idea: preference.idea,
-    ideaImportance: preference.ideaImportance,
-    timingImportance: preference.timingImportance,
-    location: preference.location,
-    locationImportance: preference.locationImportance,
-    ageMin: preference.ageMin,
-    ageMax: preference.ageMax,
-    ageImportance: preference.ageImportance,
-    interestsImportance: preference.interestsImportance,
-  };
-}
-
 async function fetchPreferencesByUserId(userIds: string[]): Promise<Map<string, Prisma.PreferenceGetPayload<object>>> {
   if (userIds.length === 0) return new Map();
   const rows = await db.preference.findMany({ where: { userId: { in: userIds } } });
@@ -67,21 +33,7 @@ async function fetchPreferencesByUserId(userIds: string[]): Promise<Map<string, 
 }
 
 function toMatchPerson(row: CandidateProfileRow, preference: Prisma.PreferenceGetPayload<object> | undefined): MatchPerson {
-  return {
-    profile: {
-      userId: row.userId,
-      isTechnical: row.isTechnical,
-      areas: row.areas,
-      ideaStatus: row.ideaStatus,
-      timing: row.timing,
-      countryCode: row.countryCode,
-      city: row.city,
-      interests: row.interests,
-      birthDate: row.birthDate,
-      lastActiveAt: row.user.lastActiveAt,
-    },
-    preference: toMatchPreference(preference),
-  };
+  return buildMatchPerson(toProfileRecord(row), row.user.lastActiveAt, preference);
 }
 
 export interface CandidateRow {
@@ -204,11 +156,11 @@ export const discoverRepository: DiscoverRepository = {
 
     const targetIds = page.map((decision) => decision.targetId);
     const rows = await db.profile.findMany({
-      where: { userId: { in: targetIds } },
+      where: { ...visibleTo(viewerId), userId: { in: targetIds } },
       include: candidateInclude,
     });
     const rowsByUserId = new Map(rows.map((row) => [row.userId, row]));
-    const preferences = await fetchPreferencesByUserId(targetIds);
+    const preferences = await fetchPreferencesByUserId(rows.map((row) => row.userId));
 
     const items: DecisionListItem[] = [];
     for (const decision of page) {

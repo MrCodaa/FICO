@@ -4,7 +4,8 @@ import { ApiError } from "@/lib/errors";
 import { sr } from "@/content/sr";
 import { Prisma, type RequestStatus } from "@/generated/prisma/client";
 import type { ProfileRecord } from "@/features/profile/repository";
-import type { MatchPerson, MatchPreference } from "@/lib/matching/types";
+import type { MatchPerson } from "@/lib/matching/types";
+import { buildMatchPerson } from "@/lib/matching/buildMatchPerson";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 const WEEKLY_LIKE_WINDOW_MS = 7 * MS_PER_DAY;
@@ -70,60 +71,12 @@ async function fetchProfilesByUserId(userIds: string[]): Promise<Map<string, Pro
   return new Map(rows.map((row) => [row.userId, row]));
 }
 
-const DEFAULT_PREFERENCE: MatchPreference = {
-  technical: null,
-  technicalImportance: null,
-  wantedAreas: [],
-  areasImportance: null,
-  idea: null,
-  ideaImportance: null,
-  timingImportance: null,
-  location: null,
-  locationImportance: null,
-  ageMin: null,
-  ageMax: null,
-  ageImportance: null,
-  interestsImportance: null,
-};
-
-// Dijeljeno sa features/discover/repository.ts po konceptu, ali feature-internal
-// detalji tog fajla nisu izvezeni, pa se ovdje ponavlja isti mali transform.
 async function toMatchPerson(profile: ProfileRecord): Promise<MatchPerson> {
   const [user, preference] = await Promise.all([
     db.user.findUniqueOrThrow({ where: { id: profile.userId }, select: { lastActiveAt: true } }),
     db.preference.findUnique({ where: { userId: profile.userId } }),
   ]);
-  return {
-    profile: {
-      userId: profile.userId,
-      isTechnical: profile.isTechnical,
-      areas: profile.areas,
-      ideaStatus: profile.ideaStatus,
-      timing: profile.timing,
-      countryCode: profile.countryCode,
-      city: profile.city,
-      interests: profile.interests,
-      birthDate: profile.birthDate,
-      lastActiveAt: user.lastActiveAt,
-    },
-    preference: preference
-      ? {
-          technical: preference.technical,
-          technicalImportance: preference.technicalImportance,
-          wantedAreas: preference.wantedAreas,
-          areasImportance: preference.areasImportance,
-          idea: preference.idea,
-          ideaImportance: preference.ideaImportance,
-          timingImportance: preference.timingImportance,
-          location: preference.location,
-          locationImportance: preference.locationImportance,
-          ageMin: preference.ageMin,
-          ageMax: preference.ageMax,
-          ageImportance: preference.ageImportance,
-          interestsImportance: preference.interestsImportance,
-        }
-      : DEFAULT_PREFERENCE,
-  };
+  return buildMatchPerson(profile, user.lastActiveAt, preference);
 }
 
 export const requestRepository: RequestRepository = {
@@ -241,10 +194,25 @@ export const requestRepository: RequestRepository = {
     const hasMore = requests.length > limit;
     const page = hasMore ? requests.slice(0, limit) : requests;
 
-    const profiles = await fetchProfilesByUserId(page.map((request) => request.receiverId));
+    const receiverIds = page.map((request) => request.receiverId);
+    const profiles = await fetchProfilesByUserId(receiverIds);
+    const blockedIds = new Set(
+      (
+        await db.block.findMany({
+          where: {
+            OR: [
+              { blockerId: senderId, blockedId: { in: receiverIds } },
+              { blockedId: senderId, blockerId: { in: receiverIds } },
+            ],
+          },
+          select: { blockerId: true, blockedId: true },
+        })
+      ).map((b) => (b.blockerId === senderId ? b.blockedId : b.blockerId)),
+    );
 
     const items: SentRequestRow[] = [];
     for (const request of page) {
+      if (blockedIds.has(request.receiverId)) continue;
       const receiverProfile = profiles.get(request.receiverId);
       if (!receiverProfile) continue;
       items.push({
