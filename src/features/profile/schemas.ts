@@ -17,7 +17,9 @@ const profileBaseSchema = z.object({
   employment: z.string().trim().min(1).max(800),
   isTechnical: z.boolean(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
-  birthDate: z.coerce.date(),
+  // preprocess odbacuje null PRIJE coerce-a — z.coerce.date() bi inače
+  // tiho pretvorio null u 1.1.1970 (new Date(null)) umjesto da javi grešku.
+  birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
   schedulingUrl: z.string().trim().url().optional().nullable(),
   twitterUrl: z.string().trim().url().optional().nullable(),
   instagramUrl: z.string().trim().url().optional().nullable(),

@@ -23,12 +23,24 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // api.md: 429 ako je prethodni mail mlađ
 export function createAuthService(deps: AuthServiceDeps) {
   const { repo, email, clock } = deps;
 
+  // Mail je sporedan efekat poslije uspješne transakcije — ako provider
+  // zakaže (loš API ključ, mreža), ne smije oboriti operaciju koja je već
+  // commitovana (nalog je kreiran, token postoji). Korisnik može zatražiti
+  // ponovno slanje preko resendVerification/forgotPassword.
+  async function trySendEmail(message: Parameters<EmailProvider["send"]>[0]) {
+    try {
+      await email.send(message);
+    } catch (err) {
+      console.error("[auth] slanje maila nije uspjelo:", err);
+    }
+  }
+
   async function sendVerificationEmail(userId: string, userEmail: string) {
     const { raw, hash } = generateAuthToken();
     const expiresAt = new Date(clock.now().getTime() + VERIFICATION_TOKEN_TTL_MS);
     await repo.createAuthToken({ userId, type: "EMAIL_VERIFICATION", tokenHash: hash, expiresAt });
     const link = `${process.env.APP_URL}/potvrda-emaila?token=${raw}`;
-    await email.send({
+    await trySendEmail({
       to: userEmail,
       subject: sr.auth.emails.verification.subject,
       text: sr.auth.emails.verification.body(link),
@@ -96,7 +108,7 @@ export function createAuthService(deps: AuthServiceDeps) {
       const expiresAt = new Date(clock.now().getTime() + RESET_TOKEN_TTL_MS);
       await repo.createAuthToken({ userId: user.id, type: "PASSWORD_RESET", tokenHash: hash, expiresAt });
       const link = `${process.env.APP_URL}/reset-lozinke?token=${raw}`;
-      await email.send({
+      await trySendEmail({
         to: user.email,
         subject: sr.auth.emails.passwordReset.subject,
         text: sr.auth.emails.passwordReset.body(link),

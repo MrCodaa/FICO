@@ -310,7 +310,7 @@ describe("createProfileService.listPendingProfiles", () => {
       email: createFakeEmail(),
     });
 
-    const result = await service.listPendingProfiles("cursor-0", 10);
+    const result = await service.listPendingProfiles("PENDING_REVIEW", "cursor-0", 10);
 
     expect(repo.listProfilesByStatus).toHaveBeenCalledWith("PENDING_REVIEW", "cursor-0", 10);
     expect(result.nextCursor).toBe("user-1");

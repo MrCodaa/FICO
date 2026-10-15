@@ -6,7 +6,11 @@ export interface SessionPayload {
 }
 
 function secretKey(): Uint8Array {
-  return new TextEncoder().encode(process.env.JWT_SECRET);
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error("JWT_SECRET nije postavljen.");
+  }
+  return new TextEncoder().encode(secret);
 }
 
 export async function signSessionToken(payload: SessionPayload): Promise<string> {

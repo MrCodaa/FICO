@@ -2,6 +2,7 @@ import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
 import type { EmailProvider } from "@/lib/email";
 import type { StorageProvider } from "@/lib/storage";
+import type { ProfileStatus } from "@/generated/prisma/client";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";
 import { toProfileDraft, toPreferenceDraft, toProfileView } from "./mappers";
@@ -20,6 +21,16 @@ const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
 
 export function createProfileService(deps: ProfileServiceDeps) {
   const { repo, storage, clock, email } = deps;
+
+  // Mail je sporedan efekat poslije commita — provider greška ne smije
+  // oboriti odgovor za operaciju koja je već upisana u bazu.
+  async function trySendEmail(message: Parameters<EmailProvider["send"]>[0]) {
+    try {
+      await email.send(message);
+    } catch (err) {
+      console.error("[profile] slanje maila nije uspjelo:", err);
+    }
+  }
 
   return {
     async getProfile(userId: string) {
@@ -82,8 +93,8 @@ export function createProfileService(deps: ProfileServiceDeps) {
       return "PENDING_REVIEW" as const;
     },
 
-    async listPendingProfiles(cursor?: string, limit = 20) {
-      const { items, nextCursor } = await repo.listProfilesByStatus("PENDING_REVIEW", cursor, limit);
+    async listPendingProfiles(status: ProfileStatus = "PENDING_REVIEW", cursor?: string, limit = 20) {
+      const { items, nextCursor } = await repo.listProfilesByStatus(status, cursor, limit);
       return { items: items.map((p) => toProfileView(p, clock.now())), nextCursor };
     },
 
@@ -91,7 +102,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
       const result = await repo.approveProfile(userId, clock.now());
       if (result === "NOT_FOUND") throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       if (result === "INVALID_STATUS") throw new ApiError("INVALID_STATUS", "Profil nije na pregledu.");
-      await email.send({
+      await trySendEmail({
         to: result.email,
         subject: sr.admin.emails.approved.subject,
         text: sr.admin.emails.approved.body,
@@ -102,7 +113,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
       const result = await repo.rejectProfile(userId, reason, clock.now());
       if (result === "NOT_FOUND") throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       if (result === "INVALID_STATUS") throw new ApiError("INVALID_STATUS", "Profil nije na pregledu.");
-      await email.send({
+      await trySendEmail({
         to: result.email,
         subject: sr.admin.emails.rejected.subject,
         text: sr.admin.emails.rejected.body(reason),

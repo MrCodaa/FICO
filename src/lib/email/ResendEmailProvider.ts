@@ -9,11 +9,16 @@ export class ResendEmailProvider implements EmailProvider {
   }
 
   async send(message: EmailMessage): Promise<void> {
-    await this.client.emails.send({
+    // Resend SDK rezolvuje normalno i kad dostava ne uspije (npr. loš API
+    // ključ, neverifikovan EMAIL_FROM) — rezultat nosi { error }, ne baca.
+    const result = await this.client.emails.send({
       from: process.env.EMAIL_FROM ?? "",
       to: message.to,
       subject: message.subject,
       text: message.text,
     });
+    if (result.error) {
+      throw new Error(`Resend slanje nije uspjelo: ${result.error.message}`);
+    }
   }
 }

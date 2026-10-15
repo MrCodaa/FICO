@@ -137,6 +137,17 @@ export const requestRepository: RequestRepository = {
 
       const request = await tx.request.findUniqueOrThrow({ where: { id: requestId } });
       const [userAId, userBId] = [request.senderId, request.receiverId].sort() as [string, string];
+
+      // Dvoje korisnika mogu poslati zahtjeve jedno drugom u suprotnim smjerovima
+      // (dvije odvojene @@unique([senderId,receiverId]) kolone to dozvoljavaju) i
+      // oba prihvatiti skoro istovremeno — drugi accept na isti normalizovan par
+      // bi inače pukao na @@unique([userAId,userBId]) iz Match modela. Umjesto
+      // da puca, tretiramo postojeći Match kao već ostvareno poklapanje.
+      const existingMatch = await tx.match.findUnique({ where: { userAId_userBId: { userAId, userBId } } });
+      if (existingMatch) {
+        return { matchId: existingMatch.id, senderId: request.senderId };
+      }
+
       const match = await tx.match.create({ data: { userAId, userBId, requestId } });
       await tx.message.create({ data: { matchId: match.id, senderId: request.senderId, body: request.message } });
       await tx.notification.create({
@@ -165,10 +176,25 @@ export const requestRepository: RequestRepository = {
     const hasMore = requests.length > limit;
     const page = hasMore ? requests.slice(0, limit) : requests;
 
-    const profiles = await fetchProfilesByUserId(page.map((request) => request.senderId));
+    const senderIds = page.map((request) => request.senderId);
+    const profiles = await fetchProfilesByUserId(senderIds);
+    const blockedIds = new Set(
+      (
+        await db.block.findMany({
+          where: {
+            OR: [
+              { blockerId: receiverId, blockedId: { in: senderIds } },
+              { blockedId: receiverId, blockerId: { in: senderIds } },
+            ],
+          },
+          select: { blockerId: true, blockedId: true },
+        })
+      ).map((b) => (b.blockerId === receiverId ? b.blockedId : b.blockerId)),
+    );
 
     const items: ReceivedRequestRow[] = [];
     for (const request of page) {
+      if (blockedIds.has(request.senderId)) continue;
       const senderProfile = profiles.get(request.senderId);
       if (!senderProfile) continue;
       items.push({

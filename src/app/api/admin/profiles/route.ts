@@ -10,7 +10,7 @@ const querySchema = z.object({
 
 export const GET = withRoute(
   async ({ query }) => {
-    const result = await container.profileService.listPendingProfiles(query.cursor, 20);
+    const result = await container.profileService.listPendingProfiles(query.status, query.cursor, 20);
     return NextResponse.json(result);
   },
   { guard: "admin", query: querySchema },

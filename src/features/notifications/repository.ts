@@ -42,15 +42,18 @@ export const notificationRepository: NotificationRepository = {
 
   async markRead(userId, ids) {
     const now = new Date();
-    if (ids && ids.length > 0) {
+    // `ids: undefined` (polje izostavljeno) = označi sve. `ids: []` (eksplicitno
+    // prazan niz) mora označiti NIŠTA, ne sve — ranije se tretiralo isto.
+    if (ids === undefined) {
       await db.notification.updateMany({
-        where: { userId, id: { in: ids }, readAt: null },
+        where: { userId, readAt: null },
         data: { readAt: now },
       });
       return;
     }
+    if (ids.length === 0) return;
     await db.notification.updateMany({
-      where: { userId, readAt: null },
+      where: { userId, id: { in: ids }, readAt: null },
       data: { readAt: now },
     });
   },

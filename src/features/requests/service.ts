@@ -16,6 +16,16 @@ export interface RequestServiceDeps {
 export function createRequestService(deps: RequestServiceDeps) {
   const { repo, email, clock } = deps;
 
+  // Mail je sporedan efekat poslije commita — provider greška ne smije
+  // oboriti odgovor za operaciju koja je već upisana u bazu.
+  async function trySendEmail(message: Parameters<EmailProvider["send"]>[0]) {
+    try {
+      await email.send(message);
+    } catch (err) {
+      console.error("[requests] slanje maila nije uspjelo:", err);
+    }
+  }
+
   return {
     async sendRequest(senderId: string, input: CreateRequestInput) {
       const created = await repo.createRequest(senderId, input, clock.now());
@@ -23,7 +33,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       // Mail ide tek poslije uspješne transakcije (ACID princip) — rollback nikad ne pošalje mail.
       const receiverEmail = await repo.getUserEmail(input.receiverId);
       if (receiverEmail) {
-        await email.send({
+        await trySendEmail({
           to: receiverEmail,
           subject: sr.requests.emails.received.subject,
           text: sr.requests.emails.received.body,
@@ -58,7 +68,7 @@ export function createRequestService(deps: RequestServiceDeps) {
       if (result === "NOT_PENDING") throw new ApiError("REQUEST_NOT_PENDING", "Zahtjev nije na čekanju.");
       const senderEmail = await repo.getUserEmail(result.senderId);
       if (senderEmail) {
-        await email.send({
+        await trySendEmail({
           to: senderEmail,
           subject: sr.requests.emails.matched.subject,
           text: sr.requests.emails.matched.body,

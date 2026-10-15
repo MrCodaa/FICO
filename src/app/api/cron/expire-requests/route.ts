@@ -5,8 +5,9 @@ import { ApiError } from "@/lib/errors";
 
 export const GET = withRoute(
   async ({ req }) => {
+    const cronSecret = process.env.CRON_SECRET;
     const authHeader = req.headers.get("authorization");
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       throw new ApiError("UNAUTHENTICATED", "Nevažeći cron secret.");
     }
     const expired = await container.requestService.expireRequests();

@@ -27,15 +27,20 @@ import { emptyFormValues, type ProfileFormValues } from "./types";
 const DRAFT_KEY = "fico:profile-draft";
 
 interface Draft {
+  userId: string;
   stepIndex: number;
   values: ProfileFormValues;
 }
 
-function readDraft(): Draft | null {
+// Draft je vezan za userId da se na dijeljenom/testnom browseru ne bi
+// nacrt jednog korisnika tiho primijenio na nalog drugog (localStorage je
+// po porijeklu, ne po sesiji).
+function readDraft(userId: string): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    return JSON.parse(raw) as Draft;
+    const draft = JSON.parse(raw) as Draft;
+    return draft.userId === userId ? draft : null;
   } catch {
     return null;
   }
@@ -46,6 +51,14 @@ function writeDraft(draft: Draft) {
     localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
     // localStorage nedostupan (privatni mod i sl.) — nastavi bez autosave-a
+  }
+}
+
+function clearDraft() {
+  try {
+    localStorage.removeItem(DRAFT_KEY);
+  } catch {
+    // ignoriši
   }
 }
 
@@ -68,31 +81,33 @@ export default function ProfilePage() {
   const profileQuery = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
   const form = useForm<ProfileFormValues>({ defaultValues: emptyFormValues });
 
+  const viewerId = profileQuery.data?.profile?.userId;
+
   useEffect(() => {
-    if (hydrated || !profileQuery.data) return;
+    if (hydrated || !profileQuery.data || !viewerId) return;
     const serverValues = mapServerToForm(profileQuery.data);
-    const draft = readDraft();
+    const draft = readDraft(viewerId);
     const merged = draft ? { ...serverValues, ...draft.values } : serverValues;
     form.reset(merged);
     if (draft && typeof draft.stepIndex === "number") {
       setStepIndex(draft.stepIndex);
     }
     setHydrated(true);
-  }, [profileQuery.data, hydrated, form]);
+  }, [profileQuery.data, viewerId, hydrated, form]);
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || !viewerId) return;
     const subscription = form.watch((values) => {
-      writeDraft({ stepIndex, values: values as ProfileFormValues });
+      writeDraft({ userId: viewerId, stepIndex, values: values as ProfileFormValues });
     });
     return () => subscription.unsubscribe();
-  }, [form, hydrated, stepIndex]);
+  }, [form, hydrated, viewerId, stepIndex]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    writeDraft({ stepIndex, values: form.getValues() });
+    if (!hydrated || !viewerId) return;
+    writeDraft({ userId: viewerId, stepIndex, values: form.getValues() });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex, hydrated]);
+  }, [stepIndex, hydrated, viewerId]);
 
   const basicMutation = useMutation({
     mutationFn: (values: ProfileFormValues) => patchProfile(toBasicPayload(values)),
@@ -108,6 +123,7 @@ export default function ProfilePage() {
     onSuccess: () => {
       setSubmitSuccess(true);
       setSubmitError(null);
+      clearDraft();
     },
     onError: (err) => {
       if (err instanceof ApiError) {

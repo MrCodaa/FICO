@@ -34,6 +34,7 @@ function json(body: unknown): RequestInit {
 }
 
 export interface ProfileRecord {
+  userId?: string;
   status?: string;
   rejectionReason?: string | null;
   firstName?: string | null;
