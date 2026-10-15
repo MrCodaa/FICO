@@ -1,0 +1,367 @@
+// FICO — šema baze (Prisma 7, PostgreSQL)
+// Konekcija je u prisma.config.ts (DIRECT_URL za migracije); aplikacija koristi
+// @prisma/adapter-pg sa pooled DATABASE_URL.
+//
+// Konvencije:
+// - id je cuid(), osim Message (BigInt autoincrement, služi kao SSE Last-Event-ID)
+// - null u preferencama znači "Bez preference"
+// - liste koje se mijenjaju bez migracije (interesi, gradovi, regioni) žive u kodu
+//   (src/content/catalog.ts) i validiraju se Zod-om
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ─────────────────────────────── Enumi ───────────────────────────────
+
+enum TokenType {
+  EMAIL_VERIFICATION
+  PASSWORD_RESET
+}
+
+enum ProfileStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+/// "Da li već imaš startup ili ideju?"
+enum IdeaStatus {
+  COMMITTED // imam ideju i tražim co-foundera za nju
+  EXPLORING // imam ideje, ali sam otvoren za druge
+  OPEN // nemam ideju; mogu se pridružiti ili zajedno tražiti
+}
+
+/// "Kada želiš da kreneš full-time?"
+enum Timing {
+  ALREADY_FULL_TIME
+  READY_ON_MATCH
+  WITHIN_YEAR
+  NO_PLANS
+}
+
+enum Area {
+  PRODUCT
+  ENGINEERING
+  DESIGN
+  SALES_MARKETING
+  OPERATIONS
+}
+
+enum Importance {
+  REQUIRED
+  PREFERRED
+}
+
+enum IdeaPreference {
+  HAS_IDEA // želim co-foundera koji ima konkretnu ideju
+  OPEN_TO_IDEAS // želim co-foundera koji nije vezan za ideju
+}
+
+enum TechnicalPreference {
+  TECHNICAL
+  NON_TECHNICAL
+}
+
+enum LocationScope {
+  SAME_CITY
+  SAME_COUNTRY
+  SAME_REGION
+}
+
+enum DecisionType {
+  THINKING // Razmisliću
+  NOT_INTERESTED // Ne zanima me
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  EXPIRED
+}
+
+enum NotificationType {
+  REQUEST_RECEIVED
+  MATCH_CREATED
+  PROFILE_APPROVED
+  PROFILE_REJECTED
+  NEW_MATCHING_PROFILE
+  SYSTEM
+}
+
+enum ReportReason {
+  SPAM
+  SELLING_SERVICES
+  HIRING
+  HARASSMENT
+  FAKE_PROFILE
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+// ─────────────────────────────── Nalog ───────────────────────────────
+
+model User {
+  id                  String    @id @default(cuid())
+  email               String    @unique // uvijek lowercase, normalizuje servis
+  passwordHash        String
+  emailVerifiedAt     DateTime?
+  agreementAcceptedAt DateTime?
+  tokenVersion        Int       @default(0) // ++ na reset lozinke = poništava sve sesije
+  lastActiveAt        DateTime  @default(now())
+  deactivatedAt       DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  authTokens    AuthToken[]
+  profile       Profile?
+  preference    Preference?
+  decisions     Decision[]     @relation("DecisionAuthor")
+  decidedOn     Decision[]     @relation("DecisionTarget")
+  sentRequests  Request[]      @relation("RequestSender")
+  recvRequests  Request[]      @relation("RequestReceiver")
+  matchesAsA    Match[]        @relation("MatchUserA")
+  matchesAsB    Match[]        @relation("MatchUserB")
+  messages      Message[]
+  notifications Notification[] @relation("NotificationRecipient")
+  causedNotifs  Notification[] @relation("NotificationActor")
+  blocks        Block[]        @relation("Blocker")
+  blockedBy     Block[]        @relation("Blocked")
+  reportsMade   Report[]       @relation("Reporter")
+  reportsAbout  Report[]       @relation("Reported")
+}
+
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      TokenType
+  tokenHash String    @unique // SHA-256 nasumičnog tokena; sirovi token ide samo u mail
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+// ─────────────────────────────── Profil ──────────────────────────────
+
+model Profile {
+  userId          String        @id
+  status          ProfileStatus @default(DRAFT)
+  rejectionReason String?
+  submittedAt     DateTime?
+  reviewedAt      DateTime?
+
+  // Osnovno
+  firstName      String?
+  lastName       String?
+  photoUrl       String?
+  linkedinUrl    String?
+  noLinkedin     Boolean   @default(false)
+  countryCode    String? // ISO 3166-1 alpha-2; region se izvodi iz kataloga
+  city           String?
+  intro          String? // ≤ 1000
+  videoUrl       String?
+  accomplishment String? // ≤ 1000
+  education      String? // ≤ 800
+  employment     String? // ≤ 800
+  isTechnical    Boolean?
+  gender         Gender?
+  birthDate      DateTime? @db.Date
+  schedulingUrl  String?
+  twitterUrl     String?
+  instagramUrl   String?
+  heardFrom      String?
+
+  // Više o tebi
+  ideaStatus         IdeaStatus?
+  ideas              String? // ≤ 1000
+  hasCofounder       Boolean?
+  timing             Timing?
+  areas              Area[]
+  interests          String[] // kodovi iz kataloga
+  equityExpectations String? // ≤ 250
+  freeTime           String? // ≤ 500
+  lifePath           String? // ≤ 500
+  other              String? // ≤ 500
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, countryCode])
+}
+
+/// Šta korisnik traži u co-founderu. Polje = null znači "Bez preference".
+model Preference {
+  userId     String  @id
+  lookingFor String? // ≤ 1000
+
+  idea           IdeaPreference?
+  ideaImportance Importance?
+
+  technical           TechnicalPreference?
+  technicalImportance Importance?
+
+  timingImportance Importance? // poredi se sa timingom autora
+
+  location           LocationScope?
+  locationImportance Importance?
+
+  ageMin        Int?
+  ageMax        Int?
+  ageImportance Importance?
+
+  wantedAreas     Area[]
+  areasImportance Importance?
+
+  interestsImportance Importance? // poredi se sa interesima autora
+
+  alertOnNewMatch Boolean @default(false)
+
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────── Odluke i zahtjevi ───────────────────────
+
+/// Razmisliću / Ne zanima me. "Sviđa mi se" nije ovdje — to je Request.
+model Decision {
+  userId    String
+  targetId  String
+  type      DecisionType
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user   User @relation("DecisionAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  target User @relation("DecisionTarget", fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@id([userId, targetId])
+  @@index([userId, type, updatedAt])
+}
+
+/// Lajk = zahtjev sa porukom. Jedan zahtjev po smjeru para.
+model Request {
+  id          String        @id @default(cuid())
+  senderId    String
+  receiverId  String
+  message     String // ≤ 500
+  status      RequestStatus @default(PENDING)
+  expiresAt   DateTime // createdAt + 14 dana
+  respondedAt DateTime?
+  createdAt   DateTime      @default(now())
+
+  sender   User   @relation("RequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User   @relation("RequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  match    Match?
+
+  @@unique([senderId, receiverId])
+  @@index([receiverId, status])
+  @@index([senderId, createdAt]) // sedmični limit
+  @@index([status, expiresAt]) // cron za istek
+}
+
+// ─────────────────────────────── Chat ────────────────────────────────
+
+/// userAId < userBId (normalizovan par), pa je @@unique dovoljan za "jedan match po paru".
+model Match {
+  id            String    @id @default(cuid())
+  userAId       String
+  userBId       String
+  requestId     String    @unique
+  lastMessageAt DateTime?
+  createdAt     DateTime  @default(now())
+
+  userA    User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB    User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  request  Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  messages Message[]
+
+  @@unique([userAId, userBId])
+  @@index([userBId])
+}
+
+model Message {
+  id        BigInt    @id @default(autoincrement())
+  matchId   String
+  senderId  String
+  body      String // ≤ 2000
+  readAt    DateTime? // 1-na-1 chat: čita ga samo primalac
+  createdAt DateTime  @default(now())
+
+  match  Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, id])
+  @@index([matchId, senderId, readAt])
+}
+
+// ─────────────────────────── Obavještenja ────────────────────────────
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  actorId   String? // ko je izazvao događaj (null za sistemske)
+  entityId  String? // requestId / matchId, zavisno od tipa (polimorfno, bez FK)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user  User  @relation("NotificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+  actor User? @relation("NotificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+}
+
+// ──────────────────────────── Sigurnost ──────────────────────────────
+
+model Block {
+  blockerId String
+  blockedId String
+  createdAt DateTime @default(now())
+
+  blocker User @relation("Blocker", fields: [blockerId], references: [id], onDelete: Cascade)
+  blocked User @relation("Blocked", fields: [blockedId], references: [id], onDelete: Cascade)
+
+  @@id([blockerId, blockedId])
+  @@index([blockedId])
+}
+
+model Report {
+  id         String       @id @default(cuid())
+  reporterId String
+  reportedId String
+  reason     ReportReason
+  details    String? // ≤ 1000
+  status     ReportStatus @default(OPEN)
+  resolvedAt DateTime?
+  createdAt  DateTime     @default(now())
+
+  reporter User @relation("Reporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  reported User @relation("Reported", fields: [reportedId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+}
