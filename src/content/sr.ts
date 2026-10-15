@@ -339,4 +339,15 @@ export const sr = {
       SYSTEM: "Sistemska poruka",
     },
   },
+  chat: {
+    title: "Poruke",
+    empty: "Nemaš poruka još.",
+    noMatches: "Kad neko prihvati tvoj zahtjev, razgovor će se pojaviti ovdje.",
+    placeholder: "Napiši poruku...",
+    send: "Pošalji",
+    loading: "Učitavanje...",
+    forbidden: "Nemaš pristup ovom razgovoru.",
+    connectionLost: "Veza prekinuta, pokušavam ponovo...",
+    backToList: "Nazad na poruke",
+  },
 } as const;
