@@ -8,6 +8,10 @@ import { profileRepository } from "@/features/profile/repository";
 import { createProfileService } from "@/features/profile/service";
 import { discoverRepository } from "@/features/discover/repository";
 import { createDiscoverService } from "@/features/discover/service";
+import { requestRepository } from "@/features/requests/repository";
+import { createRequestService } from "@/features/requests/service";
+import { notificationRepository } from "@/features/notifications/repository";
+import { createNotificationService } from "@/features/notifications/service";
 
 export interface Container {
   clock: Clock;
@@ -16,6 +20,8 @@ export interface Container {
   authService: ReturnType<typeof createAuthService>;
   profileService: ReturnType<typeof createProfileService>;
   discoverService: ReturnType<typeof createDiscoverService>;
+  requestService: ReturnType<typeof createRequestService>;
+  notificationService: ReturnType<typeof createNotificationService>;
 }
 
 export function createContainer(): Container {
@@ -29,6 +35,8 @@ export function createContainer(): Container {
     authService: createAuthService({ repo: authRepository, email, clock }),
     profileService: createProfileService({ repo: profileRepository, storage, email, clock }),
     discoverService: createDiscoverService({ repo: discoverRepository, clock }),
+    requestService: createRequestService({ repo: requestRepository, email, clock }),
+    notificationService: createNotificationService({ repo: notificationRepository, clock }),
   };
 }
 

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
 
 const t = sr.discover;
@@ -15,6 +17,30 @@ class DiscoverApiError extends Error {
     super(message ?? code);
     this.status = status;
     this.code = code;
+  }
+}
+
+class RequestApiError extends Error {
+  status: number;
+  code: string;
+
+  constructor(status: number, code: string, message?: string) {
+    super(message ?? code);
+    this.status = status;
+    this.code = code;
+  }
+}
+
+async function sendLikeRequest(receiverId: string, message: string): Promise<void> {
+  const res = await fetch("/api/requests", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+    body: JSON.stringify({ receiverId, message }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new RequestApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
   }
 }
 
@@ -87,6 +113,9 @@ async function putDecision(targetId: string, type: DecisionType): Promise<void> 
 
 export default function DiscoverPage() {
   const queryClient = useQueryClient();
+  const [isLiking, setIsLiking] = useState(false);
+  const [likeMessage, setLikeMessage] = useState("");
+  const [likeError, setLikeError] = useState<string | null>(null);
 
   const nextQuery = useQuery({ queryKey: ["discover", "next"], queryFn: fetchNext });
 
@@ -94,6 +123,31 @@ export default function DiscoverPage() {
     mutationFn: ({ targetId, type }: { targetId: string; type: DecisionType }) => putDecision(targetId, type),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["discover", "next"] });
+    },
+  });
+
+  const likeMutation = useMutation({
+    mutationFn: ({ receiverId, message }: { receiverId: string; message: string }) =>
+      sendLikeRequest(receiverId, message),
+    onSuccess: () => {
+      setIsLiking(false);
+      setLikeMessage("");
+      setLikeError(null);
+      queryClient.invalidateQueries({ queryKey: ["discover", "next"] });
+      queryClient.invalidateQueries({ queryKey: ["me", "counts"] });
+    },
+    onError: (error) => {
+      if (error instanceof RequestApiError) {
+        if (error.code === "LIKE_LIMIT_REACHED") {
+          setLikeError(sr.requests.like.limitReached);
+        } else if (error.code === "REQUEST_EXISTS") {
+          setLikeError(sr.requests.like.alreadyExists);
+        } else {
+          setLikeError(sr.requests.like.generic);
+        }
+      } else {
+        setLikeError(sr.requests.like.generic);
+      }
     },
   });
 
@@ -195,10 +249,51 @@ export default function DiscoverPage() {
             )}
 
             <div className="flex flex-col gap-2">
-              <Button type="button" disabled title={t.likeComingSoon}>
-                {t.like}
-              </Button>
-              <p className="text-muted-foreground text-xs">{t.likeComingSoon}</p>
+              {isLiking ? (
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    value={likeMessage}
+                    onChange={(e) => {
+                      setLikeMessage(e.target.value);
+                      setLikeError(null);
+                    }}
+                    placeholder={t.messagePlaceholder}
+                    disabled={likeMutation.isPending}
+                  />
+                  {likeError && <p className="text-destructive text-xs">{likeError}</p>}
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      disabled={likeMutation.isPending}
+                      onClick={() => {
+                        if (!likeMessage.trim()) {
+                          setLikeError(t.messageRequired);
+                          return;
+                        }
+                        likeMutation.mutate({ receiverId: candidate.userId, message: likeMessage.trim() });
+                      }}
+                    >
+                      {t.sendRequest}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={likeMutation.isPending}
+                      onClick={() => {
+                        setIsLiking(false);
+                        setLikeMessage("");
+                        setLikeError(null);
+                      }}
+                    >
+                      {t.cancel}
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <Button type="button" onClick={() => setIsLiking(true)}>
+                  {t.like}
+                </Button>
+              )}
 
               <Button
                 type="button"

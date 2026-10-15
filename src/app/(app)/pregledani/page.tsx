@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
@@ -68,6 +68,60 @@ function tabToType(tab: ReviewTab): DecisionType | null {
   return null;
 }
 
+type DisplayStatus = "PENDING" | "MATCHED" | "NOT_ACCEPTED";
+
+interface SentItem {
+  id: string;
+  displayStatus: DisplayStatus;
+  receiver: ProfileCardData;
+  matchId: string | null;
+}
+
+interface SentResponse {
+  items: SentItem[];
+  nextCursor: string | null;
+}
+
+async function fetchSentRequests(): Promise<SentResponse> {
+  const res = await fetch("/api/requests/sent", { credentials: "include" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ReviewedApiError(res.status, body?.error?.message);
+  }
+  return body as SentResponse;
+}
+
+function SentRequestCard({ item }: { item: SentItem }) {
+  const fullName = [item.receiver.firstName, item.receiver.lastName].filter(Boolean).join(" ");
+  const location = [item.receiver.city, item.receiver.countryCode].filter(Boolean).join(", ");
+
+  return (
+    <div className="flex items-center gap-3 rounded-md border p-4">
+      {item.receiver.photoUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={item.receiver.photoUrl}
+          alt={fullName || "—"}
+          className="h-14 w-14 shrink-0 rounded-full object-cover"
+        />
+      ) : (
+        <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
+      )}
+      <div className="flex flex-1 flex-col gap-1">
+        <span className="text-sm font-semibold">
+          {[fullName || "—", item.receiver.age != null ? String(item.receiver.age) : null]
+            .filter(Boolean)
+            .join(", ")}
+        </span>
+        {location && <span className="text-muted-foreground text-xs">{location}</span>}
+      </div>
+      <span className="rounded-full border px-2 py-1 text-xs font-medium">
+        {sr.requests.status[item.displayStatus]}
+      </span>
+    </div>
+  );
+}
+
 function ReviewedCard({ item, onUndone }: { item: DecisionItem; onUndone: (userId: string) => void }) {
   const undoMutation = useMutation({
     mutationFn: () => deleteDecision(item.profile.userId),
@@ -114,6 +168,12 @@ export default function ReviewedPage() {
 
   const activeType = tabToType(tab);
   const activeCursors = activeType === "THINKING" ? cursors.thinking : activeType === "NOT_INTERESTED" ? cursors.notInterested : [];
+
+  const sentQuery = useQuery({
+    queryKey: ["requests", "sent"],
+    queryFn: fetchSentRequests,
+    enabled: tab === "liked",
+  });
 
   const pageQueries = useQueries({
     queries: activeCursors.map((cursor) => ({
@@ -178,7 +238,17 @@ export default function ReviewedPage() {
         </div>
 
         {tab === "liked" ? (
-          <p className="text-muted-foreground text-center text-sm">{t.likedComingSoon}</p>
+          sentQuery.isLoading ? (
+            <p className="text-muted-foreground text-center text-sm">{sr.discover.loading}</p>
+          ) : (sentQuery.data?.items.length ?? 0) === 0 ? (
+            <p className="text-muted-foreground text-center text-sm">{sr.requests.sent.empty}</p>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {sentQuery.data?.items.map((item) => (
+                <SentRequestCard key={item.id} item={item} />
+              ))}
+            </div>
+          )
         ) : (
           <>
             {items.length === 0 && !isLoading ? (
