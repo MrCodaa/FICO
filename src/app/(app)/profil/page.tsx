@@ -138,6 +138,10 @@ export default function ProfilePage() {
     switch (code) {
       case "PROFILE_LOCKED":
         return sr.profile.errors.locked;
+      case "PROFILE_INCOMPLETE":
+        return sr.profile.errors.incomplete;
+      case "VALIDATION_ERROR":
+        return sr.profile.errors.validationError;
       default:
         return sr.profile.errors.generic;
     }

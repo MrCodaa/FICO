@@ -17,9 +17,10 @@ const profileBaseSchema = z.object({
   employment: z.string().trim().min(1).max(800),
   isTechnical: z.boolean(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
-  // preprocess odbacuje null PRIJE coerce-a — z.coerce.date() bi inače
-  // tiho pretvorio null u 1.1.1970 (new Date(null)) umjesto da javi grešku.
-  birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
+  // .nullable() ovdje (ne preprocess-odbaci-null) jer nacrt (profileDraftSchema)
+  // legitimno čuva birthDate: null dok korisnik još nije stigao do tog polja —
+  // strogo odbijanje null-a ide samo u profileSubmitSchema ispod (.extend()).
+  birthDate: z.coerce.date().nullable(),
   schedulingUrl: z.string().trim().url().optional().nullable(),
   twitterUrl: z.string().trim().url().optional().nullable(),
   instagramUrl: z.string().trim().url().optional().nullable(),
@@ -39,15 +40,21 @@ const profileBaseSchema = z.object({
 
 export const profileDraftSchema = profileBaseSchema.partial();
 
-export const profileSubmitSchema = profileBaseSchema.superRefine((data, ctx) => {
-  if (!data.noLinkedin && !data.linkedinUrl) {
-    ctx.addIssue({
-      code: "custom",
-      path: ["linkedinUrl"],
-      message: 'Unesi LinkedIn profil ili označi "Nemam LinkedIn".',
-    });
-  }
-});
+export const profileSubmitSchema = profileBaseSchema
+  .extend({
+    // Slanje na pregled MORA imati stvaran datum — preprocess odbacuje null
+    // PRIJE coerce-a da z.coerce.date() ne pretvori tiho null u 1.1.1970.
+    birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.noLinkedin && !data.linkedinUrl) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["linkedinUrl"],
+        message: 'Unesi LinkedIn profil ili označi "Nemam LinkedIn".',
+      });
+    }
+  });
 
 export const preferenceDraftSchema = z.object({
   lookingFor: z.string().trim().max(1000).optional().nullable(),

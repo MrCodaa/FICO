@@ -217,6 +217,7 @@ export const sr = {
       photoTooLarge: "Slika je prevelika (maksimalno 4 MB).",
       photoInvalidType: "Dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
+      validationError: "Provjeri unesene podatke — neko polje nije ispravno popunjeno.",
     },
   },
   admin: {
