@@ -25,7 +25,9 @@ export default function AgreementPage() {
       if (!res.ok) throw new Error("AGREEMENT_FAILED");
     },
     onSuccess: () => {
-      router.push("/");
+      // Pravila su korak neposredno prije kreiranja profila — normalan tok
+      // nakon prihvatanja je uvijek popunjavanje profila.
+      router.push("/profil");
     },
   });
 

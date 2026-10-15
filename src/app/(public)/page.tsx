@@ -1,9 +1,37 @@
+"use client";
+
+import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
+import { getNextRoute, type MeState } from "@/lib/nextRoute";
+
+async function fetchMe(): Promise<MeState | null> {
+  const res = await fetch("/api/me", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json();
+}
 
 export default function HomePage() {
+  const router = useRouter();
   const { brand, nav, hero, how, footer } = sr.landing;
+
+  // Ako je posjetilac već ulogovan, landing (marketinška) stranica nije za
+  // njega — pošalji ga odmah na sljedeći korak umjesto da mu nudi
+  // "Kreiraj profil"/"Prijava" kao da je nov posjetilac.
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+
+  useEffect(() => {
+    if (meQuery.data) {
+      router.replace(getNextRoute(meQuery.data));
+    }
+  }, [meQuery.data, router]);
+
+  if (meQuery.isLoading || meQuery.data) {
+    return null;
+  }
 
   return (
     <div className="flex min-h-screen flex-col">

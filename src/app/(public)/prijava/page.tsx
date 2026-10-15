@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
+import { getNextRoute, type MeState } from "@/lib/nextRoute";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
@@ -57,10 +58,10 @@ export default function LoginPage() {
         const body = (await res.json().catch(() => ({}))) as ApiErrorBody;
         throw new Error(body.error?.code ?? "GENERIC");
       }
-      return res.json();
+      return res.json() as Promise<MeState>;
     },
-    onSuccess: () => {
-      router.push("/");
+    onSuccess: (me) => {
+      router.push(getNextRoute(me));
     },
   });
 
