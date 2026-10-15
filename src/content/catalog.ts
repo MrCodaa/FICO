@@ -1,20 +1,26 @@
 export interface Country {
   code: string;
   name: string;
+  region: string;
 }
 
 export const countries: Country[] = [
-  { code: "BA", name: "Bosna i Hercegovina" },
-  { code: "RS", name: "Srbija" },
-  { code: "HR", name: "Hrvatska" },
-  { code: "ME", name: "Crna Gora" },
-  { code: "MK", name: "Sjeverna Makedonija" },
-  { code: "SI", name: "Slovenija" },
-  { code: "XK", name: "Kosovo" },
-  { code: "AL", name: "Albanija" },
+  { code: "BA", name: "Bosna i Hercegovina", region: "Zapadni Balkan" },
+  { code: "RS", name: "Srbija", region: "Zapadni Balkan" },
+  { code: "HR", name: "Hrvatska", region: "Jadran" },
+  { code: "ME", name: "Crna Gora", region: "Zapadni Balkan" },
+  { code: "MK", name: "Sjeverna Makedonija", region: "Zapadni Balkan" },
+  { code: "SI", name: "Slovenija", region: "Jadran" },
+  { code: "XK", name: "Kosovo", region: "Zapadni Balkan" },
+  { code: "AL", name: "Albanija", region: "Jugoistok" },
 ] as const;
 
 export const countryCodes: readonly string[] = countries.map((c) => c.code);
+
+// Region se izvodi iz države (CLAUDE.md). Koristi se u lib/matching za SAME_REGION.
+export const regionByCountry: Record<string, string> = Object.fromEntries(
+  countries.map((c) => [c.code, c.region]),
+);
 
 export const citiesByCountry: Record<string, string[]> = {
   BA: ["Sarajevo", "Banja Luka", "Tuzla", "Mostar", "Zenica"],

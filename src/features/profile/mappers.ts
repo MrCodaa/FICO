@@ -1,4 +1,5 @@
 import type { Area, Gender, IdeaStatus, ProfileStatus, Timing } from "@/generated/prisma/client";
+import { computeAge } from "@/lib/age";
 import type { ProfileRecord, PreferenceRecord } from "./repository";
 
 // Vlasnikov sopstveni profil/preferenca — nema skrivenih ni osjetljivih polja za
@@ -80,13 +81,4 @@ export function toProfileView(profile: ProfileRecord, now: Date): ProfileView {
     other: profile.other,
     submittedAt: profile.submittedAt,
   };
-}
-
-function computeAge(birthDate: Date, now: Date): number {
-  let age = now.getFullYear() - birthDate.getFullYear();
-  const monthDiff = now.getMonth() - birthDate.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
 }

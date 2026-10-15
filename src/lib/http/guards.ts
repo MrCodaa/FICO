@@ -1,6 +1,5 @@
 // Guardovi iz docs/api.md. Svaki guard je nezavisna provjera; dodavanje nove ne
-// mijenja withRoute.ts. Implementacije (auth, verified, onboarded, approved, admin)
-// dolaze u Fazi 2, kad postoji sesija.
+// mijenja withRoute.ts.
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
@@ -14,12 +13,6 @@ export interface GuardContext {
 }
 
 export type Guard = (req: NextRequest) => Promise<GuardContext>;
-
-function pending(name: GuardName): Guard {
-  return async () => {
-    throw new Error(`Guard "${name}" nije implementiran (dolazi u kasnijoj fazi).`);
-  };
-}
 
 async function requireSessionUser(req: NextRequest) {
   const payload = await getSessionPayload(req);
@@ -56,7 +49,16 @@ export const guards: Record<GuardName, Guard> = {
     if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
     return { userId };
   },
-  approved: pending("approved"),
+  approved: async (req) => {
+    const { userId, emailVerifiedAt, agreementAcceptedAt } = await requireSessionUser(req);
+    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    const profile = await db.profile.findUnique({ where: { userId }, select: { status: true } });
+    if (profile?.status !== "APPROVED") {
+      throw new ApiError("PROFILE_NOT_APPROVED", "Profil nije odobren.");
+    }
+    return { userId };
+  },
   admin: async (req) => {
     const { userId, email } = await requireSessionUser(req);
     if (!isAdminEmail(email)) throw new ApiError("FORBIDDEN", "Nemaš pristup.");

@@ -6,6 +6,8 @@ import { authRepository } from "@/features/auth/repository";
 import { createAuthService } from "@/features/auth/service";
 import { profileRepository } from "@/features/profile/repository";
 import { createProfileService } from "@/features/profile/service";
+import { discoverRepository } from "@/features/discover/repository";
+import { createDiscoverService } from "@/features/discover/service";
 
 export interface Container {
   clock: Clock;
@@ -13,6 +15,7 @@ export interface Container {
   storage: StorageProvider;
   authService: ReturnType<typeof createAuthService>;
   profileService: ReturnType<typeof createProfileService>;
+  discoverService: ReturnType<typeof createDiscoverService>;
 }
 
 export function createContainer(): Container {
@@ -25,6 +28,7 @@ export function createContainer(): Container {
     storage,
     authService: createAuthService({ repo: authRepository, email, clock }),
     profileService: createProfileService({ repo: profileRepository, storage, email, clock }),
+    discoverService: createDiscoverService({ repo: discoverRepository, clock }),
   };
 }
 
