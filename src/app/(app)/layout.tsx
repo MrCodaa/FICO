@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -61,6 +61,11 @@ async function markNotificationsRead(): Promise<void> {
     body: JSON.stringify({}),
   });
   if (!res.ok && res.status !== 204) throw new Error("MARK_READ_ERROR");
+}
+
+async function logout(): Promise<void> {
+  const res = await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+  if (!res.ok && res.status !== 204) throw new Error("LOGOUT_ERROR");
 }
 
 const navLinks: { href: string; label: string }[] = [
@@ -155,6 +160,31 @@ function NotificationBell() {
   );
 }
 
+function LogoutButton() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      queryClient.clear();
+      router.push("/prijava");
+    },
+  });
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={mutation.isPending}
+      onClick={() => mutation.mutate()}
+    >
+      {sr.nav.logout}
+    </Button>
+  );
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -184,7 +214,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             })}
           </nav>
 
-          <NotificationBell />
+          <div className="flex shrink-0 items-center gap-2">
+            <NotificationBell />
+            <LogoutButton />
+          </div>
         </div>
       </header>
 

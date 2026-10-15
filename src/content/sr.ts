@@ -328,6 +328,7 @@ export const sr = {
     notifications: "Obavještenja",
     notificationsEmpty: "Nema novih obavještenja.",
     markAllRead: "Označi sve kao pročitano",
+    logout: "Odjavi se",
   },
   notifications: {
     types: {
