@@ -83,6 +83,7 @@ export const sr = {
       emailTaken: "Nalog sa ovim emailom već postoji.",
       tokenInvalid: "Link nije validan ili je istekao.",
       tooManyRequests: "Sačekaj malo prije nego pokušaš ponovo.",
+      emailNotVerified: "Prvo moraš potvrditi email (link u mailu koji smo ti poslali).",
       generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
     },
     emails: {

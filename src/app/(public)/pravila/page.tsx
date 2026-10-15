@@ -7,9 +7,20 @@ import { useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
 
+function errorMessage(code: string): string {
+  switch (code) {
+    case "EMAIL_NOT_VERIFIED":
+      return sr.auth.errors.emailNotVerified;
+    case "VALIDATION_ERROR":
+      return sr.agreement.error;
+    default:
+      return sr.auth.errors.generic;
+  }
+}
+
 export default function AgreementPage() {
   const router = useRouter();
-  const { title, subtitle, items, submit, error } = sr.agreement;
+  const { title, subtitle, items, submit } = sr.agreement;
   const [checked, setChecked] = useState<boolean[]>(() => items.map(() => false));
 
   const allChecked = checked.every(Boolean);
@@ -22,7 +33,10 @@ export default function AgreementPage() {
         credentials: "include",
         body: JSON.stringify({ confirmations: checked }),
       });
-      if (!res.ok) throw new Error("AGREEMENT_FAILED");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error?.code ?? "GENERIC");
+      }
     },
     onSuccess: () => {
       // Pravila su korak neposredno prije kreiranja profila — normalan tok
@@ -60,7 +74,9 @@ export default function AgreementPage() {
           ))}
         </ul>
 
-        {mutation.isError && <p className="text-destructive text-sm">{error}</p>}
+        {mutation.isError && (
+          <p className="text-destructive text-sm">{errorMessage((mutation.error as Error).message)}</p>
+        )}
 
         <Button disabled={!allChecked || mutation.isPending} onClick={() => mutation.mutate()}>
           {submit}
