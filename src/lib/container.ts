@@ -1,14 +1,22 @@
-// Composition root: ovdje se biraju implementacije prema env-u (npr. email/storage
-// provider u kasnijim fazama). Faza 0 povezuje samo Clock.
+// Composition root: ovdje se biraju implementacije prema env-u.
 import { systemClock, type Clock } from "@/lib/clock";
+import { createEmailProvider, type EmailProvider } from "@/lib/email";
+import { authRepository } from "@/features/auth/repository";
+import { createAuthService } from "@/features/auth/service";
 
 export interface Container {
   clock: Clock;
+  email: EmailProvider;
+  authService: ReturnType<typeof createAuthService>;
 }
 
 export function createContainer(): Container {
+  const clock = systemClock;
+  const email = createEmailProvider();
   return {
-    clock: systemClock,
+    clock,
+    email,
+    authService: createAuthService({ repo: authRepository, email, clock }),
   };
 }
 

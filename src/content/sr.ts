@@ -36,4 +36,66 @@ export const sr = {
       tagline: "Find Co-Founder za Balkan.",
     },
   },
+  auth: {
+    register: {
+      title: "Napravi nalog",
+      emailLabel: "Email",
+      passwordLabel: "Lozinka",
+      passwordHint: "Najmanje 8 karaktera.",
+      submit: "Registruj se",
+      loginPrompt: "Već imaš nalog?",
+      loginLink: "Prijavi se",
+    },
+    login: {
+      title: "Prijava",
+      emailLabel: "Email",
+      passwordLabel: "Lozinka",
+      submit: "Prijavi se",
+      forgotLink: "Zaboravljena lozinka?",
+      registerPrompt: "Nemaš nalog?",
+      registerLink: "Registruj se",
+    },
+    verifyEmail: {
+      title: "Potvrda emaila",
+      pending: "Potvrđujemo tvoj email...",
+      success: "Email je potvrđen. Možeš se prijaviti.",
+      error: "Link za potvrdu nije validan ili je istekao.",
+      loginLink: "Idi na prijavu",
+    },
+    forgotPassword: {
+      title: "Zaboravljena lozinka",
+      emailLabel: "Email",
+      submit: "Pošalji link za reset",
+      sent: "Ako nalog postoji, poslali smo link za reset lozinke na tvoj email.",
+    },
+    resetPassword: {
+      title: "Nova lozinka",
+      passwordLabel: "Nova lozinka",
+      passwordHint: "Najmanje 8 karaktera.",
+      submit: "Postavi novu lozinku",
+      success: "Lozinka je promijenjena. Prijavi se sa novom lozinkom.",
+      error: "Link za reset nije validan ili je istekao.",
+      loginLink: "Idi na prijavu",
+    },
+    errors: {
+      validationError: "Provjeri unesene podatke.",
+      invalidCredentials: "Email ili lozinka nisu tačni.",
+      emailTaken: "Nalog sa ovim emailom već postoji.",
+      tokenInvalid: "Link nije validan ili je istekao.",
+      tooManyRequests: "Sačekaj malo prije nego pokušaš ponovo.",
+      generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+    },
+    emails: {
+      verification: {
+        subject: "Potvrdi svoj FICO nalog",
+        body: (link: string) =>
+          `Zdravo,\n\nPotvrdi svoj email klikom na link ispod:\n${link}\n\nAko nisi ti napravio/la nalog, slobodno ignoriši ovaj mail.`,
+      },
+      passwordReset: {
+        subject: "Reset lozinke za FICO",
+        body: (link: string) =>
+          `Zdravo,\n\nKlikni na link ispod da postaviš novu lozinku:\n${link}\n\nAko nisi ti tražio/la reset, slobodno ignoriši ovaj mail.`,
+      },
+    },
+  },
 } as const;
