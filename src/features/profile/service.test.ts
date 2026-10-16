@@ -321,11 +321,12 @@ describe("createProfileService.listPendingProfiles", () => {
     expect(result.items[0]?.userId).toBe("user-1");
   });
 
-  it("prosljeđuje lookingFor iz preference u ProfileView (admin vidi cijeli profil)", async () => {
+  it("prosljeđuje preference u ProfileView (admin vidi cijeli profil)", async () => {
+    const preference = createFakePreference({ lookingFor: "Tražim CTO-a.", technical: "TECHNICAL" });
     const repo = createFakeRepo({
       listProfilesByStatus: vi
         .fn()
-        .mockResolvedValue({ items: [{ ...completeProfile(), lookingFor: "Tražim CTO-a." }], nextCursor: null }),
+        .mockResolvedValue({ items: [{ ...completeProfile(), preference }], nextCursor: null }),
     });
     const service = createProfileService({
       repo,
@@ -337,6 +338,7 @@ describe("createProfileService.listPendingProfiles", () => {
     const result = await service.listPendingProfiles("PENDING_REVIEW");
 
     expect(result.items[0]?.lookingFor).toBe("Tražim CTO-a.");
+    expect(result.items[0]?.preference?.technical).toBe("TECHNICAL");
     expect(result.items[0]?.intro).toBe(completeProfile().intro);
   });
 });
