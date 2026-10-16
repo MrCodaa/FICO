@@ -18,6 +18,8 @@ import { safetyRepository } from "@/features/safety/repository";
 import { createSafetyService } from "@/features/safety/service";
 import { settingsRepository } from "@/features/settings/repository";
 import { createSettingsService } from "@/features/settings/service";
+import { dashboardRepository } from "@/features/dashboard/repository";
+import { createDashboardService } from "@/features/dashboard/service";
 
 export interface Container {
   clock: Clock;
@@ -31,6 +33,7 @@ export interface Container {
   chatService: ReturnType<typeof createChatService>;
   safetyService: ReturnType<typeof createSafetyService>;
   settingsService: ReturnType<typeof createSettingsService>;
+  dashboardService: ReturnType<typeof createDashboardService>;
 }
 
 export function createContainer(): Container {
@@ -41,18 +44,25 @@ export function createContainer(): Container {
     getPreferences: settingsRepository.getEmailPreferences,
   });
   const storage = createStorageProvider();
+  const discoverService = createDiscoverService({ repo: discoverRepository, clock });
+  const notificationService = createNotificationService({ repo: notificationRepository, clock });
   return {
     clock,
     email,
     storage,
     authService: createAuthService({ repo: authRepository, email, clock }),
     profileService: createProfileService({ repo: profileRepository, storage, email, clock }),
-    discoverService: createDiscoverService({ repo: discoverRepository, clock }),
+    discoverService,
     requestService: createRequestService({ repo: requestRepository, email, clock }),
-    notificationService: createNotificationService({ repo: notificationRepository, clock }),
+    notificationService,
     chatService: createChatService({ repo: chatRepository, clock }),
     safetyService: createSafetyService({ repo: safetyRepository, clock }),
     settingsService: createSettingsService({ repo: settingsRepository, clock }),
+    dashboardService: createDashboardService({
+      repo: dashboardRepository,
+      discover: discoverService,
+      notifications: notificationService,
+    }),
   };
 }
 

@@ -68,6 +68,7 @@ export interface DiscoverRepository {
   upsertDecision(viewerId: string, targetId: string, type: DecisionType, now: Date): Promise<void>;
   deleteDecision(viewerId: string, targetId: string): Promise<void>;
   deleteAllNotInterested(viewerId: string): Promise<number>;
+  countDecisions(viewerId: string, type: DecisionType): Promise<number>;
   listDecisions(
     viewerId: string,
     type: DecisionType,
@@ -175,6 +176,11 @@ export const discoverRepository: DiscoverRepository = {
 
   async deleteDecision(viewerId, targetId) {
     await db.decision.delete({ where: { userId_targetId: { userId: viewerId, targetId } } }).catch(() => {});
+  },
+
+  async countDecisions(viewerId, type) {
+    // Samo profili koji su i dalje vidljivi (isto kao lista u Ponovo pogledaj).
+    return db.decision.count({ where: { userId: viewerId, type, target: { profile: { is: visibleTo(viewerId) } } } });
   },
 
   async deleteAllNotInterested(viewerId) {

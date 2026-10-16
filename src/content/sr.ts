@@ -490,6 +490,46 @@ export const sr = {
     help: "Pomoć",
     logout: "Odjavi se",
   },
+  dashboard: {
+    title: "Kontrolna tabla",
+    // [jednina, 2–4, ostalo] — bira se po broju (plural u sr.ts helperu ispod)
+    queue: {
+      before: "",
+      after: [
+        " osnivač u tvom redu odgovara tvojim kriterijumima!",
+        " osnivača u tvom redu odgovaraju tvojim kriterijumima!",
+        " osnivača u tvom redu odgovara tvojim kriterijumima!",
+      ],
+      action: "Pogledaj profile",
+    },
+    thinking: {
+      before: "Imaš ",
+      after: [" profil o kojem razmišljaš.", " profila o kojima razmišljaš.", " profila o kojima razmišljaš."],
+      action: "Pogledaj sačuvane",
+    },
+    requests: {
+      before: "Imaš ",
+      after: [" novi zahtjev.", " nova zahtjeva.", " novih zahtjeva."],
+      action: "Pogledaj zahtjeve",
+    },
+    messages: {
+      before: "Imaš ",
+      after: [" nepročitanu poruku.", " nepročitane poruke.", " nepročitanih poruka."],
+      action: "Otvori poruke",
+    },
+    howTitle: "Kako funkcioniše",
+    howBefore:
+      "Na stranici Otkrij profile vidiš jedan profil odjednom. Ako ti se neko sviđa, pošalji mu kratku poruku — dobiće obavještenje i email sa tvojim profilom. Ako prihvati, spojićemo vas i možete se dopisivati u Porukama. Da bi iskustvo bilo dobro za sve, možeš poslati ",
+    howCount: "20",
+    howAfter: " zahtjeva sedmično.",
+    trust:
+      "Povjerenje zajednice nam je jako važno. Ako te neko uznemirava, koristi platformu da prodaje usluge ili radi bilo šta osim traženja co-foundera, ili te kontaktira bez saglasnosti van platforme — prijavi ga.",
+    pending: "Tvoj profil čeka odobrenje.",
+    draft: "Tvoj profil još nije poslat na pregled. Završi ga i pošalji da bi otkrivao druge osnivače.",
+    rejected: "Tvoj profil nije odobren. Razlog:",
+    editProfile: "Uredi profil",
+    error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+  },
   settings: {
     eyebrow: "FICO",
     title: "Podešavanja",

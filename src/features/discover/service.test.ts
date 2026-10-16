@@ -104,6 +104,7 @@ function createFakeRepo(overrides: Partial<DiscoverRepository> = {}): DiscoverRe
     getViewerPerson: vi.fn().mockResolvedValue(fakePerson({ userId: "viewer" })),
     getExcludedUserIds: vi.fn().mockResolvedValue([]),
     deleteAllNotInterested: vi.fn().mockResolvedValue(4),
+    countDecisions: vi.fn().mockResolvedValue(2),
     getRelation: vi.fn().mockResolvedValue({ decision: null, sent: null, received: null, matchId: null }),
     listCandidates: vi.fn().mockResolvedValue([]),
     getCandidateById: vi.fn().mockResolvedValue(null),
@@ -253,5 +254,20 @@ describe("createDiscoverService.listDecisions", () => {
     const service = createDiscoverService({ repo, clock: createFakeClock() });
     await expect(service.resetNotInterested("viewer")).resolves.toEqual({ deleted: 4 });
     expect(repo.deleteAllNotInterested).toHaveBeenCalledWith("viewer");
+  });
+
+  it("getQueueStats broji samo kandidate koji ispunjavaju obavezne uslove", async () => {
+    const rows: CandidateRow[] = [
+      { person: fakePerson({ userId: "a" }), profile: fakeProfile({ userId: "a" }), preference: null, lastActiveAt: new Date() },
+      { person: fakePerson({ userId: "b" }), profile: fakeProfile({ userId: "b" }), preference: null, lastActiveAt: new Date() },
+    ];
+    evaluateMatchMock.mockImplementation((_viewer: MatchPerson, candidate: MatchPerson) => ({
+      score: 0.5,
+      reasons: [],
+      requiredSatisfied: candidate.profile.userId === "a",
+    }));
+    const repo = createFakeRepo({ listCandidates: vi.fn().mockResolvedValue(rows) });
+    const service = createDiscoverService({ repo, clock: createFakeClock() });
+    await expect(service.getQueueStats("viewer")).resolves.toEqual({ queueCount: 1, thinkingCount: 2 });
   });
 });

@@ -16,25 +16,32 @@ const DEFAULT_CANDIDATE_LIMIT = 200;
 export function createDiscoverService(deps: DiscoverServiceDeps) {
   const { repo, clock } = deps;
 
+  // Red kandidata kao u Discover-u: bez isključenih, samo oni koji ispunjavaju
+  // REQUIRED u oba smjera, sortirani po score-u pa po zadnjoj aktivnosti.
+  async function rankQueue(viewerId: string, now: Date) {
+    const [viewer, excluded] = await Promise.all([
+      repo.getViewerPerson(viewerId),
+      repo.getExcludedUserIds(viewerId, now),
+    ]);
+    if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
+    const candidates = await repo.listCandidates(viewerId, excluded, DEFAULT_CANDIDATE_LIMIT);
+    return candidates
+      .map((row) => ({ row, result: evaluateMatch(viewer, row.person, now) }))
+      .filter(({ result }) => result.requiredSatisfied)
+      .sort((a, b) => {
+        if (b.result.score !== a.result.score) return b.result.score - a.result.score;
+        return b.row.person.profile.lastActiveAt.getTime() - a.row.person.profile.lastActiveAt.getTime();
+      });
+  }
+
   return {
     async getNext(viewerId: string) {
       const now = clock.now();
       // Nezavisni upiti idu paralelno (svaki round-trip do Neona je ~45 ms).
-      const [viewer, excluded, likesRemaining] = await Promise.all([
-        repo.getViewerPerson(viewerId),
-        repo.getExcludedUserIds(viewerId, now),
+      const [scored, likesRemaining] = await Promise.all([
+        rankQueue(viewerId, now),
         repo.getLikesRemaining(viewerId, now),
       ]);
-      if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
-      const candidates = await repo.listCandidates(viewerId, excluded, DEFAULT_CANDIDATE_LIMIT);
-
-      const scored = candidates
-        .map((row) => ({ row, result: evaluateMatch(viewer, row.person, now) }))
-        .filter(({ result }) => result.requiredSatisfied)
-        .sort((a, b) => {
-          if (b.result.score !== a.result.score) return b.result.score - a.result.score;
-          return b.row.person.profile.lastActiveAt.getTime() - a.row.person.profile.lastActiveAt.getTime();
-        });
 
       const top = scored[0];
       if (!top) return { candidate: null, match: null, likesRemaining };
@@ -43,6 +50,15 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
         match: { score: top.result.score, reasons: top.result.reasons },
         likesRemaining,
       };
+    },
+
+    /** Kontrolna tabla: koliko je osnivača u redu i koliko ih čeka u "Razmisliću". */
+    async getQueueStats(viewerId: string) {
+      const [scored, thinkingCount] = await Promise.all([
+        rankQueue(viewerId, clock.now()),
+        repo.countDecisions(viewerId, "THINKING"),
+      ]);
+      return { queueCount: scored.length, thinkingCount };
     },
 
     async getProfile(viewerId: string, targetUserId: string) {
