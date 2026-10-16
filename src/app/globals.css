@@ -4,35 +4,49 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tema po uzoru na YC Co-Founder Matching: bijela pozadina, YC narandžasta
- * kao akcenat, topla siva za sekundarne površine, jasna tipografija.
- * Sve boje su tokeni koje koriste shadcn komponente — izmjena ovdje mijenja
- * cijelu aplikaciju.
+ * Tema po uzoru na YC Co-Founder Matching (docs/reference): bijela pozadina,
+ * bež trake i zaglavlja sekcija, zeleno primarno dugme ("Invite to connect"),
+ * sivo sekundarno ("Skip for now"), plavi linkovi. YC narandžasta (--brand)
+ * ostaje za logo, landing i dugme Sačuvaj u Podešavanjima.
+ * Sve boje su tokeni koje koriste shadcn komponente.
  */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.25rem;
   --background: #ffffff;
   --foreground: #1a1a1a;
   --card: #ffffff;
   --card-foreground: #1a1a1a;
   --popover: #ffffff;
   --popover-foreground: #1a1a1a;
-  --primary: #f26625;
+  --primary: #43b13b;
   --primary-foreground: #ffffff;
-  --primary-hover: #db5516;
-  --secondary: #f5f5f2;
+  --primary-hover: #389731;
+  --neutral: #7a7a7a;
+  --neutral-foreground: #ffffff;
+  --neutral-hover: #666666;
+  --brand: #f26625;
+  --brand-foreground: #ffffff;
+  --brand-hover: #db5516;
+  --link: #3a7bd5;
+  --info: #3a6fd8;
+  --info-foreground: #ffffff;
+  --info-hover: #2f5cb8;
+  --beige: #eeede5;
+  --beige-border: #d9d6cb;
+  --secondary: #f2f2ef;
   --secondary-foreground: #1a1a1a;
-  --muted: #f5f5f2;
+  --muted: #f2f2ef;
   --muted-foreground: #66625c;
-  --accent: #fff1e8;
-  --accent-foreground: #b4410d;
+  --accent: #f2f2ef;
+  --accent-foreground: #1a1a1a;
   --destructive: #d92d20;
   --destructive-foreground: #ffffff;
-  --success: #12805c;
-  --border: #e6e4df;
-  --input: #d6d3cc;
-  --ring: #f26625;
-  --surface: #fafaf8;
+  --success: #43b13b;
+  --border: #dcdad5;
+  --input: #cfccc5;
+  --ring: #3a7bd5;
+  --surface: #fafafa;
+  --step-active: #add8e6;
 }
 
 .dark {
@@ -42,22 +56,44 @@
   --card-foreground: #f5f5f2;
   --popover: #1d1d1d;
   --popover-foreground: #f5f5f2;
-  --primary: #ff7a3d;
-  --primary-foreground: #141414;
-  --primary-hover: #ff8f5a;
+  --primary: #4cc443;
+  --primary-foreground: #0f1a0e;
+  --primary-hover: #5fd256;
+  --neutral: #8a8a8a;
+  --neutral-foreground: #141414;
+  --neutral-hover: #9a9a9a;
+  --brand: #ff7a3d;
+  --brand-foreground: #141414;
+  --brand-hover: #ff8f5a;
+  --link: #6ea2f0;
+  --info: #5b8cf0;
+  --info-foreground: #0d1526;
+  --info-hover: #7aa2f5;
+  --beige: #24231f;
+  --beige-border: #36342e;
   --secondary: #262626;
   --secondary-foreground: #f5f5f2;
   --muted: #262626;
   --muted-foreground: #a8a39b;
-  --accent: #3a2418;
-  --accent-foreground: #ffb38a;
+  --accent: #262626;
+  --accent-foreground: #f5f5f2;
   --destructive: #f2685c;
   --destructive-foreground: #141414;
-  --success: #3ccf9a;
+  --success: #4cc443;
   --border: #2e2e2e;
   --input: #3a3a3a;
-  --ring: #ff7a3d;
+  --ring: #6ea2f0;
   --surface: #181818;
+  --step-active: #2b4a57;
+}
+
+/* Javne stranice (landing, prijava, registracija…) zadržavaju YC narandžastu
+   kao primarnu boju; aplikacija koristi zelenu. */
+.theme-brand {
+  --primary: var(--brand);
+  --primary-foreground: var(--brand-foreground);
+  --primary-hover: var(--brand-hover);
+  --ring: var(--brand);
 }
 
 @theme inline {
@@ -71,6 +107,19 @@
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary-hover: var(--primary-hover);
+  --color-neutral: var(--neutral);
+  --color-neutral-foreground: var(--neutral-foreground);
+  --color-neutral-hover: var(--neutral-hover);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-hover: var(--brand-hover);
+  --color-link: var(--link);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-info-hover: var(--info-hover);
+  --color-beige: var(--beige);
+  --color-beige-border: var(--beige-border);
+  --color-step-active: var(--step-active);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

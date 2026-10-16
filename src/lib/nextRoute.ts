@@ -9,6 +9,6 @@ export interface MeState {
 // niko ne vrati na landing stranicu i izgubi tok.
 export function getNextRoute(me: MeState): string {
   if (!me.agreementAccepted) return "/pravila";
-  if (me.profileStatus === "APPROVED") return "/discover";
-  return "/profil";
+  if (me.profileStatus === "APPROVED") return "/app";
+  return "/app/profile";
 }

@@ -41,7 +41,7 @@ export default function AgreementPage() {
     onSuccess: () => {
       // Pravila su korak neposredno prije kreiranja profila — normalan tok
       // nakon prihvatanja je uvijek popunjavanje profila.
-      router.push("/profil");
+      router.push("/app/profile");
     },
   });
 

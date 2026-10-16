@@ -1,10 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { notFound, useParams } from "next/navigation";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { EmptyState, ListSkeleton, PageContainer, PageHeader, TabBar } from "@/components/ui/page";
+import { EmptyState, ListSkeleton, PageBand, PageContainer } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 
 const t = sr.reviewed;
@@ -19,6 +20,13 @@ class ReviewedApiError extends Error {
 }
 
 type ReviewTab = "liked" | "thinking" | "notInterested";
+
+// URL /app/revisit/[liked|thinking|declined] → lista.
+const LISTS: Record<string, { tab: ReviewTab; title: string }> = {
+  liked: { tab: "liked", title: sr.nav.revisitLiked },
+  thinking: { tab: "thinking", title: sr.nav.revisitThinking },
+  declined: { tab: "notInterested", title: sr.nav.revisitDeclined },
+};
 type DecisionType = "THINKING" | "NOT_INTERESTED";
 
 interface ProfileCardData {
@@ -161,7 +169,9 @@ function ReviewedCard({ item, onUndone }: { item: DecisionItem; onUndone: (userI
 
 export default function ReviewedPage() {
   const queryClient = useQueryClient();
-  const [tab, setTab] = useState<ReviewTab>("liked");
+  const params = useParams<{ list: string }>();
+  const list = LISTS[params.list];
+  const tab: ReviewTab = list?.tab ?? "liked";
   const [cursors, setCursors] = useState<Record<"thinking" | "notInterested", (string | null)[]>>({
     thinking: [null],
     notInterested: [null],
@@ -213,17 +223,13 @@ export default function ReviewedPage() {
     });
   };
 
-  const tabs: { key: ReviewTab; label: string }[] = [
-    { key: "liked", label: t.tabs.liked },
-    { key: "thinking", label: t.tabs.thinking },
-    { key: "notInterested", label: t.tabs.notInterested },
-  ];
+  if (!list) notFound();
 
   return (
+    <>
+    <PageBand eyebrow={sr.nav.revisit} title={list.title} />
     <PageContainer>
-      <PageHeader title={t.title} />
       <div className="flex flex-col gap-6">
-        <TabBar tabs={tabs} value={tab} onChange={setTab} />
 
         {tab === "liked" ? (
           sentQuery.isLoading ? (
@@ -266,5 +272,6 @@ export default function ReviewedPage() {
         )}
       </div>
     </PageContainer>
+    </>
   );
 }

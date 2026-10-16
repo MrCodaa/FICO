@@ -10,7 +10,7 @@ export const sr = {
       eyebrow: "Find Co-Founder za Balkan",
       title: "Pronađi pravog co-foundera za svoj startup",
       subtitle:
-        "FICO povezuje osnivače na Balkanu. Napravi profil, otkrivaj kandidate uz procenat poklapanja i razloge, i počni razgovor kad se obje strane slože.",
+        "FICO povezuje osnivače na Balkanu. Napravi profil, otkrivaj kandidate uz razloge zašto se slažete, i počni razgovor kad se obje strane slože.",
       cta: "Kreiraj profil",
       ctaSecondary: "Već imaš nalog? Prijavi se",
     },
@@ -25,7 +25,7 @@ export const sr = {
         {
           title: "Otkrivaj kandidate",
           description:
-            "Gledaj profile jedan po jedan, uz procenat poklapanja i glavne razloge za njega.",
+            "Gledaj profile jedan po jedan, uz razloge zašto se slažete.",
         },
         {
           title: "Pošalji zahtjev",
@@ -39,8 +39,7 @@ export const sr = {
       name: "Ana, 29",
       location: "Sarajevo, BiH",
       role: "Tehnička osnivačica · fintech",
-      score: "87%",
-      scoreLabel: "poklapanje",
+      reasonsTitle: "Zašto se slažete",
       reasons: [
         "Traži netehničkog co-foundera, a ti preuzimaš prodaju",
         "Oboje ste spremni da krenete u narednih 6 mjeseci",
@@ -79,7 +78,7 @@ export const sr = {
       asideSteps: [
         "Napravi nalog i potvrdi email",
         "Odgovori na pitanja o sebi, ideji i tome koga tražiš",
-        "Nakon odobrenja otkrivaj kandidate uz procenat poklapanja",
+        "Nakon odobrenja otkrivaj kandidate jednog po jednog",
         "Pošalji zahtjev sa porukom, a chat se otvara kad druga strana prihvati",
       ],
     },
@@ -397,22 +396,31 @@ export const sr = {
     },
   },
   nav: {
-    discover: "Discover",
-    reviewed: "Pregledani",
+    brand: "FICO",
+    dashboard: "Kontrolna tabla",
+    discover: "Otkrij profile",
+    revisit: "Ponovo pogledaj profile",
+    revisitLiked: "Sviđa mi se",
+    revisitThinking: "Razmisliću",
+    revisitDeclined: "Ne zanima me",
     requests: "Zahtjevi",
     messages: "Poruke",
-    curriculum: "Kurikulum",
-    profile: "Moj profil",
-    comingSoon: "Uskoro",
+    account: "Moj nalog",
+    editProfile: "Uredi profil",
+    settings: "Podešavanja",
+    logout: "Odjavi se",
     notifications: "Obavještenja",
     notificationsEmpty: "Nema novih obavještenja.",
     markAllRead: "Označi sve kao pročitano",
+    openMenu: "Otvori meni",
+    closeMenu: "Zatvori meni",
+  },
+  footer: {
+    about: "O nama",
+    privacy: "Privatnost",
+    faq: "FAQ",
+    help: "Pomoć",
     logout: "Odjavi se",
-    settings: "Podešavanja",
-    settingsSignedInAs: "Prijavljen/a kao",
-    settingsProfile: "Moj profil",
-    settingsFaq: "FAQ",
-    settingsHelp: "Pomoć",
   },
   notifications: {
     types: {
@@ -477,9 +485,13 @@ export const sr = {
     },
   },
   misc: {
-    curriculum: {
-      title: "Kurikulum",
-      comingSoon: "Uskoro.",
+    about: {
+      title: "O nama",
+      placeholder: "Stranica o nama dolazi uskoro.",
+    },
+    privacy: {
+      title: "Privatnost",
+      placeholder: "Politika privatnosti dolazi uskoro.",
     },
     faq: {
       title: "FAQ",

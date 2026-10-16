@@ -4,13 +4,8 @@ import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
-import { getNextRoute, type MeState } from "@/lib/nextRoute";
-
-async function fetchMe(): Promise<MeState | null> {
-  const res = await fetch("/api/me", { credentials: "include" });
-  if (!res.ok) return null;
-  return res.json();
-}
+import { fetchMe } from "@/lib/http/apiClient";
+import { getNextRoute } from "@/lib/nextRoute";
 
 function BrandMark({ brand }: { brand: string }) {
   return (
@@ -44,11 +39,8 @@ function MatchPreview() {
           <span className="text-muted-foreground text-sm">{p.role}</span>
         </div>
       </div>
-      <div className="mt-6 flex items-baseline gap-2 border-t pt-5">
-        <span className="text-primary text-4xl font-bold tracking-tight">{p.score}</span>
-        <span className="text-muted-foreground text-sm font-medium">{p.scoreLabel}</span>
-      </div>
-      <ul className="mt-4 flex flex-col gap-2.5">
+      <p className="mt-6 border-t pt-5 text-sm font-semibold">{p.reasonsTitle}</p>
+      <ul className="mt-3 flex flex-col gap-2.5">
         {p.reasons.map((reason) => (
           <li key={reason} className="flex gap-2.5 text-[0.9375rem] leading-snug">
             <span aria-hidden className="bg-primary mt-2 size-1.5 shrink-0 rounded-full" />

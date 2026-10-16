@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { EmptyState, ListSkeleton, PageContainer, PageHeader, TabBar } from "@/components/ui/page";
+import { EmptyState, ListSkeleton, PageBand, PageContainer, TabBar } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 
 const t = sr.requests;
@@ -245,8 +245,9 @@ export default function RequestsPage() {
   ];
 
   return (
+    <>
+    <PageBand title={sr.nav.requests} />
     <PageContainer>
-      <PageHeader title={sr.nav.requests} />
       <div className="flex flex-col gap-6">
         <TabBar tabs={tabs} value={tab} onChange={setTab} />
 
@@ -285,5 +286,6 @@ export default function RequestsPage() {
         )}
       </div>
     </PageContainer>
+    </>
   );
 }

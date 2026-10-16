@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
-import { EmptyState, ListSkeleton, PageContainer, PageHeader } from "@/components/ui/page";
+import { EmptyState, ListSkeleton, PageBand, PageContainer } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +74,7 @@ function MatchRow({ item }: { item: MatchItem }) {
 
   return (
     <Link
-      href={`/poruke/${item.id}`}
+      href={`/app/messages/${item.id}`}
       className="hover:bg-surface flex items-center gap-4 px-5 py-4 transition-colors md:px-6"
     >
       {item.other.photoUrl ? (
@@ -118,8 +118,9 @@ export default function MessagesPage() {
   const items = matchesQuery.data?.items ?? [];
 
   return (
+    <>
+    <PageBand title={t.title} />
     <PageContainer width="narrow">
-      <PageHeader title={t.title} />
 
       {matchesQuery.isLoading ? (
         <ListSkeleton rows={3} className="md:grid-cols-1" />
@@ -133,5 +134,6 @@ export default function MessagesPage() {
         </div>
       )}
     </PageContainer>
+    </>
   );
 }

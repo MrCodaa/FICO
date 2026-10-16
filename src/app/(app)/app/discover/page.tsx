@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageContainer, PageHeader } from "@/components/ui/page";
+import { EmptyState, PageContainer } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
@@ -231,7 +231,6 @@ export default function DiscoverPage() {
   if (isForbidden) {
     return (
       <PageContainer width="narrow">
-        <PageHeader title={t.title} />
         <EmptyState className="text-destructive">{t.forbidden}</EmptyState>
       </PageContainer>
     );
@@ -240,7 +239,6 @@ export default function DiscoverPage() {
   if (nextQuery.isError) {
     return (
       <PageContainer width="narrow">
-        <PageHeader title={t.title} />
         <EmptyState className="text-destructive">{sr.profile.errors.generic}</EmptyState>
       </PageContainer>
     );
@@ -253,7 +251,6 @@ export default function DiscoverPage() {
   if (!candidate) {
     return (
       <PageContainer width="narrow">
-        <PageHeader title={t.title} />
         <EmptyState>{t.empty}</EmptyState>
       </PageContainer>
     );
@@ -265,7 +262,6 @@ export default function DiscoverPage() {
 
   return (
     <PageContainer width="wide">
-      <PageHeader title={t.title} />
       <div className="flex flex-col gap-8">
         <div className="flex flex-col items-start gap-6 lg:flex-row lg:gap-8">
           <div className="bg-card flex w-full min-w-0 flex-1 flex-col rounded-xl border p-6 shadow-xs md:p-8">

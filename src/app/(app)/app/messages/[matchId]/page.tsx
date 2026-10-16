@@ -10,6 +10,7 @@ import { PageContainer } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { fetchMe } from "@/lib/http/apiClient";
 import { cn } from "@/lib/utils";
 
 const t = sr.chat;
@@ -39,10 +40,6 @@ interface MessageView {
 interface MessagesResponse {
   items: MessageView[];
   nextBefore: string | null;
-}
-
-interface MeResponse {
-  id: string;
 }
 
 interface ProfileCardData {
@@ -83,15 +80,6 @@ async function fetchMessages(matchId: string): Promise<MessagesResponse> {
     throw new ChatApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
   }
   return body as MessagesResponse;
-}
-
-async function fetchMe(): Promise<MeResponse> {
-  const res = await fetch("/api/me", { credentials: "include" });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new ChatApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
-  }
-  return body as MeResponse;
 }
 
 async function sendMessage(matchId: string, body: string): Promise<MessageView> {
@@ -192,7 +180,7 @@ export default function ConversationPage() {
     onSuccess: () => {
       setShowBlockConfirm(false);
       setBlockSuccess(true);
-      router.push("/poruke");
+      router.push("/app/messages");
     },
   });
 
@@ -280,7 +268,7 @@ export default function ConversationPage() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-16">
         <p className="text-destructive text-center text-sm">{t.forbidden}</p>
-        <Link href="/poruke" className="text-sm font-medium underline">
+        <Link href="/app/messages" className="text-sm font-medium underline">
           {t.backToList}
         </Link>
       </div>
@@ -300,7 +288,7 @@ export default function ConversationPage() {
     <PageContainer width="narrow" className="gap-5">
       <div className="flex flex-col gap-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/poruke" className="text-muted-foreground text-sm font-medium hover:text-foreground">
+          <Link href="/app/messages" className="text-muted-foreground text-sm font-medium hover:text-foreground">
             ← {t.backToList}
           </Link>
           <div className="flex items-center gap-2">
