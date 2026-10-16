@@ -20,7 +20,7 @@ interface ReviewStepProps {
 const basic = sr.profile.steps.basic;
 const more = sr.profile.steps.more;
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   firstName: basic.firstName,
   lastName: basic.lastName,
   photoUrl: basic.photo,
@@ -40,7 +40,7 @@ const FIELD_LABELS: Record<string, string> = {
   interests: more.interests,
 };
 
-function fieldLabel(key: string): string {
+export function fieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? key;
 }
 
@@ -100,48 +100,49 @@ export function ReviewStep({
   const t = sr.profile.steps.review;
   const incompleteFields = submitError?.code === "PROFILE_INCOMPLETE" ? submitError.fields : undefined;
 
+  const canSubmit = status === "DRAFT" || status === "REJECTED";
+
   return (
-    <div className="flex flex-col gap-6">
-      <p className="text-muted-foreground text-sm">{t.description}</p>
+    <div className="flex flex-col gap-8">
+      <p className="text-foreground/80">{t.description}</p>
 
       {status === "REJECTED" && rejectionReason && (
-        <div className="border-destructive/50 bg-destructive/5 flex flex-col gap-1 rounded-md border p-3">
-          <span className="text-destructive text-sm font-medium">{t.rejectedNotice}</span>
-          <span className="text-sm">{rejectionReason}</span>
+        <div className="border-destructive/50 bg-destructive/5 flex flex-col gap-1 rounded-md border p-4">
+          <span className="text-destructive font-semibold">{t.rejectedNotice}</span>
+          <span>{rejectionReason}</span>
         </div>
       )}
 
-      <div className="rounded-md border p-5 sm:p-6">
-        <ProfileFullView profile={toViewData(values)} />
-      </div>
+      <ProfileFullView profile={toViewData(values)} />
 
-      {submitSuccess ? (
-        <p className="text-sm font-medium text-green-600">{sr.profile.wizard.saved}</p>
-      ) : (
-        <>
-          {submitError && (
-            <div className="flex flex-col gap-2">
-              <p className="text-destructive text-sm">
-                {submitError.code === "PROFILE_INCOMPLETE"
-                  ? t.incomplete
-                  : submitError.code === "INVALID_STATUS"
-                    ? sr.profile.errors.locked
-                    : sr.profile.errors.generic}
-              </p>
-              {incompleteFields && (
-                <ul className="text-destructive list-inside list-disc text-xs">
-                  {Object.keys(incompleteFields).map((key) => (
-                    <li key={key}>{fieldLabel(key)}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          )}
-          <Button type="button" disabled={submitting} onClick={onSubmit}>
-            {t.submit}
-          </Button>
-        </>
-      )}
+      {canSubmit &&
+        (submitSuccess ? (
+          <p className="text-primary font-semibold">{sr.profile.wizard.pendingNotice}</p>
+        ) : (
+          <div className="flex flex-col gap-3 border-t pt-6">
+            {submitError && (
+              <div className="flex flex-col gap-2">
+                <p className="text-destructive">
+                  {submitError.code === "PROFILE_INCOMPLETE"
+                    ? t.incomplete
+                    : submitError.code === "INVALID_STATUS"
+                      ? sr.profile.errors.locked
+                      : sr.profile.errors.generic}
+                </p>
+                {incompleteFields && (
+                  <ul className="text-destructive list-inside list-disc text-sm">
+                    {Object.keys(incompleteFields).map((key) => (
+                      <li key={key}>{fieldLabel(key)}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            <Button type="button" size="lg" className="self-start" disabled={submitting} onClick={onSubmit}>
+              {t.submit}
+            </Button>
+          </div>
+        ))}
     </div>
   );
 }

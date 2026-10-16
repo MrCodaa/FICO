@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useForm } from "react-hook-form";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useForm, useWatch } from "react-hook-form";
+import { CheckCircle2, Circle } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { SectionCard } from "@/components/ui/card";
+import { PageBand } from "@/components/ui/page";
+import { Skeleton } from "@/components/ui/skeleton";
 import { sr } from "@/content/sr";
+import { fetchMe } from "@/lib/http/apiClient";
+import { cn } from "@/lib/utils";
 
 import {
   ApiError,
   fetchProfile,
+  type GetProfileResponse,
   mapServerToForm,
   patchPreference,
   patchProfile,
@@ -18,13 +26,22 @@ import {
   toMorePayload,
   toPreferencePayload,
 } from "./api";
+import { STEP_KEYS, stepCompletion, type StepKey } from "./completion";
 import { BasicStep } from "./steps/BasicStep";
 import { MoreStep } from "./steps/MoreStep";
 import { PreferenceStep } from "./steps/PreferenceStep";
-import { ReviewStep } from "./steps/ReviewStep";
+import { fieldLabel, ReviewStep } from "./steps/ReviewStep";
 import { emptyFormValues, type ProfileFormValues } from "./types";
 
+const w = sr.profile.wizard;
 const DRAFT_KEY = "fico:profile-draft";
+
+const STEP_TITLES: Record<StepKey, string> = {
+  basic: sr.profile.steps.basic.title,
+  more: sr.profile.steps.more.title,
+  preference: sr.profile.steps.preference.title,
+  preview: sr.profile.steps.review.title,
+};
 
 interface Draft {
   userId: string;
@@ -62,177 +79,232 @@ function clearDraft() {
   }
 }
 
-const STEPS = [
-  sr.profile.steps.basic.title,
-  sr.profile.steps.more.title,
-  sr.profile.steps.preference.title,
-  sr.profile.steps.review.title,
-];
+function errorMessage(code: string): string {
+  switch (code) {
+    case "PROFILE_LOCKED":
+      return sr.profile.errors.locked;
+    case "PROFILE_INCOMPLETE":
+      return sr.profile.errors.incomplete;
+    case "VALIDATION_ERROR":
+      return sr.profile.errors.validationError;
+    default:
+      return sr.profile.errors.generic;
+  }
+}
 
+/** Uredi profil (docs/ui-spec.md §5, yc-my-profile.png) — isti ekran služi i za prvo popunjavanje. */
 export default function ProfilePage() {
-  const [stepIndex, setStepIndex] = useState(0);
-  const [hydrated, setHydrated] = useState(false);
-  const [patchError, setPatchError] = useState<string | null>(null);
-  const [submitError, setSubmitError] = useState<{ code: string; fields?: Record<string, unknown> } | null>(
-    null,
+  return (
+    <Suspense fallback={null}>
+      <ProfileEditor />
+    </Suspense>
   );
+}
+
+function ProfileEditor() {
+  const profileQuery = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
+
+  if (profileQuery.isError) {
+    return (
+      <>
+        <PageBand eyebrow={w.eyebrow} title={w.title} />
+        <p className="text-destructive px-4 py-10 sm:px-8 xl:px-20">{sr.profile.errors.generic}</p>
+      </>
+    );
+  }
+
+  if (!profileQuery.data) {
+    return (
+      <>
+        <PageBand eyebrow={w.eyebrow} title={w.title} />
+        <div className="grid items-start gap-6 px-4 py-10 sm:px-8 lg:grid-cols-[22rem_minmax(0,1fr)] xl:px-20">
+          <Skeleton className="h-80 w-full" />
+          <Skeleton className="h-[36rem] w-full" />
+        </div>
+      </>
+    );
+  }
+
+  // Forma se pravi tek kad stignu podaci, pa početne vrijednosti (server +
+  // lokalni nacrt) idu direktno u useForm — bez reset-a u efektu.
+  return <ProfileForm data={profileQuery.data} />;
+}
+
+function ProfileForm({ data }: { data: GetProfileResponse }) {
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const viewerId = data.profile.userId ?? "";
+
+  const [initial] = useState(() => {
+    const draft = readDraft(viewerId);
+    // ?step=preference (link "Uredi" iz "Tvoji filteri") ima prednost nad nacrtom.
+    const fromUrl = STEP_KEYS.indexOf(searchParams.get("step") as StepKey);
+    return {
+      values: { ...mapServerToForm(data), ...draft?.values },
+      stepIndex: fromUrl >= 0 ? fromUrl : (draft?.stepIndex ?? 0),
+    };
+  });
+  const [stepIndex, setStepIndex] = useState(initial.stepIndex);
+  const [saveError, setSaveError] = useState<{ message: string; fields: string[] } | null>(null);
+  const [savedStep, setSavedStep] = useState<StepKey | null>(null);
+  const [submitError, setSubmitError] = useState<{ code: string; fields?: Record<string, unknown> } | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
-  const profileQuery = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
-  const form = useForm<ProfileFormValues>({ defaultValues: emptyFormValues });
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const form = useForm<ProfileFormValues>({ defaultValues: initial.values });
+  const watched = useWatch({ control: form.control });
 
-  const viewerId = profileQuery.data?.profile?.userId;
-
-  useEffect(() => {
-    if (hydrated || !profileQuery.data || !viewerId) return;
-    const serverValues = mapServerToForm(profileQuery.data);
-    const draft = readDraft(viewerId);
-    const merged = draft ? { ...serverValues, ...draft.values } : serverValues;
-    form.reset(merged);
-    if (draft && typeof draft.stepIndex === "number") {
-      setStepIndex(draft.stepIndex);
-    }
-    setHydrated(true);
-  }, [profileQuery.data, viewerId, hydrated, form]);
+  const status = submitSuccess ? "PENDING_REVIEW" : data.profile.status;
+  const locked = status === "PENDING_REVIEW";
+  const step = STEP_KEYS[stepIndex] ?? "basic";
 
   useEffect(() => {
-    if (!hydrated || !viewerId) return;
-    const subscription = form.watch((values) => {
-      writeDraft({ userId: viewerId, stepIndex, values: values as ProfileFormValues });
+    if (!viewerId) return;
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ values }) => writeDraft({ userId: viewerId, stepIndex, values }),
     });
-    return () => subscription.unsubscribe();
-  }, [form, hydrated, viewerId, stepIndex]);
+  }, [form, viewerId, stepIndex]);
 
-  useEffect(() => {
-    if (!hydrated || !viewerId) return;
-    writeDraft({ userId: viewerId, stepIndex, values: form.getValues() });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex, hydrated, viewerId]);
+  const saveMutation = useMutation({
+    mutationFn: async (key: StepKey) => {
+      const values = form.getValues();
+      if (key === "basic") await patchProfile(toBasicPayload(values));
+      else if (key === "more") await patchProfile(toMorePayload(values));
+      else if (key === "preference") await patchPreference(toPreferencePayload(values));
+    },
+    onSuccess: (_data, key) => {
+      setSavedStep(key);
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["discover"] });
+      goTo(Math.min(stepIndex + 1, STEP_KEYS.length - 1));
+    },
+    onError: (err) => {
+      setSaveError({
+        message: err instanceof ApiError ? errorMessage(err.code) : sr.profile.errors.generic,
+        fields: err instanceof ApiError && err.fields ? Object.keys(err.fields) : [],
+      });
+    },
+  });
 
-  const basicMutation = useMutation({
-    mutationFn: (values: ProfileFormValues) => patchProfile(toBasicPayload(values)),
-  });
-  const moreMutation = useMutation({
-    mutationFn: (values: ProfileFormValues) => patchProfile(toMorePayload(values)),
-  });
-  const preferenceMutation = useMutation({
-    mutationFn: (values: ProfileFormValues) => patchPreference(toPreferencePayload(values)),
-  });
   const submitMutation = useMutation({
     mutationFn: submitProfile,
     onSuccess: () => {
       setSubmitSuccess(true);
       setSubmitError(null);
       clearDraft();
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
     },
     onError: (err) => {
-      if (err instanceof ApiError) {
-        setSubmitError({ code: err.code, fields: err.fields });
-      } else {
-        setSubmitError({ code: "GENERIC" });
-      }
+      setSubmitError(err instanceof ApiError ? { code: err.code, fields: err.fields } : { code: "GENERIC" });
     },
   });
 
-  const errorMessage = (code: string) => {
-    switch (code) {
-      case "PROFILE_LOCKED":
-        return sr.profile.errors.locked;
-      case "PROFILE_INCOMPLETE":
-        return sr.profile.errors.incomplete;
-      case "VALIDATION_ERROR":
-        return sr.profile.errors.validationError;
-      default:
-        return sr.profile.errors.generic;
-    }
-  };
-
-  const handleNext = async () => {
-    setPatchError(null);
-    const values = form.getValues();
-    try {
-      if (stepIndex === 0) {
-        await basicMutation.mutateAsync(values);
-      } else if (stepIndex === 1) {
-        await moreMutation.mutateAsync(values);
-      } else if (stepIndex === 2) {
-        await preferenceMutation.mutateAsync(values);
-      }
-      setStepIndex((i) => Math.min(i + 1, STEPS.length - 1));
-    } catch (err) {
-      setPatchError(err instanceof ApiError ? errorMessage(err.code) : sr.profile.errors.generic);
-    }
-  };
-
-  const handleBack = () => {
-    setPatchError(null);
-    setStepIndex((i) => Math.max(i - 1, 0));
-  };
-
-  const isSaving = basicMutation.isPending || moreMutation.isPending || preferenceMutation.isPending;
-
-  if (profileQuery.isError) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-destructive text-sm">{sr.profile.errors.generic}</p>
-      </div>
-    );
+  function goTo(index: number) {
+    setSaveError(null);
+    setStepIndex(index);
+    if (viewerId) writeDraft({ userId: viewerId, stepIndex: index, values: form.getValues() });
+    window.scrollTo({ top: 0 });
   }
 
-  if (profileQuery.isLoading || !hydrated) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-muted-foreground text-sm">…</p>
-      </div>
-    );
-  }
+  const values = { ...emptyFormValues, ...watched } as ProfileFormValues;
+  const completion = stepCompletion(values, status);
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-center text-2xl font-bold tracking-tight">{sr.profile.wizard.title}</h1>
-          <p className="text-muted-foreground text-center text-sm">
-            {stepIndex + 1} / {STEPS.length} — {STEPS[stepIndex]}
-          </p>
+    <>
+      <PageBand eyebrow={w.eyebrow} title={w.title} />
+      <div className="flex flex-col gap-8 px-4 py-8 sm:px-8 md:py-10 xl:px-20">
+        <p className="max-w-[90rem] text-lg leading-relaxed">{w.intro}</p>
+
+        <div className="grid items-start gap-6 lg:grid-cols-[22rem_minmax(0,1fr)]">
+            <nav className="bg-card flex flex-col gap-3 rounded-md border p-6 lg:sticky lg:top-8">
+              <h2 className="px-1 pb-1 text-2xl font-semibold tracking-tight">{w.stepsTitle}</h2>
+              <ol className="flex flex-col gap-1">
+                {STEP_KEYS.map((key, index) => {
+                  const active = index === stepIndex;
+                  const done = completion[key];
+                  return (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        aria-current={active ? "step" : undefined}
+                        onClick={() => goTo(index)}
+                        className={cn(
+                          "flex w-full cursor-pointer items-center gap-3 rounded-md px-4 py-3 text-left text-lg transition-colors",
+                          active ? "bg-step-active font-semibold text-white" : "hover:bg-secondary",
+                        )}
+                      >
+                        {done ? (
+                          <CheckCircle2 className="text-primary size-7 shrink-0 fill-current stroke-white" />
+                        ) : (
+                          <Circle className={cn("size-7 shrink-0", active ? "text-white" : "text-border")} />
+                        )}
+                        {STEP_TITLES[key]}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </nav>
+
+            <SectionCard title={STEP_TITLES[step]}>
+              {locked && (
+                <p className="bg-beige border-beige-border rounded-md border px-4 py-3 font-medium">{w.pendingNotice}</p>
+              )}
+
+              {step === "basic" && <BasicStep form={form} email={meQuery.data?.email ?? ""} disabled={locked} />}
+              {step === "more" && <MoreStep form={form} disabled={locked} />}
+              {step === "preference" && <PreferenceStep form={form} disabled={locked} />}
+              {step === "preview" && (
+                <ReviewStep
+                  values={values}
+                  onSubmit={() => submitMutation.mutate()}
+                  submitting={submitMutation.isPending}
+                  submitError={submitError}
+                  submitSuccess={submitSuccess}
+                  status={status}
+                  rejectionReason={data.profile.rejectionReason}
+                />
+              )}
+
+              {step !== "preview" && (
+                <div className="flex flex-col gap-3 border-t pt-6">
+                  {saveError && (
+                    <div className="text-destructive flex flex-col gap-1">
+                      <p>{saveError.message}</p>
+                      {saveError.fields.length > 0 && (
+                        <p className="text-sm">
+                          {w.invalidFields} {saveError.fields.map(fieldLabel).join(", ")}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap items-center gap-4">
+                    <Button
+                      type="button"
+                      size="lg"
+                      variant="brand"
+                      disabled={locked || saveMutation.isPending}
+                      onClick={() => {
+                        setSaveError(null);
+                        saveMutation.mutate(step);
+                      }}
+                    >
+                      {saveMutation.isPending ? w.saving : w.save}
+                    </Button>
+                    {status === "APPROVED" && <span className="text-muted-foreground">{w.approvedNotice}</span>}
+                  </div>
+                </div>
+              )}
+              {savedStep && step !== savedStep && !saveError && (
+                <p className="text-primary font-medium" role="status">
+                  {w.saved}
+                </p>
+              )}
+            </SectionCard>
         </div>
-
-        {stepIndex === 0 && <BasicStep form={form} />}
-        {stepIndex === 1 && <MoreStep form={form} />}
-        {stepIndex === 2 && <PreferenceStep form={form} />}
-        {stepIndex === 3 && (
-          <ReviewStep
-            values={form.getValues()}
-            onSubmit={() => submitMutation.mutate()}
-            submitting={submitMutation.isPending}
-            submitError={submitError}
-            submitSuccess={submitSuccess}
-            status={profileQuery.data?.profile?.status}
-            rejectionReason={profileQuery.data?.profile?.rejectionReason}
-          />
-        )}
-
-        {patchError && <p className="text-destructive text-sm">{patchError}</p>}
-
-        {stepIndex < 3 && (
-          <div className="flex justify-between gap-3">
-            <Button type="button" variant="outline" disabled={stepIndex === 0} onClick={handleBack}>
-              {sr.profile.wizard.back}
-            </Button>
-            <Button type="button" disabled={isSaving} onClick={handleNext}>
-              {sr.profile.wizard.next}
-            </Button>
-          </div>
-        )}
-
-        {stepIndex === 3 && !submitSuccess && (
-          <div className="flex justify-start">
-            <Button type="button" variant="outline" onClick={handleBack}>
-              {sr.profile.wizard.back}
-            </Button>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   );
 }

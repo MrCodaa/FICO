@@ -101,6 +101,7 @@ const decisionLabel = { THINKING: sr.discover.think, NOT_INTERESTED: sr.discover
 /** Javni profil (docs/ui-spec.md §3): sredina kao Discover, desna kolona po odnosu. */
 export default function PublicProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const viewer = useViewer();
   const query = useQuery({
@@ -177,7 +178,7 @@ export default function PublicProfilePage() {
         <>
           {panel}
           <WhyCard reasons={match.reasons} />
-          <SafetyNote userId={profile.userId} onBlocked={() => window.location.assign("/app")} />
+          <SafetyNote userId={profile.userId} onBlocked={() => router.push("/app")} />
         </>
       }
     />

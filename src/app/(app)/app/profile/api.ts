@@ -258,6 +258,6 @@ export function toPreferencePayload(v: ProfileFormValues) {
     wantedAreas: v.wantedAreas,
     areasImportance: v.areasImportance === "" ? null : v.areasImportance,
     interestsImportance: v.interestsImportance === "" ? null : v.interestsImportance,
-    alertOnNewMatch: v.alertOnNewMatch,
+    // alertOnNewMatch se mijenja u Podešavanjima (emailovi), ne ovdje.
   };
 }

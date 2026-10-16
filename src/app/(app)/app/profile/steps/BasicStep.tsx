@@ -3,24 +3,25 @@
 import { useRef, useState, type ChangeEvent } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { countries, citiesByCountry } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 
 import { ApiError, uploadPhoto } from "../api";
+import { Checkbox, Field, RadioGroup } from "../fields";
 import { resizeImageToBlob } from "../resizeImage";
 import type { ProfileFormValues } from "../types";
-import { checkboxInputClass, checkboxRowClass, selectClass } from "../ui";
+import { selectClass } from "../ui";
 
 interface BasicStepProps {
   form: UseFormReturn<ProfileFormValues>;
+  email: string;
+  disabled?: boolean;
 }
 
-export function BasicStep({ form }: BasicStepProps) {
+export function BasicStep({ form, email, disabled }: BasicStepProps) {
   const { register, watch, setValue } = form;
   const t = sr.profile.steps.basic;
   const errors = sr.profile.errors;
@@ -31,7 +32,7 @@ export function BasicStep({ form }: BasicStepProps) {
   const photoUrl = watch("photoUrl");
   const noLinkedin = watch("noLinkedin");
   const countryCode = watch("countryCode");
-  const cityOptions = countryCode ? citiesByCountry[countryCode] ?? [] : [];
+  const cityOptions = countryCode ? (citiesByCountry[countryCode] ?? []) : [];
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -59,159 +60,148 @@ export function BasicStep({ form }: BasicStepProps) {
   };
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex flex-col gap-2">
-        {/* TODO: vratiti obaveznu sliku ("*") kad se uključi Vercel Blob. */}
-        <Label>{t.photo}</Label>
-        <div className="flex items-center gap-4">
-          <ProfileAvatar
-            photoUrl={photoUrl}
-            firstName={watch("firstName")}
-            lastName={watch("lastName")}
-            className="h-28 w-28 text-3xl"
-          />
-          <div className="flex flex-col gap-1">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={uploading}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {photoUrl ? t.photoReplace : t.photoUpload}
-            </Button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={handleFileChange}
-            />
-            <p className="text-muted-foreground text-xs">{t.photoHint}</p>
-          </div>
-        </div>
+    <fieldset disabled={disabled} className="flex flex-col gap-8">
+      {/* TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. */}
+      <div className="flex flex-col items-center gap-2">
+        <ProfileAvatar
+          photoUrl={photoUrl}
+          firstName={watch("firstName")}
+          lastName={watch("lastName")}
+          className="size-32 text-3xl"
+        />
+        <button
+          type="button"
+          disabled={uploading || disabled}
+          onClick={() => fileInputRef.current?.click()}
+          className="text-link cursor-pointer text-lg hover:underline disabled:opacity-50"
+        >
+          {t.photoChange}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <p className="text-muted-foreground text-sm">{t.photoHint}</p>
         {photoError && <p className="text-destructive text-sm">{photoError}</p>}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="firstName">{t.firstName} *</Label>
-        <Input id="firstName" {...register("firstName")} />
+      <div className="grid gap-x-3 gap-y-8 sm:grid-cols-2">
+        <Field label={t.firstName} htmlFor="firstName" required>
+          <Input id="firstName" {...register("firstName")} />
+        </Field>
+        <Field label={t.lastName} htmlFor="lastName" required>
+          <Input id="lastName" {...register("lastName")} />
+        </Field>
       </div>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="lastName">{t.lastName} *</Label>
-        <Input id="lastName" {...register("lastName")} />
-      </div>
+      <Field label={t.email} htmlFor="email" required>
+        <Input id="email" value={email} readOnly disabled className="bg-surface" />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="linkedinUrl">
-          {t.linkedinUrl}
-          {!noLinkedin && " *"}
-        </Label>
-        <Input id="linkedinUrl" disabled={noLinkedin} {...register("linkedinUrl")} />
-        <label className={checkboxRowClass}>
-          <input type="checkbox" className={checkboxInputClass} {...register("noLinkedin")} />
-          {t.noLinkedin}
-        </label>
-      </div>
+      <Field label={t.linkedinUrl} htmlFor="linkedinUrl" required={!noLinkedin} hint={t.linkedinHint}>
+        <Input id="linkedinUrl" type="url" disabled={noLinkedin} {...register("linkedinUrl")} />
+        <div className="pt-2">
+          <Checkbox
+            checked={noLinkedin}
+            label={t.noLinkedin}
+            disabled={disabled}
+            onChange={(checked) => setValue("noLinkedin", checked, { shouldDirty: true })}
+          />
+        </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="countryCode">{t.country} *</Label>
-        <select id="countryCode" className={selectClass} {...register("countryCode")}>
-          <option value="">—</option>
-          {countries.map((c) => (
-            <option key={c.code} value={c.code}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      <Field label={t.location} required hint={t.locationHint}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <select aria-label={t.country} className={selectClass} {...register("countryCode")}>
+            <option value="">{t.country}</option>
+            {countries.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <select aria-label={t.city} className={selectClass} disabled={!countryCode} {...register("city")}>
+            <option value="">{t.city}</option>
+            {cityOptions.map((city) => (
+              <option key={city} value={city}>
+                {city}
+              </option>
+            ))}
+          </select>
+        </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="city">{t.city} *</Label>
-        <select
-          id="city"
-          className={selectClass}
-          disabled={!countryCode}
-          {...register("city")}
-        >
-          <option value="">—</option>
-          {cityOptions.map((city) => (
-            <option key={city} value={city}>
-              {city}
-            </option>
-          ))}
-        </select>
-      </div>
+      <Field label={t.intro} htmlFor="intro" required>
+        <Textarea id="intro" maxLength={1000} className="min-h-32" {...register("intro")} />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="intro">{t.intro} *</Label>
-        <Textarea id="intro" maxLength={1000} {...register("intro")} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="videoUrl">{t.videoUrl}</Label>
+      <Field label={t.videoUrl} htmlFor="videoUrl">
         <Input id="videoUrl" type="url" {...register("videoUrl")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="accomplishment">{t.accomplishment} *</Label>
-        <Textarea id="accomplishment" maxLength={1000} {...register("accomplishment")} />
-      </div>
+      <Field label={t.accomplishment} htmlFor="accomplishment" required>
+        <Textarea id="accomplishment" maxLength={1000} className="min-h-32" {...register("accomplishment")} />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="education">{t.education} *</Label>
+      <Field label={t.education} htmlFor="education" required>
         <Textarea id="education" maxLength={800} {...register("education")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="employment">{t.employment} *</Label>
+      <Field label={t.employment} htmlFor="employment" required>
         <Textarea id="employment" maxLength={800} {...register("employment")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="isTechnical">{t.isTechnical} *</Label>
-        <select id="isTechnical" className={selectClass} {...register("isTechnical")}>
-          <option value="">—</option>
-          <option value="true">{t.isTechnicalYes}</option>
-          <option value="false">{t.isTechnicalNo}</option>
-        </select>
-      </div>
+      <Field label={t.isTechnical} required>
+        <RadioGroup
+          name="isTechnical"
+          inline
+          disabled={disabled}
+          value={watch("isTechnical")}
+          onChange={(v) => setValue("isTechnical", v, { shouldDirty: true })}
+          options={[
+            { value: "true", label: t.isTechnicalYes },
+            { value: "false", label: t.isTechnicalNo },
+          ]}
+        />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="gender">{t.gender} *</Label>
-        <select id="gender" className={selectClass} {...register("gender")}>
-          <option value="">—</option>
-          <option value="MALE">{t.genderOptions.MALE}</option>
-          <option value="FEMALE">{t.genderOptions.FEMALE}</option>
-          <option value="OTHER">{t.genderOptions.OTHER}</option>
-        </select>
-      </div>
+      <Field label={t.gender} required>
+        <RadioGroup
+          name="gender"
+          inline
+          disabled={disabled}
+          value={watch("gender")}
+          onChange={(v) => setValue("gender", v, { shouldDirty: true })}
+          options={[
+            { value: "MALE", label: t.genderOptions.MALE },
+            { value: "FEMALE", label: t.genderOptions.FEMALE },
+            { value: "OTHER", label: t.genderOptions.OTHER },
+          ]}
+        />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="birthDate">{t.birthDate} *</Label>
-        <Input id="birthDate" type="date" {...register("birthDate")} />
-      </div>
+      <Field label={t.birthDate} htmlFor="birthDate" required>
+        <Input id="birthDate" type="date" className="sm:max-w-xs" {...register("birthDate")} />
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="schedulingUrl">{t.schedulingUrl}</Label>
+      <Field label={t.schedulingUrl} htmlFor="schedulingUrl">
         <Input id="schedulingUrl" type="url" {...register("schedulingUrl")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="twitterUrl">{t.twitterUrl}</Label>
+      <Field label={t.twitterUrl} htmlFor="twitterUrl">
         <Input id="twitterUrl" type="url" {...register("twitterUrl")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="instagramUrl">{t.instagramUrl}</Label>
+      <Field label={t.instagramUrl} htmlFor="instagramUrl">
         <Input id="instagramUrl" type="url" {...register("instagramUrl")} />
-      </div>
+      </Field>
 
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="heardFrom">{t.heardFrom}</Label>
+      <Field label={t.heardFrom} htmlFor="heardFrom">
         <Input id="heardFrom" {...register("heardFrom")} />
-      </div>
-    </div>
+      </Field>
+    </fieldset>
   );
 }
