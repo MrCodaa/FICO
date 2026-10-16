@@ -1,4 +1,14 @@
-import type { Area, Gender, IdeaStatus, ProfileStatus, Timing } from "@/generated/prisma/client";
+import type {
+  Area,
+  Gender,
+  IdeaPreference,
+  IdeaStatus,
+  Importance,
+  LocationScope,
+  ProfileStatus,
+  TechnicalPreference,
+  Timing,
+} from "@/generated/prisma/client";
 import { computeAge } from "@/lib/age";
 import type { ProfileRecord, PreferenceRecord } from "./repository";
 
@@ -13,9 +23,18 @@ export function toPreferenceDraft(preference: PreferenceRecord): PreferenceRecor
   return preference;
 }
 
-// Admin pregled vidi profil, ali ne email ni datum rođenja (šalje se age), a
-// schedulingUrl/twitterUrl/instagramUrl su rezervisani za matcheve, pa se ne
-// prosljeđuju ovdje.
+// Javni prikaz profila (Discover, javni profil, admin). Bez emaila i datuma
+// rođenja (šalje se age); schedulingUrl/twitterUrl/instagramUrl su rezervisani
+// za matcheve, pa se ne prosljeđuju ovdje.
+export interface ProfilePreferenceView {
+  idea: IdeaPreference | null;
+  technical: TechnicalPreference | null;
+  timingImportance: Importance | null;
+  location: LocationScope | null;
+  interestsImportance: Importance | null;
+  wantedAreas: Area[];
+}
+
 export interface ProfileView {
   userId: string;
   status: ProfileStatus;
@@ -45,17 +64,22 @@ export interface ProfileView {
   freeTime: string | null;
   lifePath: string | null;
   other: string | null;
-  // Preference.lookingFor — "Opiši koga tražiš"; dio javnog profila kao na YC-u.
+  // Preference.lookingFor — "Idealan co-founder" u sekciji "Šta tražim u co-founderu".
   lookingFor: string | null;
+  // Preference za rečenicu "Idealno, moj co-founder je…" (null = nema zapisa).
+  preference: ProfilePreferenceView | null;
+  // "Aktivan prije X dana" — null tamo gdje se ne prikazuje (admin, sopstveni pregled).
+  lastActiveAt: Date | null;
   submittedAt: Date | null;
 }
 
 export function toProfileView(
   profile: ProfileRecord,
   now: Date,
-  preference?: { lookingFor: string | null } | null,
+  extras: { preference?: PreferenceRecord | null; lastActiveAt?: Date | null } = {},
 ): ProfileView {
   const age = profile.birthDate ? computeAge(profile.birthDate, now) : null;
+  const pref = extras.preference ?? null;
   return {
     userId: profile.userId,
     status: profile.status,
@@ -85,7 +109,18 @@ export function toProfileView(
     freeTime: profile.freeTime,
     lifePath: profile.lifePath,
     other: profile.other,
-    lookingFor: preference?.lookingFor ?? null,
+    lookingFor: pref?.lookingFor ?? null,
+    preference: pref
+      ? {
+          idea: pref.idea,
+          technical: pref.technical,
+          timingImportance: pref.timingImportance,
+          location: pref.location,
+          interestsImportance: pref.interestsImportance,
+          wantedAreas: pref.wantedAreas,
+        }
+      : null,
+    lastActiveAt: extras.lastActiveAt ?? null,
     submittedAt: profile.submittedAt,
   };
 }

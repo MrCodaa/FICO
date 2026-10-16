@@ -1,7 +1,7 @@
 import { db } from "@/lib/db";
 import { visibleTo } from "@/lib/visibleTo";
 import type { DecisionType, Prisma } from "@/generated/prisma/client";
-import type { ProfileRecord } from "@/features/profile/repository";
+import type { PreferenceRecord, ProfileRecord } from "@/features/profile/repository";
 import type { MatchPerson } from "@/lib/matching/types";
 import { buildMatchPerson } from "@/lib/matching/buildMatchPerson";
 
@@ -39,8 +39,9 @@ function toMatchPerson(row: CandidateProfileRow, preference: Prisma.PreferenceGe
 export interface CandidateRow {
   person: MatchPerson;
   profile: ProfileRecord;
-  // Preference.lookingFor kandidata — prikazuje se u punom profilu (ProfileView).
-  lookingFor?: string | null;
+  // Preference kandidata — "Šta tražim u co-founderu" u punom profilu (ProfileView).
+  preference: PreferenceRecord | null;
+  lastActiveAt: Date;
 }
 
 export interface DecisionListItem {
@@ -115,7 +116,8 @@ export const discoverRepository: DiscoverRepository = {
     return rows.map((row) => ({
       person: toMatchPerson(row, preferences.get(row.userId)),
       profile: toProfileRecord(row),
-      lookingFor: preferences.get(row.userId)?.lookingFor ?? null,
+      preference: preferences.get(row.userId) ?? null,
+      lastActiveAt: row.user.lastActiveAt,
     }));
   },
 
@@ -129,7 +131,8 @@ export const discoverRepository: DiscoverRepository = {
     return {
       person: toMatchPerson(row, preference ?? undefined),
       profile: toProfileRecord(row),
-      lookingFor: preference?.lookingFor ?? null,
+      preference: preference ?? null,
+      lastActiveAt: row.user.lastActiveAt,
     };
   },
 

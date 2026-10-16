@@ -131,8 +131,8 @@ describe("createDiscoverService.getNext", () => {
 
   it("vraća najbolje rangiranog kandidata po score-u", async () => {
     const rows: CandidateRow[] = [
-      { person: fakePerson({ userId: "cand-low" }), profile: fakeProfile({ userId: "cand-low", firstName: "Low" }) },
-      { person: fakePerson({ userId: "cand-high" }), profile: fakeProfile({ userId: "cand-high", firstName: "High" }) },
+      { person: fakePerson({ userId: "cand-low" }), profile: fakeProfile({ userId: "cand-low", firstName: "Low" }), preference: null, lastActiveAt: new Date() },
+      { person: fakePerson({ userId: "cand-high" }), profile: fakeProfile({ userId: "cand-high", firstName: "High" }), preference: null, lastActiveAt: new Date() },
     ];
     evaluateMatchMock.mockImplementation((_viewer: MatchPerson, candidate: MatchPerson) => {
       const score = candidate.profile.userId === "cand-high" ? 0.9 : 0.2;
@@ -152,8 +152,10 @@ describe("createDiscoverService.getNext", () => {
       {
         person: fakePerson({ userId: "cand-unmet" }),
         profile: fakeProfile({ userId: "cand-unmet", firstName: "Unmet" }),
+        preference: null,
+        lastActiveAt: new Date(),
       },
-      { person: fakePerson({ userId: "cand-ok" }), profile: fakeProfile({ userId: "cand-ok", firstName: "Ok" }) },
+      { person: fakePerson({ userId: "cand-ok" }), profile: fakeProfile({ userId: "cand-ok", firstName: "Ok" }), preference: null, lastActiveAt: new Date() },
     ];
     evaluateMatchMock.mockImplementation((_viewer: MatchPerson, candidate: MatchPerson) => {
       if (candidate.profile.userId === "cand-unmet") {
@@ -183,7 +185,7 @@ describe("createDiscoverService.getProfile", () => {
     const repo = createFakeRepo({
       getCandidateById: vi
         .fn()
-        .mockResolvedValue({ person: fakePerson({ userId: "target" }), profile: fakeProfile({ userId: "target" }) }),
+        .mockResolvedValue({ person: fakePerson({ userId: "target" }), profile: fakeProfile({ userId: "target" }), preference: null, lastActiveAt: new Date() }),
     });
     const service = createDiscoverService({ repo, clock: createFakeClock() });
 

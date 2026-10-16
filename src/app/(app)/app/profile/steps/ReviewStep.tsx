@@ -68,7 +68,6 @@ function toViewData(values: ProfileFormValues): ProfileFullViewData {
     isTechnical: boolOrNull(values.isTechnical),
     ideaStatus: orNull(values.ideaStatus),
     ideas: orNull(values.ideas),
-    hasCofounder: boolOrNull(values.hasCofounder),
     timing: orNull(values.timing),
     areas: values.areas,
     interests: values.interests,
@@ -76,13 +75,16 @@ function toViewData(values: ProfileFormValues): ProfileFullViewData {
     freeTime: orNull(values.freeTime),
     lifePath: orNull(values.lifePath),
     other: orNull(values.other),
+    gender: orNull(values.gender),
     lookingFor: orNull(values.lookingFor),
+    preference: {
+      idea: orNull(values.idea),
+      technical: orNull(values.technical),
+      timingImportance: orNull(values.timingImportance),
+      location: orNull(values.location),
+      interestsImportance: orNull(values.interestsImportance),
+    },
     linkedinUrl: values.noLinkedin ? null : orNull(values.linkedinUrl),
-    noLinkedin: values.noLinkedin,
-    videoUrl: orNull(values.videoUrl),
-    schedulingUrl: orNull(values.schedulingUrl),
-    twitterUrl: orNull(values.twitterUrl),
-    instagramUrl: orNull(values.instagramUrl),
   };
 }
 

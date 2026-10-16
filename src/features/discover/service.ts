@@ -39,7 +39,7 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
       const top = scored[0];
       if (!top) return { candidate: null, match: null, likesRemaining };
       return {
-        candidate: toProfileView(top.row.profile, now, { lookingFor: top.row.lookingFor ?? null }),
+        candidate: toProfileView(top.row.profile, now, { preference: top.row.preference, lastActiveAt: top.row.lastActiveAt }),
         match: { score: top.result.score, reasons: top.result.reasons },
         likesRemaining,
       };
@@ -55,7 +55,7 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
       const now = clock.now();
       const result = evaluateMatch(viewer, candidate.person, now);
       return {
-        profile: toProfileView(candidate.profile, now, { lookingFor: candidate.lookingFor ?? null }),
+        profile: toProfileView(candidate.profile, now, { preference: candidate.preference, lastActiveAt: candidate.lastActiveAt }),
         match: { score: result.score, reasons: result.reasons },
       };
     },

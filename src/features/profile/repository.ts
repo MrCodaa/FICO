@@ -62,9 +62,9 @@ export interface PreferenceRecord {
   updatedAt: Date;
 }
 
-// Admin pregled treba i slobodan tekst "Opiši koga tražiš" (Preference.lookingFor),
-// pa ga lista na pregledu dodaje uz profil.
-export type ReviewProfileRecord = ProfileRecord & { lookingFor?: string | null };
+// Admin pregled prikazuje i "Šta tražim u co-founderu" (Preference), pa ga
+// lista na pregledu dodaje uz profil.
+export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null };
 
 export interface ProfileRepository {
   getProfileAndPreference(
@@ -139,14 +139,11 @@ export const profileRepository: ProfileRepository = {
     const hasMore = items.length > limit;
     const page = hasMore ? items.slice(0, limit) : items;
     const preferences = page.length
-      ? await db.preference.findMany({
-          where: { userId: { in: page.map((p) => p.userId) } },
-          select: { userId: true, lookingFor: true },
-        })
+      ? await db.preference.findMany({ where: { userId: { in: page.map((p) => p.userId) } } })
       : [];
-    const lookingForByUserId = new Map(preferences.map((p) => [p.userId, p.lookingFor]));
+    const preferenceByUserId = new Map(preferences.map((p) => [p.userId, p]));
     return {
-      items: page.map((p) => ({ ...p, lookingFor: lookingForByUserId.get(p.userId) ?? null })),
+      items: page.map((p) => ({ ...p, preference: preferenceByUserId.get(p.userId) ?? null })),
       nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null,
     };
   },
