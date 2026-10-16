@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState, ListSkeleton, PageContainer, PageHeader, TabBar } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 
 const t = sr.reviewed;
@@ -96,26 +97,26 @@ function SentRequestCard({ item }: { item: SentItem }) {
   const location = [item.receiver.city, item.receiver.countryCode].filter(Boolean).join(", ");
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-4">
+    <div className="bg-card flex items-center gap-4 rounded-xl border p-5 shadow-xs">
       {item.receiver.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.receiver.photoUrl}
           alt={fullName || "—"}
-          className="h-14 w-14 shrink-0 rounded-full object-cover"
+          className="size-16 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
+        <div className="bg-muted size-16 shrink-0 rounded-full" />
       )}
-      <div className="flex flex-1 flex-col gap-1">
-        <span className="text-sm font-semibold">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate text-base font-semibold">
           {[fullName || "—", item.receiver.age != null ? String(item.receiver.age) : null]
             .filter(Boolean)
             .join(", ")}
         </span>
-        {location && <span className="text-muted-foreground text-xs">{location}</span>}
+        {location && <span className="text-muted-foreground text-sm">{location}</span>}
       </div>
-      <span className="rounded-full border px-2 py-1 text-xs font-medium">
+      <span className="bg-accent text-accent-foreground shrink-0 rounded-full px-3 py-1 text-xs font-semibold">
         {sr.requests.status[item.displayStatus]}
       </span>
     </div>
@@ -132,24 +133,24 @@ function ReviewedCard({ item, onUndone }: { item: DecisionItem; onUndone: (userI
   const location = [item.profile.city, item.profile.countryCode].filter(Boolean).join(", ");
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-4">
+    <div className="bg-card flex items-center gap-4 rounded-xl border p-5 shadow-xs">
       {item.profile.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.profile.photoUrl}
           alt={fullName || "—"}
-          className="h-14 w-14 shrink-0 rounded-full object-cover"
+          className="size-16 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
+        <div className="bg-muted size-16 shrink-0 rounded-full" />
       )}
-      <div className="flex flex-1 flex-col gap-1">
-        <span className="text-sm font-semibold">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate text-base font-semibold">
           {[fullName || "—", item.profile.age != null ? String(item.profile.age) : null]
             .filter(Boolean)
             .join(", ")}
         </span>
-        {location && <span className="text-muted-foreground text-xs">{location}</span>}
+        {location && <span className="text-muted-foreground text-sm">{location}</span>}
       </div>
       <Button type="button" variant="outline" size="sm" disabled={undoMutation.isPending} onClick={() => undoMutation.mutate()}>
         {t.undo}
@@ -219,31 +220,18 @@ export default function ReviewedPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
-
-        <div className="flex justify-center gap-2">
-          {tabs.map((tabDef) => (
-            <Button
-              key={tabDef.key}
-              type="button"
-              variant={tab === tabDef.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTab(tabDef.key)}
-            >
-              {tabDef.label}
-            </Button>
-          ))}
-        </div>
+    <PageContainer>
+      <PageHeader title={t.title} />
+      <div className="flex flex-col gap-6">
+        <TabBar tabs={tabs} value={tab} onChange={setTab} />
 
         {tab === "liked" ? (
           sentQuery.isLoading ? (
-            <p className="text-muted-foreground text-center text-sm">{sr.discover.loading}</p>
+            <ListSkeleton />
           ) : (sentQuery.data?.items.length ?? 0) === 0 ? (
-            <p className="text-muted-foreground text-center text-sm">{sr.requests.sent.empty}</p>
+            <EmptyState>{sr.requests.sent.empty}</EmptyState>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="grid gap-4 md:grid-cols-2">
               {sentQuery.data?.items.map((item) => (
                 <SentRequestCard key={item.id} item={item} />
               ))}
@@ -251,10 +239,12 @@ export default function ReviewedPage() {
           )
         ) : (
           <>
-            {items.length === 0 && !isLoading ? (
-              <p className="text-muted-foreground text-center text-sm">{t.empty}</p>
+            {isLoading && items.length === 0 ? (
+              <ListSkeleton />
+            ) : items.length === 0 ? (
+              <EmptyState>{t.empty}</EmptyState>
             ) : (
-              <div className="flex flex-col gap-3">
+              <div className="grid gap-4 md:grid-cols-2">
                 {items.map((item) => (
                   <ReviewedCard key={item.profile.userId} item={item} onUndone={removeItem} />
                 ))}
@@ -262,13 +252,19 @@ export default function ReviewedPage() {
             )}
 
             {nextCursor && !activeCursors.includes(nextCursor) && (
-              <Button type="button" variant="outline" disabled={isFetchingMore} onClick={handleLoadMore}>
+              <Button
+                type="button"
+                variant="outline"
+                className="self-center"
+                disabled={isFetchingMore}
+                onClick={handleLoadMore}
+              >
                 {t.loadMore}
               </Button>
             )}
           </>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

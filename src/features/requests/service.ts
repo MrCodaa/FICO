@@ -44,8 +44,10 @@ export function createRequestService(deps: RequestServiceDeps) {
 
     async listReceived(receiverId: string, cursor?: string, limit = 20) {
       const now = clock.now();
-      const { items, nextCursor } = await repo.listReceived(receiverId, cursor, limit, now);
-      const viewer = await repo.getViewerMatchPerson(receiverId);
+      const [{ items, nextCursor }, viewer] = await Promise.all([
+        repo.listReceived(receiverId, cursor, limit, now),
+        repo.getViewerMatchPerson(receiverId),
+      ]);
       const views = await Promise.all(
         items.map(async (item) => {
           if (!viewer) return toReceivedRequestView(item, now, { score: 0, reasons: [] });

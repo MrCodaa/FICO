@@ -4,8 +4,11 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState, PageContainer, PageHeader } from "@/components/ui/page";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { ProfileFullView } from "@/features/profile/components/ProfileFullView";
 
 const t = sr.discover;
 const safety = sr.safety;
@@ -75,6 +78,7 @@ interface ProfileView {
   freeTime: string | null;
   lifePath: string | null;
   other: string | null;
+  lookingFor: string | null;
   submittedAt: string | null;
 }
 
@@ -201,25 +205,44 @@ export default function DiscoverPage() {
 
   if (nextQuery.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-muted-foreground text-sm">{t.loading}</p>
-      </div>
+      <PageContainer width="wide" aria-busy="true">
+        <Skeleton className="h-10 w-48" />
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
+          <div className="flex min-w-0 flex-1 flex-col gap-5 rounded-xl border p-6 md:p-8">
+            <div className="flex items-center gap-5">
+              <Skeleton className="size-24 shrink-0 rounded-full" />
+              <div className="flex flex-1 flex-col gap-3">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </div>
+            </div>
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-11/12" />
+            <Skeleton className="h-4 w-4/5" />
+            <Skeleton className="h-32 w-full" />
+          </div>
+          <Skeleton className="h-96 w-full rounded-xl lg:w-96 lg:shrink-0" />
+        </div>
+        <span className="sr-only">{t.loading}</span>
+      </PageContainer>
     );
   }
 
   if (isForbidden) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-destructive text-center text-sm">{t.forbidden}</p>
-      </div>
+      <PageContainer width="narrow">
+        <PageHeader title={t.title} />
+        <EmptyState className="text-destructive">{t.forbidden}</EmptyState>
+      </PageContainer>
     );
   }
 
   if (nextQuery.isError) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-destructive text-center text-sm">{sr.profile.errors.generic}</p>
-      </div>
+      <PageContainer width="narrow">
+        <PageHeader title={t.title} />
+        <EmptyState className="text-destructive">{sr.profile.errors.generic}</EmptyState>
+      </PageContainer>
     );
   }
 
@@ -229,71 +252,51 @@ export default function DiscoverPage() {
 
   if (!candidate) {
     return (
-      <div className="flex min-h-screen flex-col items-center px-6 py-16">
-        <div className="flex w-full max-w-lg flex-col gap-6">
-          <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
-          <p className="text-muted-foreground text-center text-sm">{t.empty}</p>
-        </div>
-      </div>
+      <PageContainer width="narrow">
+        <PageHeader title={t.title} />
+        <EmptyState>{t.empty}</EmptyState>
+      </PageContainer>
     );
   }
 
-  const fullName = [candidate.firstName, candidate.age != null ? String(candidate.age) : null]
-    .filter(Boolean)
-    .join(" ");
-  const location = [candidate.city, candidate.countryCode].filter(Boolean).join(", ");
   const scorePercent = match ? Math.round(match.score * 100) : null;
   const reasons = match?.reasons.slice(0, 3) ?? [];
   const isDeciding = decisionMutation.isPending;
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-4xl flex-col gap-8">
-        <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
-
-        <div className="flex flex-col items-start gap-8 md:flex-row md:justify-center">
-          <div className="flex w-full max-w-md flex-col items-center gap-4 rounded-md border p-6">
-            {candidate.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={candidate.photoUrl}
-                alt={fullName || "—"}
-                className="h-48 w-48 rounded-full object-cover"
-              />
-            ) : (
-              <div className="bg-muted h-48 w-48 rounded-full" />
-            )}
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-lg font-semibold">{fullName || "—"}</span>
-              {location && <span className="text-muted-foreground text-sm">{location}</span>}
-            </div>
-            {candidate.intro && <p className="text-center text-sm">{candidate.intro}</p>}
+    <PageContainer width="wide">
+      <PageHeader title={t.title} />
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col items-start gap-6 lg:flex-row lg:gap-8">
+          <div className="bg-card flex w-full min-w-0 flex-1 flex-col rounded-xl border p-6 shadow-xs md:p-8">
+            <ProfileFullView profile={candidate} />
           </div>
 
-          <div className="flex w-full max-w-sm flex-col gap-6 rounded-md border p-6">
+          <div className="bg-card flex w-full flex-col gap-6 rounded-xl border p-6 shadow-xs lg:sticky lg:top-6 lg:w-96 lg:shrink-0">
             {scorePercent != null && (
-              <div className="flex flex-col items-center gap-1">
-                <span className="text-3xl font-bold tracking-tight">{scorePercent}%</span>
-                <span className="text-muted-foreground text-xs">{t.matchScore}</span>
+              <div className="flex items-baseline gap-3 border-b pb-5">
+                <span className="text-primary text-5xl font-bold tracking-tight">{scorePercent}%</span>
+                <span className="text-muted-foreground text-sm font-medium">{t.matchScore}</span>
               </div>
             )}
 
             {reasons.length > 0 && (
-              <div className="flex flex-col gap-2">
-                <span className="text-sm font-medium">{t.reasonsTitle}</span>
-                <ul className="flex flex-col gap-1">
+              <div className="flex flex-col gap-3">
+                <span className="text-sm font-semibold">{t.reasonsTitle}</span>
+                <ul className="flex flex-col gap-2.5">
                   {reasons.map((reason, i) => (
-                    <li key={i} className="text-muted-foreground text-sm">
-                      • {reason}
+                    <li key={i} className="flex gap-2.5 text-[0.9375rem] leading-snug">
+                      <span aria-hidden className="bg-primary mt-2 size-1.5 shrink-0 rounded-full" />
+                      <span>{reason}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
 
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-3">
               {isLiking ? (
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-3">
                   <Textarea
                     value={likeMessage}
                     onChange={(e) => {
@@ -333,7 +336,7 @@ export default function DiscoverPage() {
                   </div>
                 </div>
               ) : (
-                <Button type="button" onClick={() => setIsLiking(true)}>
+                <Button type="button" size="lg" onClick={() => setIsLiking(true)}>
                   {t.like}
                 </Button>
               )}
@@ -360,8 +363,9 @@ export default function DiscoverPage() {
 
               <Button
                 type="button"
-                variant="outline"
+                variant="ghost"
                 size="sm"
+                className="text-muted-foreground self-center"
                 onClick={() => {
                   setShowReportForm((v) => !v);
                   setReportSuccess(false);
@@ -377,8 +381,8 @@ export default function DiscoverPage() {
             )}
 
             {showReportForm && (
-              <div className="flex flex-col gap-2 rounded-md border p-4">
-                <p className="text-sm font-medium">{safety.report.title}</p>
+              <div className="bg-surface flex flex-col gap-3 rounded-xl border p-4">
+                <p className="text-sm font-semibold">{safety.report.title}</p>
                 <label htmlFor="report-reason" className="text-xs font-medium">
                   {safety.report.reasonLabel}
                 </label>
@@ -387,7 +391,7 @@ export default function DiscoverPage() {
                   value={reportReason}
                   onChange={(e) => setReportReason(e.target.value as ReportReason)}
                   disabled={reportMutation.isPending}
-                  className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
+                  className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 flex h-11 w-full rounded-md border px-3 py-2 text-base shadow-xs outline-none focus-visible:ring-[3px]"
                 >
                   {Object.entries(safety.report.reasons).map(([value, label]) => (
                     <option key={value} value={value}>
@@ -432,10 +436,10 @@ export default function DiscoverPage() {
               </div>
             )}
 
-            <p className="text-muted-foreground text-center text-xs">{t.likesRemaining(likesRemaining)}</p>
+            <p className="text-muted-foreground border-t pt-4 text-center text-sm">{t.likesRemaining(likesRemaining)}</p>
           </div>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

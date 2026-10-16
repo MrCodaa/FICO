@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import type { NextRequest } from "next/server";
 import type { z } from "zod";
 import { ApiError } from "@/lib/errors";
@@ -49,7 +49,9 @@ export function withRoute<
       });
 
       if (ctx.userId) {
-        await touchLastActive(ctx.userId);
+        // Poslije slanja odgovora — korisnik ne čeka dodatni round-trip do baze.
+        const userId = ctx.userId;
+        after(() => touchLastActive(userId).catch((error: unknown) => console.error(error)));
       }
 
       return response;

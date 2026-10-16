@@ -17,9 +17,17 @@ export type Guard = (req: NextRequest) => Promise<GuardContext>;
 async function requireSessionUser(req: NextRequest) {
   const payload = await getSessionPayload(req);
   if (!payload) throw new ApiError("UNAUTHENTICATED", "Niste prijavljeni.");
+  // Status profila ide u isti upit, da `approved` guard ne plaća drugi round-trip.
   const user = await db.user.findUnique({
     where: { id: payload.sub },
-    select: { email: true, tokenVersion: true, deactivatedAt: true, emailVerifiedAt: true, agreementAcceptedAt: true },
+    select: {
+      email: true,
+      tokenVersion: true,
+      deactivatedAt: true,
+      emailVerifiedAt: true,
+      agreementAcceptedAt: true,
+      profile: { select: { status: true } },
+    },
   });
   if (!user || user.tokenVersion !== payload.tv || user.deactivatedAt) {
     throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
@@ -29,6 +37,7 @@ async function requireSessionUser(req: NextRequest) {
     email: user.email,
     emailVerifiedAt: user.emailVerifiedAt,
     agreementAcceptedAt: user.agreementAcceptedAt,
+    profileStatus: user.profile?.status ?? null,
   };
 }
 
@@ -50,11 +59,10 @@ export const guards: Record<GuardName, Guard> = {
     return { userId };
   },
   approved: async (req) => {
-    const { userId, emailVerifiedAt, agreementAcceptedAt } = await requireSessionUser(req);
+    const { userId, emailVerifiedAt, agreementAcceptedAt, profileStatus } = await requireSessionUser(req);
     if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
     if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
-    const profile = await db.profile.findUnique({ where: { userId }, select: { status: true } });
-    if (profile?.status !== "APPROVED") {
+    if (profileStatus !== "APPROVED") {
       throw new ApiError("PROFILE_NOT_APPROVED", "Profil nije odobren.");
     }
     return { userId };

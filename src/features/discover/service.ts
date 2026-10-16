@@ -18,12 +18,15 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
 
   return {
     async getNext(viewerId: string) {
-      const viewer = await repo.getViewerPerson(viewerId);
-      if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       const now = clock.now();
-      const excluded = await repo.getExcludedUserIds(viewerId, now);
+      // Nezavisni upiti idu paralelno (svaki round-trip do Neona je ~45 ms).
+      const [viewer, excluded, likesRemaining] = await Promise.all([
+        repo.getViewerPerson(viewerId),
+        repo.getExcludedUserIds(viewerId, now),
+        repo.getLikesRemaining(viewerId, now),
+      ]);
+      if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       const candidates = await repo.listCandidates(viewerId, excluded, DEFAULT_CANDIDATE_LIMIT);
-      const likesRemaining = await repo.getLikesRemaining(viewerId, now);
 
       const scored = candidates
         .map((row) => ({ row, result: evaluateMatch(viewer, row.person, now) }))
@@ -36,21 +39,23 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
       const top = scored[0];
       if (!top) return { candidate: null, match: null, likesRemaining };
       return {
-        candidate: toProfileView(top.row.profile, now),
+        candidate: toProfileView(top.row.profile, now, { lookingFor: top.row.lookingFor ?? null }),
         match: { score: top.result.score, reasons: top.result.reasons },
         likesRemaining,
       };
     },
 
     async getProfile(viewerId: string, targetUserId: string) {
-      const viewer = await repo.getViewerPerson(viewerId);
+      const [viewer, candidate] = await Promise.all([
+        repo.getViewerPerson(viewerId),
+        repo.getCandidateById(viewerId, targetUserId),
+      ]);
       if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
-      const candidate = await repo.getCandidateById(viewerId, targetUserId);
       if (!candidate) throw new ApiError("NOT_FOUND", "Profil nije dostupan.");
       const now = clock.now();
       const result = evaluateMatch(viewer, candidate.person, now);
       return {
-        profile: toProfileView(candidate.profile, now),
+        profile: toProfileView(candidate.profile, now, { lookingFor: candidate.lookingFor ?? null }),
         match: { score: result.score, reasons: result.reasons },
       };
     },

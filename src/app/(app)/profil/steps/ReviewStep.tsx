@@ -1,8 +1,9 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { interests as interestCatalog } from "@/content/catalog";
 import { sr } from "@/content/sr";
+import { ProfileFullView, type ProfileFullViewData } from "@/features/profile/components/ProfileFullView";
+import { computeAge } from "@/lib/age";
 
 import type { ProfileFormValues } from "../types";
 
@@ -43,13 +44,46 @@ function fieldLabel(key: string): string {
   return FIELD_LABELS[key] ?? key;
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col gap-0.5 border-b pb-2 last:border-0">
-      <span className="text-muted-foreground text-xs">{label}</span>
-      <span className="text-sm">{value || "—"}</span>
-    </div>
-  );
+function boolOrNull(value: "" | "true" | "false"): boolean | null {
+  return value === "" ? null : value === "true";
+}
+
+// Pregled prije slanja koristi isti prikaz kao Discover i admin, da korisnik
+// vidi profil tačno onako kako će ga drugi vidjeti.
+function toViewData(values: ProfileFormValues): ProfileFullViewData {
+  const birthDate = values.birthDate ? new Date(values.birthDate) : null;
+  const age = birthDate && !Number.isNaN(birthDate.getTime()) ? computeAge(birthDate, new Date()) : null;
+  const orNull = (s: string) => (s.trim() ? s : null);
+  return {
+    firstName: orNull(values.firstName),
+    lastName: orNull(values.lastName),
+    photoUrl: orNull(values.photoUrl),
+    countryCode: orNull(values.countryCode),
+    city: orNull(values.city),
+    age,
+    intro: orNull(values.intro),
+    accomplishment: orNull(values.accomplishment),
+    education: orNull(values.education),
+    employment: orNull(values.employment),
+    isTechnical: boolOrNull(values.isTechnical),
+    ideaStatus: orNull(values.ideaStatus),
+    ideas: orNull(values.ideas),
+    hasCofounder: boolOrNull(values.hasCofounder),
+    timing: orNull(values.timing),
+    areas: values.areas,
+    interests: values.interests,
+    equityExpectations: orNull(values.equityExpectations),
+    freeTime: orNull(values.freeTime),
+    lifePath: orNull(values.lifePath),
+    other: orNull(values.other),
+    lookingFor: orNull(values.lookingFor),
+    linkedinUrl: values.noLinkedin ? null : orNull(values.linkedinUrl),
+    noLinkedin: values.noLinkedin,
+    videoUrl: orNull(values.videoUrl),
+    schedulingUrl: orNull(values.schedulingUrl),
+    twitterUrl: orNull(values.twitterUrl),
+    instagramUrl: orNull(values.instagramUrl),
+  };
 }
 
 export function ReviewStep({
@@ -62,11 +96,6 @@ export function ReviewStep({
   rejectionReason,
 }: ReviewStepProps) {
   const t = sr.profile.steps.review;
-  const interestLabels = values.interests
-    .map((code) => interestCatalog.find((i) => i.code === code)?.label ?? code)
-    .join(", ");
-  const areaLabels = values.areas.map((code) => more.areaOptions[code as keyof typeof more.areaOptions]).join(", ");
-
   const incompleteFields = submitError?.code === "PROFILE_INCOMPLETE" ? submitError.fields : undefined;
 
   return (
@@ -80,24 +109,8 @@ export function ReviewStep({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{basic.title}</h2>
-        <SummaryRow label={basic.firstName} value={values.firstName} />
-        <SummaryRow label={basic.lastName} value={values.lastName} />
-        <SummaryRow label={basic.country} value={values.countryCode} />
-        <SummaryRow label={basic.city} value={values.city} />
-        <SummaryRow label={basic.intro} value={values.intro} />
-      </div>
-
-      <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-semibold">{more.title}</h2>
-        <SummaryRow
-          label={more.ideaStatus}
-          value={values.ideaStatus ? more.ideaStatusOptions[values.ideaStatus] : ""}
-        />
-        <SummaryRow label={more.timing} value={values.timing ? more.timingOptions[values.timing] : ""} />
-        <SummaryRow label={more.areas} value={areaLabels} />
-        <SummaryRow label={more.interests} value={interestLabels} />
+      <div className="rounded-md border p-5 sm:p-6">
+        <ProfileFullView profile={toViewData(values)} />
       </div>
 
       {submitSuccess ? (

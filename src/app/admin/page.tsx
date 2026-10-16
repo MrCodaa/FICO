@@ -6,6 +6,8 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
+import { ProfileFullView } from "@/features/profile/components/ProfileFullView";
 
 const t = sr.admin.queue;
 
@@ -47,6 +49,7 @@ interface ProfileView {
   freeTime: string | null;
   lifePath: string | null;
   other: string | null;
+  lookingFor: string | null;
   submittedAt: string | null;
 }
 
@@ -94,6 +97,7 @@ async function rejectProfile(userId: string, reason: string): Promise<void> {
 }
 
 function ProfileCard({ profile, onRemove }: { profile: ProfileView; onRemove: (userId: string) => void }) {
+  const [expanded, setExpanded] = useState(false);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [showReasonError, setShowReasonError] = useState(false);
@@ -121,23 +125,29 @@ function ProfileCard({ profile, onRemove }: { profile: ProfileView; onRemove: (u
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
-      <div className="flex items-start gap-3">
-        {profile.photoUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={profile.photoUrl}
-            alt={fullName}
-            className="h-16 w-16 shrink-0 rounded-full object-cover"
+    <div className="flex flex-col gap-4 rounded-md border p-4 sm:p-6">
+      {expanded ? (
+        <ProfileFullView profile={profile} admin />
+      ) : (
+        <div className="flex items-start gap-4">
+          <ProfileAvatar
+            photoUrl={profile.photoUrl}
+            firstName={profile.firstName}
+            lastName={profile.lastName}
+            className="h-20 w-20 text-xl"
           />
-        ) : (
-          <div className="bg-muted h-16 w-16 shrink-0 rounded-full" />
-        )}
-        <div className="flex flex-col gap-1">
-          <span className="text-sm font-semibold">{fullName || "—"}</span>
-          {location && <span className="text-muted-foreground text-xs">{location}</span>}
-          {profile.intro && <p className="text-sm">{profile.intro}</p>}
+          <div className="flex min-w-0 flex-col gap-1">
+            <span className="text-base font-semibold">{fullName || "—"}</span>
+            {location && <span className="text-muted-foreground text-xs">{location}</span>}
+            {profile.intro && <p className="line-clamp-3 text-sm whitespace-pre-line">{profile.intro}</p>}
+          </div>
         </div>
+      )}
+
+      <div>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setExpanded((v) => !v)}>
+          {expanded ? t.hideProfile : t.showProfile}
+        </Button>
       </div>
 
       <div className="flex gap-2">
@@ -224,8 +234,8 @@ export default function AdminPage() {
   const isFetchingMore = pageQueries.some((q) => q.isFetching);
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
+    <div className="flex min-h-screen flex-col items-center px-4 py-16 sm:px-6">
+      <div className="flex w-full max-w-3xl flex-col gap-6">
         <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
 
         {isForbidden ? (

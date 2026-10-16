@@ -39,6 +39,8 @@ function toMatchPerson(row: CandidateProfileRow, preference: Prisma.PreferenceGe
 export interface CandidateRow {
   person: MatchPerson;
   profile: ProfileRecord;
+  // Preference.lookingFor kandidata — prikazuje se u punom profilu (ProfileView).
+  lookingFor?: string | null;
 }
 
 export interface DecisionListItem {
@@ -65,12 +67,11 @@ export interface DiscoverRepository {
 
 export const discoverRepository: DiscoverRepository = {
   async getViewerPerson(userId) {
-    const row = await db.profile.findUnique({
-      where: { userId },
-      include: candidateInclude,
-    });
+    const [row, preference] = await Promise.all([
+      db.profile.findUnique({ where: { userId }, include: candidateInclude }),
+      db.preference.findUnique({ where: { userId } }),
+    ]);
     if (!row) return null;
-    const preference = await db.preference.findUnique({ where: { userId } });
     return toMatchPerson(row, preference ?? undefined);
   },
 
@@ -104,7 +105,9 @@ export const discoverRepository: DiscoverRepository = {
 
   async listCandidates(viewerId, excludedUserIds, limit) {
     const rows = await db.profile.findMany({
-      where: { ...visibleTo(viewerId), userId: { notIn: excludedUserIds } },
+      // AND (ne spread): spread bi pregazio visibleTo().userId = { not: viewerId } i
+      // korisnik bi u Discover-u vidio sam sebe.
+      where: { AND: [visibleTo(viewerId), { userId: { notIn: excludedUserIds } }] },
       take: limit,
       include: candidateInclude,
     });
@@ -112,17 +115,22 @@ export const discoverRepository: DiscoverRepository = {
     return rows.map((row) => ({
       person: toMatchPerson(row, preferences.get(row.userId)),
       profile: toProfileRecord(row),
+      lookingFor: preferences.get(row.userId)?.lookingFor ?? null,
     }));
   },
 
   async getCandidateById(viewerId, targetUserId) {
     const row = await db.profile.findFirst({
-      where: { ...visibleTo(viewerId), userId: targetUserId },
+      where: { AND: [visibleTo(viewerId), { userId: targetUserId }] },
       include: candidateInclude,
     });
     if (!row) return null;
     const preference = await db.preference.findUnique({ where: { userId: targetUserId } });
-    return { person: toMatchPerson(row, preference ?? undefined), profile: toProfileRecord(row) };
+    return {
+      person: toMatchPerson(row, preference ?? undefined),
+      profile: toProfileRecord(row),
+      lookingFor: preference?.lookingFor ?? null,
+    };
   },
 
   async getLikesRemaining(viewerId, now) {
@@ -156,7 +164,7 @@ export const discoverRepository: DiscoverRepository = {
 
     const targetIds = page.map((decision) => decision.targetId);
     const rows = await db.profile.findMany({
-      where: { ...visibleTo(viewerId), userId: { in: targetIds } },
+      where: { AND: [visibleTo(viewerId), { userId: { in: targetIds } }] },
       include: candidateInclude,
     });
     const rowsByUserId = new Map(rows.map((row) => [row.userId, row]));

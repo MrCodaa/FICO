@@ -17,7 +17,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     () =>
       new QueryClient({
         defaultOptions: {
-          queries: { retry: shouldRetry },
+          // Kratko keširanje: prelazak između stranica ne ponavlja odmah iste
+          // upite (/api/me, /api/me/counts…), a mutacije i dalje invalidiraju.
+          queries: { retry: shouldRetry, staleTime: 20_000 },
         },
       }),
   );

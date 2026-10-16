@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { countries, citiesByCountry } from "@/content/catalog";
 import { sr } from "@/content/sr";
+import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 
 import { ApiError, uploadPhoto } from "../api";
 import { resizeImageToBlob } from "../resizeImage";
@@ -44,10 +45,13 @@ export function BasicStep({ form }: BasicStepProps) {
       const { photoUrl: uploadedUrl } = await uploadPhoto(blob, file.name);
       setValue("photoUrl", uploadedUrl, { shouldDirty: true });
     } catch (err) {
-      if (err instanceof ApiError) {
-        setPhotoError(err.code === "VALIDATION_ERROR" ? errors.photoInvalidType : errors.generic);
+      // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. Do tada upload
+      // pada (nema BLOB_READ_WRITE_TOKEN) — poruka kaže da se može nastaviti bez slike.
+      if (err instanceof ApiError && err.code === "VALIDATION_ERROR") {
+        const fileError = err.fields?.file;
+        setPhotoError(typeof fileError === "string" ? fileError : errors.photoInvalidType);
       } else {
-        setPhotoError(errors.generic);
+        setPhotoError(errors.photoUnavailable);
       }
     } finally {
       setUploading(false);
@@ -57,13 +61,15 @@ export function BasicStep({ form }: BasicStepProps) {
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <Label>{t.photo} *</Label>
+        {/* TODO: vratiti obaveznu sliku ("*") kad se uključi Vercel Blob. */}
+        <Label>{t.photo}</Label>
         <div className="flex items-center gap-4">
-          {photoUrl ? (
-            <img src={photoUrl} alt="" className="h-20 w-20 rounded-full object-cover" />
-          ) : (
-            <div className="bg-accent h-20 w-20 rounded-full" />
-          )}
+          <ProfileAvatar
+            photoUrl={photoUrl}
+            firstName={watch("firstName")}
+            lastName={watch("lastName")}
+            className="h-28 w-28 text-3xl"
+          />
           <div className="flex flex-col gap-1">
             <Button
               type="button"

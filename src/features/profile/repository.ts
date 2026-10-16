@@ -62,6 +62,10 @@ export interface PreferenceRecord {
   updatedAt: Date;
 }
 
+// Admin pregled treba i slobodan tekst "Opiši koga tražiš" (Preference.lookingFor),
+// pa ga lista na pregledu dodaje uz profil.
+export type ReviewProfileRecord = ProfileRecord & { lookingFor?: string | null };
+
 export interface ProfileRepository {
   getProfileAndPreference(
     userId: string,
@@ -74,7 +78,7 @@ export interface ProfileRepository {
     status: ProfileStatus,
     cursor: string | undefined,
     limit: number,
-  ): Promise<{ items: ProfileRecord[]; nextCursor: string | null }>;
+  ): Promise<{ items: ReviewProfileRecord[]; nextCursor: string | null }>;
   approveProfile(userId: string, now: Date): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
   rejectProfile(
     userId: string,
@@ -134,7 +138,17 @@ export const profileRepository: ProfileRepository = {
     });
     const hasMore = items.length > limit;
     const page = hasMore ? items.slice(0, limit) : items;
-    return { items: page, nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null };
+    const preferences = page.length
+      ? await db.preference.findMany({
+          where: { userId: { in: page.map((p) => p.userId) } },
+          select: { userId: true, lookingFor: true },
+        })
+      : [];
+    const lookingForByUserId = new Map(preferences.map((p) => [p.userId, p.lookingFor]));
+    return {
+      items: page.map((p) => ({ ...p, lookingFor: lookingForByUserId.get(p.userId) ?? null })),
+      nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null,
+    };
   },
 
   async approveProfile(userId, now) {

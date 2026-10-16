@@ -102,7 +102,7 @@ export const requestRepository: RequestRepository = {
         if (existing) throw new ApiError("REQUEST_EXISTS", sr.requests.like.alreadyExists);
 
         const receiverProfile = await tx.profile.findFirst({
-          where: { ...visibleTo(senderId), userId: input.receiverId },
+          where: { AND: [visibleTo(senderId), { userId: input.receiverId }] },
         });
         if (!receiverProfile) throw new ApiError("NOT_FOUND", "Profil nije dostupan.");
 

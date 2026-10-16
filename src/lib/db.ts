@@ -4,7 +4,13 @@ import { PrismaClient } from "@/generated/prisma/client";
 const globalForPrisma = globalThis as unknown as { db?: PrismaClient };
 
 function createClient() {
-  const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
+  // pg zatvara neaktivne konekcije poslije 10 s (zadano), pa svaki zahtjev
+  // nakon kratke pauze plaća novi TLS handshake do Neona (~300 ms). Duži
+  // idle timeout drži toplu konekciju između klikova.
+  const adapter = new PrismaPg({
+    connectionString: process.env.DATABASE_URL,
+    idleTimeoutMillis: 5 * 60 * 1000,
+  });
   return new PrismaClient({ adapter });
 }
 

@@ -45,10 +45,16 @@ export interface ProfileView {
   freeTime: string | null;
   lifePath: string | null;
   other: string | null;
+  // Preference.lookingFor — "Opiši koga tražiš"; dio javnog profila kao na YC-u.
+  lookingFor: string | null;
   submittedAt: Date | null;
 }
 
-export function toProfileView(profile: ProfileRecord, now: Date): ProfileView {
+export function toProfileView(
+  profile: ProfileRecord,
+  now: Date,
+  preference?: { lookingFor: string | null } | null,
+): ProfileView {
   const age = profile.birthDate ? computeAge(profile.birthDate, now) : null;
   return {
     userId: profile.userId,
@@ -79,6 +85,7 @@ export function toProfileView(profile: ProfileRecord, now: Date): ProfileView {
     freeTime: profile.freeTime,
     lifePath: profile.lifePath,
     other: profile.other,
+    lookingFor: preference?.lookingFor ?? null,
     submittedAt: profile.submittedAt,
   };
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { EmptyState, ListSkeleton, PageContainer, PageHeader, TabBar } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 
 const t = sr.requests;
@@ -110,37 +111,38 @@ function ReceivedCard({ item, onHandled }: { item: ReceivedItem; onHandled: (id:
   const location = [item.sender.city, item.sender.countryCode].filter(Boolean).join(", ");
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
-      <div className="flex items-center gap-3">
+    <div className="bg-card flex flex-col gap-4 rounded-xl border p-5 shadow-xs md:p-6">
+      <div className="flex items-center gap-4">
         {item.sender.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={item.sender.photoUrl}
             alt={fullName || "—"}
-            className="h-14 w-14 shrink-0 rounded-full object-cover"
+            className="size-16 shrink-0 rounded-full object-cover"
           />
         ) : (
-          <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
+          <div className="bg-muted size-16 shrink-0 rounded-full" />
         )}
-        <div className="flex flex-1 flex-col gap-1">
-          <span className="text-sm font-semibold">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="truncate text-base font-semibold">
             {[fullName || "—", item.sender.age != null ? String(item.sender.age) : null]
               .filter(Boolean)
               .join(", ")}
           </span>
-          {location && <span className="text-muted-foreground text-xs">{location}</span>}
-          <span className="text-muted-foreground text-xs">
+          {location && <span className="text-muted-foreground text-sm">{location}</span>}
+          <span className="text-muted-foreground text-sm">
             {t.received.expiresIn(daysUntil(item.expiresAt))}
           </span>
         </div>
       </div>
 
-      <p className="text-sm">{item.message}</p>
+      <p className="bg-surface rounded-lg border px-4 py-3 text-base leading-relaxed whitespace-pre-line">
+        {item.message}
+      </p>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-3">
         <Button
           type="button"
-          size="sm"
           disabled={respondMutation.isPending}
           onClick={() => respondMutation.mutate("accept")}
         >
@@ -149,7 +151,6 @@ function ReceivedCard({ item, onHandled }: { item: ReceivedItem; onHandled: (id:
         <Button
           type="button"
           variant="outline"
-          size="sm"
           disabled={respondMutation.isPending}
           onClick={() => respondMutation.mutate("decline")}
         >
@@ -165,26 +166,26 @@ function SentCard({ item }: { item: SentItem }) {
   const location = [item.receiver.city, item.receiver.countryCode].filter(Boolean).join(", ");
 
   return (
-    <div className="flex items-center gap-3 rounded-md border p-4">
+    <div className="bg-card flex items-center gap-4 rounded-xl border p-5 shadow-xs">
       {item.receiver.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.receiver.photoUrl}
           alt={fullName || "—"}
-          className="h-14 w-14 shrink-0 rounded-full object-cover"
+          className="size-16 shrink-0 rounded-full object-cover"
         />
       ) : (
-        <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
+        <div className="bg-muted size-16 shrink-0 rounded-full" />
       )}
-      <div className="flex flex-1 flex-col gap-1">
-        <span className="text-sm font-semibold">
+      <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="truncate text-base font-semibold">
           {[fullName || "—", item.receiver.age != null ? String(item.receiver.age) : null]
             .filter(Boolean)
             .join(", ")}
         </span>
-        {location && <span className="text-muted-foreground text-xs">{location}</span>}
+        {location && <span className="text-muted-foreground text-sm">{location}</span>}
       </div>
-      <span className="rounded-full border px-2 py-1 text-xs font-medium">{t.status[item.displayStatus]}</span>
+      <span className="bg-accent text-accent-foreground shrink-0 rounded-full px-3 py-1 text-xs font-semibold">{t.status[item.displayStatus]}</span>
     </div>
   );
 }
@@ -244,38 +245,27 @@ export default function RequestsPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <h1 className="text-center text-2xl font-bold tracking-tight">{sr.nav.requests}</h1>
+    <PageContainer>
+      <PageHeader title={sr.nav.requests} />
+      <div className="flex flex-col gap-6">
+        <TabBar tabs={tabs} value={tab} onChange={setTab} />
 
-        <div className="flex justify-center gap-2">
-          {tabs.map((tabDef) => (
-            <Button
-              key={tabDef.key}
-              type="button"
-              variant={tab === tabDef.key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setTab(tabDef.key)}
-            >
-              {tabDef.label}
-            </Button>
-          ))}
-        </div>
-
-        {tab === "received" ? (
-          receivedItems.length === 0 && !isLoading ? (
-            <p className="text-muted-foreground text-center text-sm">{t.received.empty}</p>
+        {isLoading && (tab === "received" ? receivedItems : sentItems).length === 0 ? (
+          <ListSkeleton rows={tab === "received" ? 2 : 4} className={tab === "received" ? "md:grid-cols-1" : undefined} />
+        ) : tab === "received" ? (
+          receivedItems.length === 0 ? (
+            <EmptyState>{t.received.empty}</EmptyState>
           ) : (
-            <div className="flex flex-col gap-3">
+            <div className="grid max-w-4xl gap-4">
               {receivedItems.map((item) => (
                 <ReceivedCard key={item.id} item={item} onHandled={removeReceived} />
               ))}
             </div>
           )
-        ) : sentItems.length === 0 && !isLoading ? (
-          <p className="text-muted-foreground text-center text-sm">{t.sent.empty}</p>
+        ) : sentItems.length === 0 ? (
+          <EmptyState>{t.sent.empty}</EmptyState>
         ) : (
-          <div className="flex flex-col gap-3">
+          <div className="grid gap-4 md:grid-cols-2">
             {sentItems.map((item) => (
               <SentCard key={item.id} item={item} />
             ))}
@@ -283,11 +273,17 @@ export default function RequestsPage() {
         )}
 
         {nextCursor && !activeCursors.includes(nextCursor) && (
-          <Button type="button" variant="outline" disabled={isFetchingMore} onClick={handleLoadMore}>
+          <Button
+            type="button"
+            variant="outline"
+            className="self-center"
+            disabled={isFetchingMore}
+            onClick={handleLoadMore}
+          >
             {sr.reviewed.loadMore}
           </Button>
         )}
       </div>
-    </div>
+    </PageContainer>
   );
 }

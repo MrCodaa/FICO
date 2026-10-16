@@ -76,8 +76,10 @@ export function createProfileService(deps: ProfileServiceDeps) {
     async submitProfile(userId: string) {
       const { profile } = await repo.getProfileAndPreference(userId);
       if (!profile) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
+      // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob.
       // PRIVREMENO isključeno dok Vercel Blob (BLOB_READ_WRITE_TOKEN) nije
       // povezan pa upload slike ne radi lokalno — VRATI prije finalnog testa/deploya.
+      // Zajedno sa ovim vrati i "*" kod slike u BasicStep.tsx i it.skip u service.test.ts.
       // if (!profile.photoUrl) {
       //   throw new ApiError("PROFILE_INCOMPLETE", sr.profile.errors.incomplete, { photoUrl: "Obavezno polje" });
       // }
@@ -97,7 +99,10 @@ export function createProfileService(deps: ProfileServiceDeps) {
 
     async listPendingProfiles(status: ProfileStatus = "PENDING_REVIEW", cursor?: string, limit = 20) {
       const { items, nextCursor } = await repo.listProfilesByStatus(status, cursor, limit);
-      return { items: items.map((p) => toProfileView(p, clock.now())), nextCursor };
+      return {
+        items: items.map((p) => toProfileView(p, clock.now(), { lookingFor: p.lookingFor ?? null })),
+        nextCursor,
+      };
     },
 
     async approveProfile(userId: string) {

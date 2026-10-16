@@ -6,6 +6,8 @@ import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
+import { PageContainer } from "@/components/ui/page";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
@@ -266,9 +268,11 @@ export default function ConversationPage() {
 
   if (messagesQuery.isLoading || meQuery.isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-muted-foreground text-sm">{t.loading}</p>
-      </div>
+      <PageContainer width="narrow" aria-busy="true">
+        <Skeleton className="h-5 w-32" />
+        <Skeleton className="h-[60vh] w-full rounded-xl" />
+        <span className="sr-only">{t.loading}</span>
+      </PageContainer>
     );
   }
 
@@ -293,9 +297,9 @@ export default function ConversationPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-4">
-        <div className="flex items-center justify-between gap-2">
+    <PageContainer width="narrow" className="gap-5">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <Link href="/poruke" className="text-muted-foreground text-sm font-medium hover:text-foreground">
             ← {t.backToList}
           </Link>
@@ -332,7 +336,7 @@ export default function ConversationPage() {
         {blockSuccess && <p className="text-muted-foreground text-center text-sm">{safety.block.success}</p>}
 
         {showBlockConfirm && otherUserId && (
-          <div className="flex flex-col gap-2 rounded-md border p-4">
+          <div className="bg-card flex flex-col gap-3 rounded-xl border p-5">
             <p className="text-sm font-medium">{safety.block.confirm}</p>
             <p className="text-muted-foreground text-sm">{safety.block.confirmDescription}</p>
             <div className="flex gap-2">
@@ -358,7 +362,7 @@ export default function ConversationPage() {
         {reportSuccess && <p className="text-muted-foreground text-center text-sm">{safety.report.success}</p>}
 
         {showReportForm && otherUserId && (
-          <div className="flex flex-col gap-2 rounded-md border p-4">
+          <div className="bg-card flex flex-col gap-3 rounded-xl border p-5">
             <p className="text-sm font-medium">{safety.report.title}</p>
             <label htmlFor="report-reason" className="text-xs font-medium">
               {safety.report.reasonLabel}
@@ -368,7 +372,7 @@ export default function ConversationPage() {
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value as ReportReason)}
               disabled={reportMutation.isPending}
-              className="border-input flex h-9 w-full rounded-md border bg-transparent px-3 py-1 text-sm shadow-xs outline-none"
+              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 flex h-11 w-full rounded-md border px-3 py-2 text-base shadow-xs outline-none focus-visible:ring-[3px]"
             >
               {Object.entries(safety.report.reasons).map(([value, label]) => (
                 <option key={value} value={value}>
@@ -409,11 +413,11 @@ export default function ConversationPage() {
           </div>
         )}
 
-        <div className="flex min-h-[50vh] flex-col gap-2 rounded-md border p-4">
+        <div className="bg-surface flex h-[60vh] min-h-80 flex-col rounded-xl border p-4 md:p-6">
           {messages.length === 0 ? (
-            <p className="text-muted-foreground flex-1 text-center text-sm">{t.empty}</p>
+            <p className="text-muted-foreground m-auto text-center text-base">{t.empty}</p>
           ) : (
-            <div className="flex flex-1 flex-col gap-2 overflow-y-auto">
+            <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
               {messages.map((message) => {
                 const isMine = message.senderId === myUserId;
                 return (
@@ -423,13 +427,15 @@ export default function ConversationPage() {
                   >
                     <div
                       className={cn(
-                        "max-w-[75%] rounded-md px-3 py-2 text-sm",
-                        isMine ? "bg-primary text-primary-foreground" : "bg-muted",
+                        "max-w-[80%] rounded-2xl px-4 py-2.5 text-base leading-relaxed whitespace-pre-line md:max-w-[70%]",
+                        isMine
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-card rounded-bl-md border",
                       )}
                     >
                       {message.body}
                     </div>
-                    <span className="text-muted-foreground mt-0.5 text-[10px]">
+                    <span className="text-muted-foreground mt-1 text-xs">
                       {formatTime(message.createdAt)}
                     </span>
                   </div>
@@ -440,8 +446,9 @@ export default function ConversationPage() {
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <Textarea
+            className="min-h-14 sm:flex-1"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -454,11 +461,16 @@ export default function ConversationPage() {
             maxLength={2000}
             disabled={sendMutation.isPending}
           />
-          <Button type="button" disabled={!draft.trim() || sendMutation.isPending} onClick={handleSend}>
+          <Button
+            type="button"
+            size="lg"
+            disabled={!draft.trim() || sendMutation.isPending}
+            onClick={handleSend}
+          >
             {t.send}
           </Button>
         </div>
       </div>
-    </div>
+    </PageContainer>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -160,28 +160,110 @@ function NotificationBell() {
   );
 }
 
-function LogoutButton() {
+async function fetchMeEmail(): Promise<{ email: string } | null> {
+  const res = await fetch("/api/me", { credentials: "include" });
+  if (!res.ok) return null;
+  return res.json() as Promise<{ email: string }>;
+}
+
+const settingsLinks: { href: string; label: string }[] = [
+  { href: "/profil", label: sr.nav.settingsProfile },
+  { href: "/faq", label: sr.nav.settingsFaq },
+  { href: "/pomoc", label: sr.nav.settingsHelp },
+];
+
+function SettingsMenu() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  const mutation = useMutation({
+  const meQuery = useQuery({ queryKey: ["me", "email"], queryFn: fetchMeEmail });
+  const email = meQuery.data?.email ?? "";
+  const initial = email ? email.charAt(0).toUpperCase() : "?";
+
+  useEffect(() => {
+    if (!isOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setIsOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isOpen]);
+
+  const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
       queryClient.clear();
-      router.push("/prijava");
+      router.replace("/");
+      router.refresh();
     },
   });
 
   return (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      disabled={mutation.isPending}
-      onClick={() => mutation.mutate()}
-    >
-      {sr.nav.logout}
-    </Button>
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+        aria-label={sr.nav.settings}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className="hover:bg-accent inline-flex h-9 items-center gap-2 rounded-md border bg-background pr-2.5 pl-1 text-sm font-medium"
+      >
+        <span className="bg-primary text-primary-foreground inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold">
+          {initial}
+        </span>
+        <span className="hidden sm:inline">{sr.nav.settings}</span>
+        <span aria-hidden className="text-muted-foreground text-xs">
+          ▾
+        </span>
+      </button>
+
+      {isOpen && (
+        <div
+          role="menu"
+          className="bg-background absolute top-11 right-0 z-50 flex w-64 max-w-[calc(100vw-2rem)] flex-col rounded-md border py-1 shadow-md"
+        >
+          <div className="border-b px-3 py-2.5">
+            <p className="text-muted-foreground text-xs">{sr.nav.settingsSignedInAs}</p>
+            <p className="truncate text-sm font-medium">{email}</p>
+          </div>
+
+          <div className="flex flex-col py-1">
+            {settingsLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                role="menuitem"
+                onClick={() => setIsOpen(false)}
+                className="hover:bg-accent px-3 py-2 text-sm"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+
+          <div className="border-t pt-1">
+            <button
+              type="button"
+              role="menuitem"
+              disabled={logoutMutation.isPending}
+              onClick={() => logoutMutation.mutate()}
+              className="text-destructive hover:bg-accent w-full px-3 py-2 text-left text-sm font-medium disabled:opacity-50"
+            >
+              {sr.nav.logout}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -190,8 +272,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="border-b">
-        <div className="flex items-center justify-between gap-4 px-4 py-3 md:px-6">
+      <header className="bg-background/95 sticky top-0 z-40 border-b backdrop-blur">
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
           <Link href="/" className="shrink-0 text-lg font-bold tracking-tight">
             {sr.landing.brand}
           </Link>
@@ -216,15 +298,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
           <div className="flex shrink-0 items-center gap-2">
             <NotificationBell />
-            <LogoutButton />
+            <SettingsMenu />
           </div>
         </div>
       </header>
 
       <main className="flex-1">{children}</main>
 
-      <footer className="border-t">
-        <div className="flex flex-wrap items-center justify-center gap-4 px-4 py-4 text-xs md:px-6">
+      <footer className="bg-surface border-t">
+        <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-center gap-6 px-4 py-6 text-sm sm:px-6 lg:px-8">
           <span className="text-muted-foreground inline-flex items-center gap-1.5">
             {sr.nav.curriculum}
             <span className="bg-muted rounded px-1.5 py-0.5 text-[10px]">{sr.nav.comingSoon}</span>

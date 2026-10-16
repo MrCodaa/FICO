@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 
+import { EmptyState, ListSkeleton, PageContainer, PageHeader } from "@/components/ui/page";
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
 
@@ -74,26 +75,26 @@ function MatchRow({ item }: { item: MatchItem }) {
   return (
     <Link
       href={`/poruke/${item.id}`}
-      className="flex items-center gap-3 rounded-md border p-4 transition-colors hover:bg-accent"
+      className="hover:bg-surface flex items-center gap-4 px-5 py-4 transition-colors md:px-6"
     >
       {item.other.photoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={item.other.photoUrl}
           alt={fullName || "—"}
-          className="h-14 w-14 shrink-0 rounded-full object-cover"
+          className="size-14 shrink-0 rounded-full object-cover"
         />
       ) : (
         <div className="bg-muted h-14 w-14 shrink-0 rounded-full" />
       )}
 
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span className={cn("truncate text-sm", item.unread ? "font-semibold" : "font-medium")}>
+        <span className={cn("truncate text-base", item.unread ? "font-semibold" : "font-medium")}>
           {fullName || "—"}
         </span>
         <span
           className={cn(
-            "truncate text-xs",
+            "truncate text-sm",
             item.unread ? "text-foreground font-medium" : "text-muted-foreground",
           )}
         >
@@ -114,31 +115,23 @@ function MatchRow({ item }: { item: MatchItem }) {
 export default function MessagesPage() {
   const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches });
 
-  if (matchesQuery.isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center px-6 py-16">
-        <p className="text-muted-foreground text-sm">{t.loading}</p>
-      </div>
-    );
-  }
-
   const items = matchesQuery.data?.items ?? [];
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
-        <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
+    <PageContainer width="narrow">
+      <PageHeader title={t.title} />
 
-        {items.length === 0 ? (
-          <p className="text-muted-foreground text-center text-sm">{t.noMatches}</p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {items.map((item) => (
-              <MatchRow key={item.id} item={item} />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+      {matchesQuery.isLoading ? (
+        <ListSkeleton rows={3} className="md:grid-cols-1" />
+      ) : items.length === 0 ? (
+        <EmptyState>{t.noMatches}</EmptyState>
+      ) : (
+        <div className="bg-card flex flex-col divide-y overflow-hidden rounded-xl border shadow-xs">
+          {items.map((item) => (
+            <MatchRow key={item.id} item={item} />
+          ))}
+        </div>
+      )}
+    </PageContainer>
   );
 }
