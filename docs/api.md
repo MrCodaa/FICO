@@ -9,7 +9,9 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 - **Paginacija:** `?cursor=<id>&limit=20` (max 50). Poruke idu sa `?before=<messageId>`.
 - **Datumi** su ISO 8601 stringovi. `Message.id` (BigInt) šalje se kao string.
 - **DTO:** modeli iz baze nikad ne izlaze direktno. Mapperi su `toMe`, `toProfileView`, `toProfileCard`, `toRequestView`, `toMessageView`.
-- **`ProfileView`** ne sadrži email ni datum rođenja (šalje se `age`). Polja `schedulingUrl`, `twitterUrl` i `instagramUrl` vide samo matchevi.
+- **`ProfileView`** ne sadrži email ni datum rođenja (šalje se `age`). Polja `schedulingUrl`, `twitterUrl` i `instagramUrl` vide samo matchevi. Sadrži i `lastActiveAt` ("Aktivan prije X dana") i `preference: { idea, technical, timingImportance, location, interestsImportance, wantedAreas } | null` za rečenicu "Šta tražim u co-founderu".
+- **`ProfileCard`**: `{ userId, firstName, lastName, photoUrl, countryCode, city, age, gender, isTechnical, timing, ideaStatus }` (zadnja četiri za rečenicu-rezime na karticama).
+- **`relation`** (javni profil): `{ kind: "MATCH", matchId }` · `{ kind: "SENT", requestId, sentAt, message, displayStatus }` · `{ kind: "RECEIVED", requestId, receivedAt, message, expiresAt }` (samo aktivan) · `{ kind: "NONE", decision: THINKING | NOT_INTERESTED | null }`.
 - **Origin provjera** važi na svakom POST, PUT, PATCH i DELETE zahtjevu.
 
 ### Guardovi (opcija route wrappera `withRoute`)
@@ -80,7 +82,7 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
 | GET | `/api/discover/next` | approved | — | `{ candidate: ProfileView \| null, match: { score, reasons[] }, likesRemaining }` |
-| GET | `/api/profiles/:userId` | approved | — | `{ profile: ProfileView, match }`; 404 ako nije vidljiv |
+| GET | `/api/profiles/:userId` | approved | — | `{ profile: ProfileView, match, relation, likesRemaining }`; 404 ako nije vidljiv |
 | PUT | `/api/decisions/:targetId` | approved | `{ type: THINKING \| NOT_INTERESTED }` | 200 `{ decision }` (idempotentno) |
 | DELETE | `/api/decisions/:targetId` | approved | — | 204 (poništava odluku) |
 | GET | `/api/decisions` | approved | `?type=THINKING&cursor=` | `{ items: [{ profile: ProfileCard, match, decidedAt }], nextCursor }` |

@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { visibleTo } from "@/lib/visibleTo";
-import type { DecisionType, Prisma } from "@/generated/prisma/client";
+import type { DecisionType, Prisma, RequestStatus } from "@/generated/prisma/client";
 import type { PreferenceRecord, ProfileRecord } from "@/features/profile/repository";
 import type { MatchPerson } from "@/lib/matching/types";
 import { buildMatchPerson } from "@/lib/matching/buildMatchPerson";
@@ -50,12 +50,21 @@ export interface DecisionListItem {
   decidedAt: Date;
 }
 
+// Odnos gledaoca i profila (javni profil, desna kolona po odnosu — ui-spec §3).
+export interface RelationRow {
+  decision: DecisionType | null;
+  sent: { id: string; message: string; status: RequestStatus; expiresAt: Date; createdAt: Date } | null;
+  received: { id: string; message: string; status: RequestStatus; expiresAt: Date; createdAt: Date } | null;
+  matchId: string | null;
+}
+
 export interface DiscoverRepository {
   getViewerPerson(userId: string): Promise<MatchPerson | null>;
   getExcludedUserIds(viewerId: string, now: Date): Promise<string[]>;
   listCandidates(viewerId: string, excludedUserIds: string[], limit: number): Promise<CandidateRow[]>;
   getCandidateById(viewerId: string, targetUserId: string): Promise<CandidateRow | null>;
   getLikesRemaining(viewerId: string, now: Date): Promise<number>;
+  getRelation(viewerId: string, targetId: string): Promise<RelationRow>;
   upsertDecision(viewerId: string, targetId: string, type: DecisionType, now: Date): Promise<void>;
   deleteDecision(viewerId: string, targetId: string): Promise<void>;
   listDecisions(
@@ -141,6 +150,18 @@ export const discoverRepository: DiscoverRepository = {
       where: { senderId: viewerId, createdAt: { gte: new Date(now.getTime() - WEEKLY_LIKE_WINDOW_MS) } },
     });
     return Math.max(0, WEEKLY_LIKE_LIMIT - sentCount);
+  },
+
+  async getRelation(viewerId, targetId) {
+    const requestSelect = { id: true, message: true, status: true, expiresAt: true, createdAt: true } as const;
+    const [userAId, userBId] = [viewerId, targetId].sort() as [string, string];
+    const [decision, sent, received, match] = await Promise.all([
+      db.decision.findUnique({ where: { userId_targetId: { userId: viewerId, targetId } }, select: { type: true } }),
+      db.request.findUnique({ where: { senderId_receiverId: { senderId: viewerId, receiverId: targetId } }, select: requestSelect }),
+      db.request.findUnique({ where: { senderId_receiverId: { senderId: targetId, receiverId: viewerId } }, select: requestSelect }),
+      db.match.findUnique({ where: { userAId_userBId: { userAId, userBId } }, select: { id: true } }),
+    ]);
+    return { decision: decision?.type ?? null, sent, received, matchId: match?.id ?? null };
   },
 
   async upsertDecision(viewerId, targetId, type, now) {

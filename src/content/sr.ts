@@ -392,6 +392,20 @@ export const sr = {
     forbiddenLink: "Uredi profil",
     error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
   },
+  publicProfile: {
+    notFound: "Ovaj profil nije dostupan.",
+    currentDecision: (label: string) => `Tvoja odluka: ${label}`,
+    sentTitle: (date: string) => `Zahtjev poslat ${date}`,
+    yourMessage: "Tvoja poruka",
+    theirMessage: ["Njegova poruka", "Njena poruka", "Poruka"],
+    receivedTitle: "Želi da se poveže sa tobom",
+    accept: "Prihvati",
+    decline: "Odbij",
+    matchTitle: "Spojeni ste!",
+    matchText: "Prihvatili ste se međusobno — možete se dopisivati u Porukama.",
+    openMessages: "Otvori poruke",
+    error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+  },
   reviewed: {
     title: "Pregledani",
     tabs: {
@@ -423,8 +437,8 @@ export const sr = {
     },
     status: {
       PENDING: "Na čekanju",
-      MATCHED: "Poklapanje!",
-      NOT_ACCEPTED: "Nije prihvaćen",
+      MATCHED: "Prihvaćeno",
+      NOT_ACCEPTED: "Nije prihvaćeno",
     },
     emails: {
       received: {

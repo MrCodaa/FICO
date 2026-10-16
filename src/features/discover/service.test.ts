@@ -102,6 +102,7 @@ function createFakeRepo(overrides: Partial<DiscoverRepository> = {}): DiscoverRe
   return {
     getViewerPerson: vi.fn().mockResolvedValue(fakePerson({ userId: "viewer" })),
     getExcludedUserIds: vi.fn().mockResolvedValue([]),
+    getRelation: vi.fn().mockResolvedValue({ decision: null, sent: null, received: null, matchId: null }),
     listCandidates: vi.fn().mockResolvedValue([]),
     getCandidateById: vi.fn().mockResolvedValue(null),
     getLikesRemaining: vi.fn().mockResolvedValue(20),

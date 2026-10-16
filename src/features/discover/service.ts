@@ -4,7 +4,7 @@ import { evaluateMatch } from "@/lib/matching/score";
 import { toProfileView } from "@/features/profile/mappers";
 import type { DecisionType } from "@/generated/prisma/client";
 import type { DiscoverRepository } from "./repository";
-import { toProfileCard } from "./mappers";
+import { toProfileCard, toRelation } from "./mappers";
 
 export interface DiscoverServiceDeps {
   repo: DiscoverRepository;
@@ -46,17 +46,21 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
     },
 
     async getProfile(viewerId: string, targetUserId: string) {
-      const [viewer, candidate] = await Promise.all([
+      const now = clock.now();
+      const [viewer, candidate, relation, likesRemaining] = await Promise.all([
         repo.getViewerPerson(viewerId),
         repo.getCandidateById(viewerId, targetUserId),
+        repo.getRelation(viewerId, targetUserId),
+        repo.getLikesRemaining(viewerId, now),
       ]);
       if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       if (!candidate) throw new ApiError("NOT_FOUND", "Profil nije dostupan.");
-      const now = clock.now();
       const result = evaluateMatch(viewer, candidate.person, now);
       return {
         profile: toProfileView(candidate.profile, now, { preference: candidate.preference, lastActiveAt: candidate.lastActiveAt }),
         match: { score: result.score, reasons: result.reasons },
+        relation: toRelation(relation, now),
+        likesRemaining,
       };
     },
 
