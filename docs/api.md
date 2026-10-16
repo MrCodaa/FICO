@@ -93,7 +93,7 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 | --- | --- | --- | --- | --- |
 | POST | `/api/requests` | approved | `{ receiverId, message }` (1–500) | 201 `{ request, likesRemaining }`; 429 `LIKE_LIMIT_REACHED`; 409 `REQUEST_EXISTS` |
 | GET | `/api/requests/received` | approved | `?cursor=` | `{ items: [{ id, message, createdAt, expiresAt, sender: ProfileCard, match }], nextCursor }`, samo aktivni |
-| GET | `/api/requests/sent` | approved | `?cursor=` | `{ items: [{ id, displayStatus, receiver: ProfileCard, matchId? }], nextCursor }` |
+| GET | `/api/requests/sent` | approved | `?cursor=` | `{ items: [{ id, displayStatus, createdAt, receiver: ProfileCard, matchId? }], nextCursor }` |
 | POST | `/api/requests/:id/accept` | approved (primalac) | — | 200 `{ matchId }`; 409 `REQUEST_NOT_PENDING` |
 | POST | `/api/requests/:id/decline` | approved (primalac) | — | 204; 409 `REQUEST_NOT_PENDING` |
 | GET | `/api/notifications` | auth | `?cursor=` | `{ items: [{ id, type, actor: ProfileCard?, entityId, readAt, createdAt }], nextCursor }` |

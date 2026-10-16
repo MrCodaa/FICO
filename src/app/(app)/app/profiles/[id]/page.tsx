@@ -12,6 +12,7 @@ import { sr } from "@/content/sr";
 import { DecisionPanel } from "@/features/discover/components/DecisionPanel";
 import { SafetyNote, WhyCard } from "@/features/discover/components/SideCards";
 import { ProfileFullView, type ProfileFullViewData } from "@/features/profile/components/ProfileFullView";
+import { formatDate } from "@/features/profile/components/ProfileListCard";
 import { byGender } from "@/features/profile/summary";
 import { StatusBadge, type DisplayStatus } from "@/features/requests/components/StatusBadge";
 import { apiFetch } from "@/lib/http/apiClient";
@@ -32,10 +33,6 @@ interface ProfileResponse {
   match: { reasons: string[] };
   relation: Relation;
   likesRemaining: number;
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("sr-Latn", { day: "numeric", month: "long", year: "numeric" });
 }
 
 function SideCard({ title, children }: { title: React.ReactNode; children: React.ReactNode }) {

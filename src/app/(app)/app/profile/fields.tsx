@@ -28,7 +28,11 @@ export function Field({
       <div className="flex flex-col gap-0.5">
         <LabelTag {...(htmlFor ? { htmlFor } : {})} className="text-[1.0625rem] font-semibold">
           {label}
-          {required && <span className="text-destructive ml-0.5 align-super text-sm">*</span>}
+          {required && (
+            <span aria-hidden className="text-destructive ml-0.5 align-super text-sm">
+              *
+            </span>
+          )}
         </LabelTag>
         {hint && <p className="text-foreground/80">{hint}</p>}
       </div>

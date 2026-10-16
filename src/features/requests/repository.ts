@@ -24,6 +24,7 @@ export interface SentRequestRow {
   id: string;
   status: RequestStatus;
   expiresAt: Date;
+  createdAt: Date;
   receiverProfile: ProfileRecord;
   matchId: string | null;
 }
@@ -245,6 +246,7 @@ export const requestRepository: RequestRepository = {
         id: request.id,
         status: request.status,
         expiresAt: request.expiresAt,
+        createdAt: request.createdAt,
         receiverProfile,
         matchId: request.match?.id ?? null,
       });

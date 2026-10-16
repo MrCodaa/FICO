@@ -6,26 +6,17 @@ import { useParams, useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
-import { PageContainer } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 import { ReportBlockModal } from "@/features/safety/components/ReportBlockModal";
-import { fetchMe } from "@/lib/http/apiClient";
+import { ApiClientError, apiFetch, fetchMe } from "@/lib/http/apiClient";
 import { cn } from "@/lib/utils";
 
+import { fetchMatches } from "../matches";
+
 const t = sr.chat;
-
-class ChatApiError extends Error {
-  status: number;
-  code: string;
-
-  constructor(status: number, code: string, message?: string) {
-    super(message ?? code);
-    this.status = status;
-    this.code = code;
-  }
-}
 
 interface MessageView {
   id: string;
@@ -41,169 +32,103 @@ interface MessagesResponse {
   nextBefore: string | null;
 }
 
-interface ProfileCardData {
-  userId: string;
-  firstName: string | null;
-  lastName: string | null;
-  photoUrl: string | null;
-  countryCode: string | null;
-  city: string | null;
-  age: number | null;
-}
-
-interface MatchItem {
-  id: string;
-  other: ProfileCardData;
-  lastMessage: string | null;
-  unread: boolean;
-  lastMessageAt: string | null;
-}
-
-interface MatchesResponse {
-  items: MatchItem[];
-}
-
 function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("sr-Latn", { hour: "2-digit", minute: "2-digit" });
-}
-
-async function fetchMessages(matchId: string): Promise<MessagesResponse> {
-  const res = await fetch(`/api/matches/${matchId}/messages`, { credentials: "include" });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new ChatApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
-  }
-  return body as MessagesResponse;
-}
-
-async function sendMessage(matchId: string, body: string): Promise<MessageView> {
-  const res = await fetch(`/api/matches/${matchId}/messages`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ body }),
+  return new Date(dateStr).toLocaleString("sr-Latn", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
   });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new ChatApiError(res.status, data?.error?.code ?? "UNKNOWN", data?.error?.message);
-  }
-  return data as MessageView;
 }
 
-async function markRead(matchId: string): Promise<void> {
-  const res = await fetch(`/api/matches/${matchId}/read`, {
-    method: "POST",
-    credentials: "include",
-  });
-  if (!res.ok && res.status !== 204) {
-    const body = await res.json().catch(() => ({}));
-    throw new ChatApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
-  }
+function appendMessage(old: MessagesResponse | undefined, message: MessageView): MessagesResponse | undefined {
+  if (!old || old.items.some((m) => m.id === message.id)) return old;
+  return { ...old, items: [...old.items, message] };
 }
 
-async function fetchMatches(): Promise<MatchesResponse> {
-  const res = await fetch("/api/matches", { credentials: "include" });
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new ChatApiError(res.status, body?.error?.code ?? "UNKNOWN", body?.error?.message);
-  }
-  return body as MatchesResponse;
-}
-
+/**
+ * Chat sa matchem (docs/ui-spec.md §9): prva poruka je poruka iz zahtjeva.
+ * Slanje POST-om; nove poruke stižu preko SSE, a polling na 3 s je rezerva.
+ */
 export default function ConversationPage() {
-  const params = useParams<{ matchId: string }>();
-  const matchId = params.matchId;
+  const { matchId } = useParams<{ matchId: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [connectionLost, setConnectionLost] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const didMarkRead = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
-
   const matchesQuery = useQuery({ queryKey: ["matches"], queryFn: fetchMatches });
-
   const messagesQuery = useQuery({
     queryKey: ["messages", matchId],
-    queryFn: () => fetchMessages(matchId),
+    queryFn: () => apiFetch<MessagesResponse>(`/api/matches/${matchId}/messages`),
     refetchInterval: 3000,
   });
 
-  const otherUserId = matchesQuery.data?.items.find((m) => m.id === matchId)?.other.userId ?? null;
+  const other = matchesQuery.data?.items.find((m) => m.id === matchId)?.other ?? null;
 
   const sendMutation = useMutation({
-    mutationFn: (body: string) => sendMessage(matchId, body),
+    mutationFn: (body: string) =>
+      apiFetch<MessageView>(`/api/matches/${matchId}/messages`, { method: "POST", json: { body } }),
     onSuccess: (message) => {
       setDraft("");
-      queryClient.setQueryData<MessagesResponse>(["messages", matchId], (old) => {
-        if (!old) return old;
-        if (old.items.some((m) => m.id === message.id)) return old;
-        return { ...old, items: [...old.items, message] };
-      });
+      queryClient.setQueryData<MessagesResponse>(["messages", matchId], (old) => appendMessage(old, message));
+      queryClient.invalidateQueries({ queryKey: ["matches"] });
     },
   });
 
-  const readMutation = useMutation({ mutationFn: () => markRead(matchId) });
-
+  // Otvaranje razgovora (i svaka nova poruka) ga označava pročitanim.
+  const lastId = messagesQuery.data?.items.at(-1)?.id;
   useEffect(() => {
-    if (didMarkRead.current) return;
-    didMarkRead.current = true;
-    readMutation.mutate();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchId]);
+    if (!lastId) return;
+    apiFetch<void>(`/api/matches/${matchId}/read`, { method: "POST" })
+      .then(() => {
+        queryClient.invalidateQueries({ queryKey: ["matches"] });
+        queryClient.invalidateQueries({ queryKey: ["me", "counts"] });
+      })
+      .catch(() => {});
+  }, [matchId, lastId, queryClient]);
 
   useEffect(() => {
     if (typeof EventSource === "undefined") return;
-
     let es: EventSource;
     try {
       es = new EventSource(`/api/matches/${matchId}/stream`, { withCredentials: true });
     } catch {
       return;
     }
-
     es.addEventListener("message", (event) => {
       setConnectionLost(false);
       const message = JSON.parse(event.data) as MessageView;
-      queryClient.setQueryData<MessagesResponse>(["messages", matchId], (old) => {
-        if (!old) return old;
-        if (old.items.some((m) => m.id === message.id)) return old;
-        return { ...old, items: [...old.items, message] };
-      });
+      queryClient.setQueryData<MessagesResponse>(["messages", matchId], (old) => appendMessage(old, message));
     });
-
     es.onopen = () => setConnectionLost(false);
     es.onerror = () => setConnectionLost(true);
-
     return () => es.close();
   }, [matchId, queryClient]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messagesQuery.data?.items.length]);
-
-  const isForbidden =
-    messagesQuery.isError &&
-    messagesQuery.error instanceof ChatApiError &&
-    messagesQuery.error.code === "NOT_A_MATCH";
 
   if (messagesQuery.isLoading || meQuery.isLoading) {
     return (
-      <PageContainer width="narrow" aria-busy="true">
-        <Skeleton className="h-5 w-32" />
-        <Skeleton className="h-[60vh] w-full rounded-xl" />
+      <div className="flex h-full flex-col gap-4 p-6" aria-busy="true">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="w-full flex-1" />
         <span className="sr-only">{t.loading}</span>
-      </PageContainer>
+      </div>
     );
   }
 
-  if (isForbidden) {
+  if (messagesQuery.isError) {
+    const forbidden = messagesQuery.error instanceof ApiClientError && messagesQuery.error.code === "NOT_A_MATCH";
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-6 py-16">
-        <p className="text-destructive text-center text-sm">{t.forbidden}</p>
-        <Link href="/app/messages" className="text-sm font-medium underline">
+      <div className="flex h-full flex-col items-center justify-center gap-4 p-10">
+        <p className="text-destructive text-center">{forbidden ? t.forbidden : sr.discover.error}</p>
+        <Link href="/app/messages" className="underline">
           {t.backToList}
         </Link>
       </div>
@@ -212,6 +137,7 @@ export default function ConversationPage() {
 
   const myUserId = meQuery.data?.id;
   const messages = messagesQuery.data?.items ?? [];
+  const name = other ? [other.firstName, other.lastName].filter(Boolean).join(" ") : "";
 
   const handleSend = () => {
     const trimmed = draft.trim();
@@ -220,88 +146,93 @@ export default function ConversationPage() {
   };
 
   return (
-    <PageContainer width="narrow" className="gap-5">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href="/app/messages" className="text-muted-foreground text-sm font-medium hover:text-foreground">
-            ← {t.backToList}
+    <div className="flex h-[calc(100vh-12rem)] min-h-[28rem] flex-col lg:h-full">
+      <div className="flex items-center justify-between gap-3 border-b px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            href="/app/messages"
+            aria-label={t.backToList}
+            className="text-foreground/70 shrink-0 px-1 text-2xl leading-none lg:hidden"
+          >
+            ‹
           </Link>
-          <div className="flex items-center gap-2">
-            {connectionLost && <span className="text-destructive text-xs">{t.connectionLost}</span>}
-            {otherUserId && (
-              <Button type="button" variant="outline" size="sm" onClick={() => setReportOpen(true)}>
-                {sr.discover.reportLink}
-              </Button>
-            )}
-          </div>
-        </div>
-        {otherUserId && (
-          <ReportBlockModal
-            userId={otherUserId}
-            open={reportOpen}
-            onClose={() => setReportOpen(false)}
-            onBlocked={() => router.push("/app/messages")}
-          />
-        )}
-
-        <div className="bg-surface flex h-[60vh] min-h-80 flex-col rounded-xl border p-4 md:p-6">
-          {messages.length === 0 ? (
-            <p className="text-muted-foreground m-auto text-center text-base">{t.empty}</p>
-          ) : (
-            <div className="flex flex-1 flex-col gap-3 overflow-y-auto pr-1">
-              {messages.map((message) => {
-                const isMine = message.senderId === myUserId;
-                return (
-                  <div
-                    key={message.id}
-                    className={cn("flex flex-col", isMine ? "items-end" : "items-start")}
-                  >
-                    <div
-                      className={cn(
-                        "max-w-[80%] rounded-2xl px-4 py-2.5 text-base leading-relaxed whitespace-pre-line md:max-w-[70%]",
-                        isMine
-                          ? "bg-primary text-primary-foreground rounded-br-md"
-                          : "bg-card rounded-bl-md border",
-                      )}
-                    >
-                      {message.body}
-                    </div>
-                    <span className="text-muted-foreground mt-1 text-xs">
-                      {formatTime(message.createdAt)}
-                    </span>
-                  </div>
-                );
-              })}
-              <div ref={bottomRef} />
-            </div>
+          {other && (
+            <Link href={`/app/profiles/${other.userId}`} className="flex min-w-0 items-center gap-3 hover:underline">
+              <ProfileAvatar
+                photoUrl={other.photoUrl}
+                firstName={other.firstName}
+                lastName={other.lastName}
+                className="size-11 text-sm"
+              />
+              <span className="truncate text-lg font-semibold">{name}</span>
+            </Link>
           )}
         </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <Textarea
-            className="min-h-14 sm:flex-1"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder={t.placeholder}
-            maxLength={2000}
-            disabled={sendMutation.isPending}
-          />
-          <Button
-            type="button"
-            size="lg"
-            disabled={!draft.trim() || sendMutation.isPending}
-            onClick={handleSend}
-          >
-            {t.send}
-          </Button>
+        <div className="flex shrink-0 items-center gap-3">
+          {connectionLost && <span className="text-muted-foreground hidden text-xs sm:inline">{t.connectionLost}</span>}
+          {other && (
+            <button
+              type="button"
+              onClick={() => setReportOpen(true)}
+              className="text-link cursor-pointer text-sm italic hover:underline"
+            >
+              {sr.discover.reportLink}
+            </button>
+          )}
         </div>
       </div>
-    </PageContainer>
+      {other && (
+        <ReportBlockModal
+          userId={other.userId}
+          open={reportOpen}
+          onClose={() => setReportOpen(false)}
+          onBlocked={() => router.push("/app/messages")}
+        />
+      )}
+
+      <div className="bg-surface flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-5">
+        {messages.length === 0 ? (
+          <p className="text-muted-foreground m-auto text-center">{t.empty}</p>
+        ) : (
+          messages.map((message) => {
+            const isMine = message.senderId === myUserId;
+            return (
+              <div key={message.id} className={cn("flex flex-col", isMine ? "items-end" : "items-start")}>
+                <div
+                  className={cn(
+                    "max-w-[85%] rounded-lg px-4 py-2.5 leading-relaxed whitespace-pre-line md:max-w-[70%]",
+                    isMine ? "bg-primary text-primary-foreground" : "bg-card border",
+                  )}
+                >
+                  {message.body}
+                </div>
+                <span className="text-muted-foreground mt-1 text-xs">{formatTime(message.createdAt)}</span>
+              </div>
+            );
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      <div className="flex items-end gap-3 border-t px-5 py-4">
+        <Textarea
+          className="max-h-40 min-h-12 flex-1"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
+          placeholder={t.placeholder}
+          maxLength={2000}
+          disabled={sendMutation.isPending}
+        />
+        <Button type="button" disabled={!draft.trim() || sendMutation.isPending} onClick={handleSend}>
+          {t.send}
+        </Button>
+      </div>
+    </div>
   );
 }

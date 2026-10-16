@@ -419,15 +419,15 @@ export const sr = {
     error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
   },
   reviewed: {
-    title: "Pregledani",
-    tabs: {
-      liked: "Sviđa mi se",
-      thinking: "Razmisliću",
-      notInterested: "Ne zanima me",
+    empty: {
+      liked: "Još nisi poslao/la nijedan zahtjev.",
+      thinking: "Nema profila o kojima razmišljaš.",
+      declined: "Nema preskočenih profila.",
     },
-    empty: "Nema profila u ovoj listi.",
     loadMore: "Učitaj još",
-    undo: "Poništi",
+    likedOn: (date: string) => `Zahtjev poslat ${date}`,
+    decidedOn: (date: string) => `Odluka ${date}`,
+    error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
   },
   requests: {
     like: {
@@ -438,14 +438,11 @@ export const sr = {
     },
     received: {
       title: "Primljeni zahtjevi",
-      empty: "Nema aktivnih zahtjeva.",
+      empty: "Trenutno nemaš zahtjeva na čekanju.",
+      error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
       accept: "Prihvati",
       decline: "Odbij",
-      expiresIn: (days: number) => `Ističe za ${days} ${days === 1 ? "dan" : "dana"}`,
-    },
-    sent: {
-      title: "Poslati zahtjevi",
-      empty: "Nisi poslao/la nijedan zahtjev.",
+      expiresIn: (days: number) => `Ističe za ${days} ${days % 10 === 1 && days % 100 !== 11 ? "dan" : "dana"}`,
     },
     status: {
       PENDING: "Na čekanju",
@@ -593,6 +590,8 @@ export const sr = {
     forbidden: "Nemaš pristup ovom razgovoru.",
     connectionLost: "Veza prekinuta, pokušavam ponovo...",
     backToList: "Nazad na poruke",
+    selectConversation: "Izaberi razgovor sa lijeve strane.",
+    now: "sada",
   },
   safety: {
     block: {

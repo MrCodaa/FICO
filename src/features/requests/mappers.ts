@@ -15,6 +15,8 @@ export interface ReceivedRequestView {
 export interface SentRequestView {
   id: string;
   displayStatus: "PENDING" | "MATCHED" | "NOT_ACCEPTED";
+  // Datum slanja — "datum odluke" na kartici u Ponovo pogledaj → Sviđa mi se.
+  createdAt: Date;
   receiver: ProfileCard;
   matchId: string | null;
 }
@@ -35,12 +37,20 @@ export function toReceivedRequestView(
 }
 
 export function toSentRequestView(
-  item: { id: string; status: RequestStatus; expiresAt: Date; receiverProfile: ProfileRecord; matchId: string | null },
+  item: {
+    id: string;
+    status: RequestStatus;
+    expiresAt: Date;
+    createdAt: Date;
+    receiverProfile: ProfileRecord;
+    matchId: string | null;
+  },
   now: Date,
 ): SentRequestView {
   return {
     id: item.id,
     displayStatus: toDisplayStatus({ status: item.status, expiresAt: item.expiresAt }, now),
+    createdAt: item.createdAt,
     receiver: toProfileCard(item.receiverProfile, now),
     matchId: item.matchId,
   };
