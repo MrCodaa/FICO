@@ -10,12 +10,11 @@ import { PageContainer } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { ReportBlockModal } from "@/features/safety/components/ReportBlockModal";
 import { fetchMe } from "@/lib/http/apiClient";
 import { cn } from "@/lib/utils";
 
 const t = sr.chat;
-const safety = sr.safety;
-type ReportReason = keyof typeof safety.report.reasons;
 
 class ChatApiError extends Error {
   status: number;
@@ -64,13 +63,8 @@ interface MatchesResponse {
   items: MatchItem[];
 }
 
-class SafetyApiError extends Error {
-  status: number;
-
-  constructor(status: number, message?: string) {
-    super(message ?? "SAFETY_API_ERROR");
-    this.status = status;
-  }
+function formatTime(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString("sr-Latn", { hour: "2-digit", minute: "2-digit" });
 }
 
 async function fetchMessages(matchId: string): Promise<MessagesResponse> {
@@ -116,36 +110,6 @@ async function fetchMatches(): Promise<MatchesResponse> {
   return body as MatchesResponse;
 }
 
-async function blockUser(userId: string): Promise<void> {
-  const res = await fetch("/api/blocks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ userId }),
-  });
-  if (!res.ok && res.status !== 204) {
-    const body = await res.json().catch(() => ({}));
-    throw new SafetyApiError(res.status, body?.error?.message);
-  }
-}
-
-async function reportUser(reportedId: string, reason: ReportReason, details: string): Promise<void> {
-  const res = await fetch("/api/reports", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify({ reportedId, reason, details: details || undefined }),
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new SafetyApiError(res.status, body?.error?.message);
-  }
-}
-
-function formatTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleTimeString("sr-Latn", { hour: "2-digit", minute: "2-digit" });
-}
-
 export default function ConversationPage() {
   const params = useParams<{ matchId: string }>();
   const matchId = params.matchId;
@@ -153,13 +117,7 @@ export default function ConversationPage() {
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState("");
   const [connectionLost, setConnectionLost] = useState(false);
-  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const [blockSuccess, setBlockSuccess] = useState(false);
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [reportReason, setReportReason] = useState<ReportReason>("SPAM");
-  const [reportDetails, setReportDetails] = useState("");
-  const [reportSuccess, setReportSuccess] = useState(false);
-  const [reportError, setReportError] = useState<string | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
   const didMarkRead = useRef(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -174,29 +132,6 @@ export default function ConversationPage() {
   });
 
   const otherUserId = matchesQuery.data?.items.find((m) => m.id === matchId)?.other.userId ?? null;
-
-  const blockMutation = useMutation({
-    mutationFn: (userId: string) => blockUser(userId),
-    onSuccess: () => {
-      setShowBlockConfirm(false);
-      setBlockSuccess(true);
-      router.push("/app/messages");
-    },
-  });
-
-  const reportMutation = useMutation({
-    mutationFn: ({ reportedId, reason, details }: { reportedId: string; reason: ReportReason; details: string }) =>
-      reportUser(reportedId, reason, details),
-    onSuccess: () => {
-      setShowReportForm(false);
-      setReportSuccess(true);
-      setReportDetails("");
-      setReportError(null);
-    },
-    onError: () => {
-      setReportError(safety.report.generic);
-    },
-  });
 
   const sendMutation = useMutation({
     mutationFn: (body: string) => sendMessage(matchId, body),
@@ -294,111 +229,19 @@ export default function ConversationPage() {
           <div className="flex items-center gap-2">
             {connectionLost && <span className="text-destructive text-xs">{t.connectionLost}</span>}
             {otherUserId && (
-              <>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={blockMutation.isPending}
-                  onClick={() => setShowBlockConfirm((v) => !v)}
-                >
-                  {safety.block.action}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setShowReportForm((v) => !v);
-                    setReportSuccess(false);
-                    setReportError(null);
-                  }}
-                >
-                  {safety.report.action}
-                </Button>
-              </>
+              <Button type="button" variant="outline" size="sm" onClick={() => setReportOpen(true)}>
+                {sr.discover.reportLink}
+              </Button>
             )}
           </div>
         </div>
-
-        {blockSuccess && <p className="text-muted-foreground text-center text-sm">{safety.block.success}</p>}
-
-        {showBlockConfirm && otherUserId && (
-          <div className="bg-card flex flex-col gap-3 rounded-xl border p-5">
-            <p className="text-sm font-medium">{safety.block.confirm}</p>
-            <p className="text-muted-foreground text-sm">{safety.block.confirmDescription}</p>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                disabled={blockMutation.isPending}
-                onClick={() => blockMutation.mutate(otherUserId)}
-              >
-                {safety.block.action}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={blockMutation.isPending}
-                onClick={() => setShowBlockConfirm(false)}
-              >
-                {safety.block.cancel}
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {reportSuccess && <p className="text-muted-foreground text-center text-sm">{safety.report.success}</p>}
-
-        {showReportForm && otherUserId && (
-          <div className="bg-card flex flex-col gap-3 rounded-xl border p-5">
-            <p className="text-sm font-medium">{safety.report.title}</p>
-            <label htmlFor="report-reason" className="text-xs font-medium">
-              {safety.report.reasonLabel}
-            </label>
-            <select
-              id="report-reason"
-              value={reportReason}
-              onChange={(e) => setReportReason(e.target.value as ReportReason)}
-              disabled={reportMutation.isPending}
-              className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 flex h-11 w-full rounded-md border px-3 py-2 text-base shadow-xs outline-none focus-visible:ring-[3px]"
-            >
-              {Object.entries(safety.report.reasons).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <label htmlFor="report-details" className="text-xs font-medium">
-              {safety.report.detailsLabel}
-            </label>
-            <Textarea
-              id="report-details"
-              value={reportDetails}
-              onChange={(e) => setReportDetails(e.target.value)}
-              placeholder={safety.report.detailsPlaceholder}
-              disabled={reportMutation.isPending}
-            />
-            {reportError && <p className="text-destructive text-xs">{reportError}</p>}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                disabled={reportMutation.isPending}
-                onClick={() =>
-                  reportMutation.mutate({ reportedId: otherUserId, reason: reportReason, details: reportDetails.trim() })
-                }
-              >
-                {safety.report.submit}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={reportMutation.isPending}
-                onClick={() => setShowReportForm(false)}
-              >
-                {safety.report.cancel}
-              </Button>
-            </div>
-          </div>
+        {otherUserId && (
+          <ReportBlockModal
+            userId={otherUserId}
+            open={reportOpen}
+            onClose={() => setReportOpen(false)}
+            onBlocked={() => router.push("/app/messages")}
+          />
         )}
 
         <div className="bg-surface flex h-[60vh] min-h-80 flex-col rounded-xl border p-4 md:p-6">
