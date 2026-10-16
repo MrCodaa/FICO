@@ -1,6 +1,6 @@
 # FICO — Find Co-Founder za Balkan
 
-Platforma za pronalazak co-foundera po uzoru na YC Find Co-Founder. Korisnik pravi profil (YC set pitanja), admin ga ručno odobrava, a zatim kroz Discover gleda kandidate jedan po jedan, sa procentom poklapanja i razlozima. Za svakog bira **Sviđa mi se**, **Razmisliću** ili **Ne zanima me**. Lajk je zahtjev sa porukom, a chat se otključava tek kad drugi prihvati.
+Platforma za pronalazak co-foundera: **kopija YC Co-Founder Matching-a 1:1** (raspored, ekrani, tekstovi, ponašanje) plus dvije FICO funkcije: tri odluke umjesto Invite/Skip i Poruke (chat) za matcheve. Korisnik pravi profil (YC set pitanja), admin ga ručno odobrava, a zatim kroz Otkrij profile gleda kandidate jedan po jedan, uz razloge zašto se slažu. Za svakog bira **Sviđa mi se**, **Razmisliću** ili **Ne zanima me**. Lajk je zahtjev sa porukom, a chat se otključava tek kad drugi prihvati.
 
 Interfejs je na našem jeziku, latinica.
 
@@ -8,6 +8,7 @@ Interfejs je na našem jeziku, latinica.
 
 - `prisma/schema.prisma`: šema baze (cijela, od Faze 0)
 - `docs/api.md`: svi endpointi, guardovi, kodovi grešaka i transakcije
+- `docs/ui-spec.md` + slike u `docs/reference/`: izgled i tok svakog ekrana. **Za sve što se vidi u interfejsu ovo ima prednost** nad ostatkom ovog fajla.
 - ovaj fajl: stack, arhitektura, principi, poslovna pravila, faze
 
 ## Pravila rada (obavezno)
@@ -41,7 +42,7 @@ Interfejs je na našem jeziku, latinica.
 src/
   app/
     (public)/            landing, prijava, registracija, potvrda emaila, reset lozinke
-    (app)/               discover, pregledani, zahtjevi, poruke, kurikulum, profil
+    (app)/               dashboard, discover, revisit, requests, messages, profile, settings, profiles/[id]
     admin/               pregled profila, prijave, deaktivacija
     api/                 tanke REST rute (samo withRoute + poziv servisa)
   features/
@@ -116,8 +117,8 @@ Testovi: po jedan za svaki kriterijum, REQUIRED isključuje u oba smjera, sluča
 
 ## Poslovna pravila
 
-- **Navigacija:** Discover, Pregledani (tabovi Sviđa mi se / Razmisliću / Ne zanima me), Kurikulum („Uskoro“), Zahtjevi, Poruke, Moj profil. U dnu su FAQ i Pomoć, a gore desno zvonce.
-- **Discover:** jedan profil po sekcijama u sredini. Desno su procenat, 3 razloga, polje za poruku (zaključano dok se ne klikne Sviđa mi se) i tri dugmeta, uz "preostalo X od 20".
+- **Navigacija i ekrani:** tačno kako piše u `docs/ui-spec.md` (Kontrolna tabla, Otkrij profile, Ponovo pogledaj profile ▸, Zahtjevi, Poruke, Moj nalog ▸ Uredi profil / Podešavanja / Odjavi se; footer; zvonce). Nema Kurikuluma ni vodiča.
+- **Discover:** kao YC: cijeli profil u sredini, desno sticky kolona sa porukom + Sviđa mi se, Razmisliću, Ne zanima me, "ostalo N zahtjeva ove sedmice", Zašto se slažete (3 razloga), Tvoji filteri, Prijavi profil. Procenat poklapanja se ne prikazuje (koristi se samo za sortiranje).
 - **Lajk:** poruka je obavezna (1–500). Limit je 20 u zadnjih 7 dana (rolling). Razmisliću i Ne zanima me ne troše limit. Lajk briše postojeći Decision.
 - **Zahtjev:** ističe 14 dana poslije slanja. Primalac bira Prihvati (match + chat) ili Odbij. Pošiljalac u "Sviđa mi se" vidi `PENDING`, `MATCHED` ili `NOT_ACCEPTED` (odbijen i istekao izgledaju isto).
 - **Odbijanje je tiho:** bez obavještenja i maila.
@@ -140,7 +141,7 @@ Testovi: po jedan za svaki kriterijum, REQUIRED isključuje u oba smjera, sluča
 | 6 | `lib/matching` + testovi, seed (~40 profila), Discover, Razmisliću / Ne zanima me, Pregledani | `/api/discover/next`, `/api/profiles/:userId`, `/api/decisions*` | Vitest zelen, red sortiran, bez sebe, blokiranih i profila sa zahtjevom ili svježom odlukom |
 | 7 | Lajk + poruka, Zahtjevi, status u Pregledanim, istek + cron, zvonce, mailovi | `/api/requests*`, `/api/notifications*`, `/api/me/counts`, cron | dva naloga dođu do matcha, 21. lajk je odbijen, a odbijanje je tiho |
 | 8 | Poruke (SSE + POST + polling), nepročitane | `/api/matches*` | poruke stižu za manje od 3 s, a bez matcha je 403 |
-| 9 | Prijava, blokiranje, deaktivacija, Kurikulum „Uskoro“, FAQ, Pomoć, Postman, finalni deploy | `/api/blocks*`, `/api/reports`, `/api/admin/reports*`, `/api/admin/users/:userId/deactivate` | cijeli tok radi na produkciji sa dva naloga |
+| 9 | Prijava, blokiranje, deaktivacija, Podešavanja, Kontrolna tabla, FAQ, Pomoć, Postman, finalni deploy | `/api/blocks*`, `/api/reports`, `/api/admin/reports*`, `/api/admin/users/:userId/deactivate` | cijeli tok radi na produkciji sa dva naloga |
 
 ## Komande (Faza 0 ih dodaje u package.json)
 
