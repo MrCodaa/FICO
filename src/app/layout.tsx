@@ -1,14 +1,14 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 
 // next/font hostuje font lokalno (bez zahtjeva ka Google-u pri učitavanju)
 // i sprječava pomjeranje teksta dok se font učitava.
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
   display: "swap",
-  variable: "--font-inter",
+  variable: "--font-jakarta",
 });
 
 export const metadata: Metadata = {
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#f26625",
+  themeColor: "#0b1f33",
 };
 
 export default function RootLayout({
@@ -28,7 +28,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="sr-Latn" className={inter.variable}>
+    <html lang="sr-Latn" className={jakarta.variable}>
       <body>
         <Providers>{children}</Providers>
       </body>

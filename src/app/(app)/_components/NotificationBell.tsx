@@ -89,7 +89,7 @@ export function NotificationBell({ className }: { className?: string }) {
         aria-label={sr.nav.notifications}
         aria-expanded={isOpen}
         onClick={() => setIsOpen((prev) => !prev)}
-        className="text-foreground/80 hover:bg-background/70 hover:text-foreground relative inline-flex size-11 cursor-pointer items-center justify-center rounded-full transition-colors"
+        className="relative inline-flex size-11 cursor-pointer items-center justify-center rounded-full opacity-85 transition hover:bg-black/5 hover:opacity-100"
       >
         <Bell className="size-6" strokeWidth={2} />
         {unread > 0 && (

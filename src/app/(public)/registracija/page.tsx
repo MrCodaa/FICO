@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 import { getNextRoute, type MeState } from "@/lib/nextRoute";
@@ -39,7 +39,7 @@ function getErrorMessage(code: string) {
 
 export default function RegisterPage() {
   const router = useRouter();
-  const [showPassword, setShowPassword] = useState(false);
+  const queryClient = useQueryClient();
   const t = sr.auth.register;
 
   const form = useForm<RegisterForm>({
@@ -62,6 +62,8 @@ export default function RegisterPage() {
       return res.json() as Promise<MeState>;
     },
     onSuccess: (me) => {
+      // Svjež Me u keš: inače /app vidi stari "odjavljen" (null) iz keša i vrati na prijavu.
+      queryClient.setQueryData(["me"], me);
       router.push(getNextRoute(me));
     },
   });
@@ -144,23 +146,13 @@ export default function RegisterPage() {
 
               <div className="flex flex-col gap-2">
                 <Label htmlFor="password">{t.passwordLabel}</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete="new-password"
-                    placeholder={t.passwordPlaceholder}
-                    className="h-11 pr-20"
-                    {...form.register("password")}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((prev) => !prev)}
-                    className="text-muted-foreground hover:text-foreground absolute inset-y-0 right-0 px-3 text-sm font-medium"
-                  >
-                    {showPassword ? t.hidePassword : t.showPassword}
-                  </button>
-                </div>
+                <PasswordInput
+                  id="password"
+                  autoComplete="new-password"
+                  placeholder={t.passwordPlaceholder}
+                  className="h-11"
+                  {...form.register("password")}
+                />
                 {form.formState.errors.password ? (
                   <p className="text-destructive text-sm">
                     {form.formState.errors.password.message}

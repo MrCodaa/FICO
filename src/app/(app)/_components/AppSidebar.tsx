@@ -25,11 +25,11 @@ function isActive(pathname: string, href: string, exact = false): boolean {
 }
 
 const itemClass =
-  "group flex w-full cursor-pointer items-center gap-4 rounded-md px-5 py-3.5 text-left text-[0.9375rem] transition-colors hover:bg-secondary";
+  "group flex w-full cursor-pointer items-center gap-4 rounded-md px-5 py-3.5 text-left text-[0.9375rem] transition-colors hover:bg-sidebar-hover";
 
 function ItemLabel({ active, children }: { active: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("min-w-0 flex-1 leading-snug", active ? "text-foreground font-bold" : "text-foreground/65 font-semibold")}>
+    <span className={cn("min-w-0 flex-1 leading-snug", active ? "text-sidebar-foreground font-bold" : "text-sidebar-muted font-semibold")}>
       {children}
     </span>
   );
@@ -63,9 +63,14 @@ function NavLink({
 }) {
   const active = isActive(pathname, href, exact);
   return (
-    <Link href={href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={itemClass}>
+    <Link
+      href={href}
+      onClick={onNavigate}
+      aria-current={active ? "page" : undefined}
+      className={cn(itemClass, active && "bg-sidebar-hover")}
+    >
       <Icon
-        className={cn("size-7 shrink-0", active ? "text-foreground" : "text-foreground/55")}
+        className={cn("size-7 shrink-0", active ? "text-primary" : "text-sidebar-muted")}
         strokeWidth={active ? 2.4 : 2}
         fill={Icon === Star ? "currentColor" : "none"}
       />
@@ -97,9 +102,9 @@ function SubMenu({
         {icon}
         <ItemLabel active={active}>{label}</ItemLabel>
         {open ? (
-          <ChevronDown className="text-foreground/60 size-5 shrink-0" />
+          <ChevronDown className="text-sidebar-muted size-5 shrink-0" />
         ) : (
-          <ChevronRight className="text-foreground/60 size-5 shrink-0" />
+          <ChevronRight className="text-sidebar-muted size-5 shrink-0" />
         )}
       </button>
       {open && <div className="flex flex-col pb-1">{children}</div>}
@@ -107,7 +112,7 @@ function SubMenu({
   );
 }
 
-const subItemClass = "block rounded-md py-2.5 pr-5 pl-[4.25rem] text-[0.9375rem] transition-colors hover:bg-secondary";
+const subItemClass = "block rounded-md py-2.5 pr-5 pl-[4.25rem] text-[0.9375rem] transition-colors hover:bg-sidebar-hover";
 
 function SubLink({
   href,
@@ -126,7 +131,7 @@ function SubLink({
       href={href}
       onClick={onNavigate}
       aria-current={active ? "page" : undefined}
-      className={cn(subItemClass, active ? "text-foreground font-semibold" : "text-foreground/65")}
+      className={cn(subItemClass, active ? "text-sidebar-foreground font-semibold" : "text-sidebar-muted")}
     >
       {label}
     </Link>
@@ -144,7 +149,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
   const counts = countsQuery.data;
 
   return (
-    <nav className="flex flex-col gap-1 px-2 py-4">
+    <nav className="text-sidebar-foreground flex flex-col gap-1 px-2 py-4">
       <Link href="/app" onClick={onNavigate} className="mb-2 flex items-center px-5 py-3">
         <FicoLogo className="text-base" />
       </Link>
@@ -158,7 +163,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
         pathname={pathname}
         icon={
           <Star
-            className={cn("size-7 shrink-0", isActive(pathname, "/app/revisit") ? "text-foreground" : "text-foreground/55")}
+            className={cn("size-7 shrink-0", isActive(pathname, "/app/revisit") ? "text-primary" : "text-sidebar-muted")}
             fill="currentColor"
           />
         }
@@ -194,7 +199,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
             photoUrl={profile?.photoUrl}
             firstName={profile?.firstName}
             lastName={profile?.lastName}
-            className="bg-foreground text-background size-8 text-xs"
+            className="size-8 bg-white/15 text-xs text-white"
           />
         }
       >
@@ -204,7 +209,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
           type="button"
           disabled={logoutMutation.isPending}
           onClick={() => logoutMutation.mutate()}
-          className={cn(subItemClass, "text-foreground/65 w-full cursor-pointer text-left disabled:opacity-50")}
+          className={cn(subItemClass, "text-sidebar-muted w-full cursor-pointer text-left disabled:opacity-50")}
         >
           {sr.nav.logout}
         </button>

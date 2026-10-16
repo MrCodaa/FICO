@@ -97,6 +97,15 @@ export const sr = {
       success: "Email je potvrđen. Možeš se prijaviti.",
       error: "Link za potvrdu nije validan ili je istekao.",
       loginLink: "Idi na prijavu",
+      continue: "Nastavi",
+      checkTitle: "Provjeri svoj email",
+      checkText: (email: string) =>
+        `Poslali smo link za potvrdu na ${email}. Otvori ga da potvrdiš nalog — tako znamo da nisi robot. Ako ga ne vidiš, pogledaj i Spam.`,
+      resend: "Pošalji link ponovo",
+      resent: "Poslali smo novi link.",
+      resendTooSoon: "Sačekaj minut prije nego što zatražiš novi link.",
+      notYet: "Email još nije potvrđen. Otvori link iz maila pa pokušaj ponovo.",
+      alreadyVerified: "Potvrdio/la sam email",
     },
     forgotPassword: {
       title: "Zaboravljena lozinka",

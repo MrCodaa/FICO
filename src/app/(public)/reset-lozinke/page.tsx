@@ -9,7 +9,7 @@ import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 
@@ -64,12 +64,7 @@ function ResetPasswordContent() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
             <div className="flex flex-col gap-2">
               <Label htmlFor="password">{passwordLabel}</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="new-password"
-                {...form.register("password")}
-              />
+              <PasswordInput id="password" autoComplete="new-password" {...form.register("password")} />
               <p className="text-muted-foreground text-xs">{passwordHint}</p>
               {form.formState.errors.password && (
                 <p className="text-destructive text-sm">

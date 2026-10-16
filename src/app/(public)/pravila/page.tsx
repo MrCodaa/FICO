@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
@@ -20,6 +20,7 @@ function errorMessage(code: string): string {
 
 export default function AgreementPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { title, subtitle, items, submit } = sr.agreement;
   const [checked, setChecked] = useState<boolean[]>(() => items.map(() => false));
 
@@ -41,6 +42,8 @@ export default function AgreementPage() {
     onSuccess: () => {
       // Pravila su korak neposredno prije kreiranja profila — normalan tok
       // nakon prihvatanja je uvijek popunjavanje profila.
+      // agreementAccepted se promijenio — bez ovoga /app vidi stari Me i vrati na pravila.
+      queryClient.invalidateQueries({ queryKey: ["me"] });
       router.push("/app/profile");
     },
   });

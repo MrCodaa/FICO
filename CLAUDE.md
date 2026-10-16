@@ -158,4 +158,4 @@ npm run db:studio    # prisma studio
 
 ## Environment
 
-`DATABASE_URL` (pooled), `DIRECT_URL`, `JWT_SECRET`, `APP_URL`, `EMAIL_PROVIDER` (console | resend), `RESEND_API_KEY`, `EMAIL_FROM`, `BLOB_READ_WRITE_TOKEN`, `ADMIN_EMAILS`, `CRON_SECRET`. Sve ide u `.env.example` bez vrijednosti.
+`DATABASE_URL` (pooled), `DIRECT_URL`, `JWT_SECRET`, `APP_URL`, `EMAIL_PROVIDER` (console | resend | prazno = Resend ako postoji `RESEND_API_KEY`), `EMAIL_FROM` (prazno = `onboarding@resend.dev`), `RESEND_API_KEY`, `BLOB_READ_WRITE_TOKEN`, `ADMIN_EMAILS`, `CRON_SECRET`. Sve ide u `.env.example` bez vrijednosti.

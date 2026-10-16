@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 import { getNextRoute, type MeState } from "@/lib/nextRoute";
@@ -38,6 +39,7 @@ function getErrorMessage(code: string) {
 
 export default function LoginPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { title, emailLabel, passwordLabel, submit, forgotLink, registerPrompt, registerLink } =
     sr.auth.login;
 
@@ -61,6 +63,8 @@ export default function LoginPage() {
       return res.json() as Promise<MeState>;
     },
     onSuccess: (me) => {
+      // Svjež Me u keš: inače /app vidi stari "odjavljen" (null) iz keša i vrati na prijavu.
+      queryClient.setQueryData(["me"], me);
       router.push(getNextRoute(me));
     },
   });
@@ -93,12 +97,7 @@ export default function LoginPage() {
                 {forgotLink}
               </Link>
             </div>
-            <Input
-              id="password"
-              type="password"
-              autoComplete="current-password"
-              {...form.register("password")}
-            />
+            <PasswordInput id="password" autoComplete="current-password" {...form.register("password")} />
             {form.formState.errors.password && (
               <p className="text-destructive text-sm">
                 {form.formState.errors.password.message}

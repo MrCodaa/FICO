@@ -21,25 +21,26 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
 
-  // Neprijavljen → prijava; bez prihvaćenih pravila → pravila platforme.
+  // Neprijavljen → prijava; nepotvrđen email → potvrda; bez pravila → pravila platforme.
   useEffect(() => {
     if (meQuery.data === null) router.replace("/prijava");
+    else if (meQuery.data && !meQuery.data.emailVerified) router.replace("/potvrda-emaila");
     else if (meQuery.data && !meQuery.data.agreementAccepted) router.replace("/pravila");
   }, [meQuery.data, router]);
 
   return (
     <div className="bg-surface flex min-h-screen flex-col lg:flex-row">
-      <aside className="bg-background sticky top-0 hidden h-screen w-[18.5rem] shrink-0 overflow-y-auto border-r lg:block">
+      <aside className="bg-sidebar border-sidebar-border sticky top-0 hidden h-screen w-[18.5rem] shrink-0 overflow-y-auto border-r lg:block">
         <AppNav />
       </aside>
 
       {/* Telefon: gornja traka + fioka sa istim menijem */}
-      <div className="bg-background sticky top-0 z-40 flex h-16 items-center justify-between gap-2 border-b px-2 lg:hidden">
+      <div className="bg-sidebar text-sidebar-foreground sticky top-0 z-40 flex h-16 items-center justify-between gap-2 px-2 lg:hidden">
         <button
           type="button"
           aria-label={sr.nav.openMenu}
           onClick={() => setDrawerOpen(true)}
-          className="hover:bg-secondary inline-flex size-11 cursor-pointer items-center justify-center rounded-md"
+          className="hover:bg-sidebar-hover inline-flex size-11 cursor-pointer items-center justify-center rounded-md"
         >
           <Menu className="size-6" />
         </button>
@@ -57,12 +58,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             onClick={() => setDrawerOpen(false)}
             className="absolute inset-0 bg-black/40"
           />
-          <div className="bg-background absolute inset-y-0 left-0 w-[17rem] max-w-[85vw] overflow-y-auto shadow-xl">
+          <div className="bg-sidebar absolute inset-y-0 left-0 w-[17rem] max-w-[85vw] overflow-y-auto shadow-xl">
             <button
               type="button"
               aria-label={sr.nav.closeMenu}
               onClick={() => setDrawerOpen(false)}
-              className="hover:bg-secondary absolute top-3 right-2 inline-flex size-10 cursor-pointer items-center justify-center rounded-md"
+              className="text-sidebar-foreground hover:bg-sidebar-hover absolute top-3 right-2 inline-flex size-10 cursor-pointer items-center justify-center rounded-md"
             >
               <X className="size-5" />
             </button>
