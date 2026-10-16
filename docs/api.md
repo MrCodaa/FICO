@@ -126,6 +126,20 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED \| DISMISSED, deactivateUser?: boolean }` | 204 |
 | POST | `/api/admin/users/:userId/deactivate` | admin | — | 204 |
 
+### Podešavanja i Kontrolna tabla (ui-spec §4, §6, §10)
+
+| Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
+| --- | --- | --- | --- | --- |
+| GET | `/api/settings` | auth | — | `{ active, emails: { invites, messages, reminders, weekly, newMatchingProfile, announcements, events, none }, cofounderMatchId, cofounderOptions: [{ matchId, name }], hideAge, skippedCount }` |
+| PATCH | `/api/settings` | auth | `settingsSchema` (sve opciono): `{ active?, emails?, cofounderMatchId?, hideAge? }` | 200 isti oblik kao GET; 400 ako `cofounderMatchId` nije tvoj match |
+| DELETE | `/api/decisions/not-interested` | onboarded | — | 200 `{ deleted }` (briše sve "Ne zanima me" odluke) |
+| DELETE | `/api/me` | auth | `{ email }` (potvrda, mora biti email naloga) | 204, briše nalog kaskadno i cookie; 400 ako se email ne poklapa |
+| GET | `/api/dashboard` | onboarded | — | `{ profileStatus, rejectionReason, queueCount, thinkingCount, newRequests, unreadMessages }` |
+
+- `active: false` upisuje `User.pausedAt`; pauziran nalog je van `visibleTo` (nevidljiv u Discover-u i na javnom profilu).
+- `hideAge: true` → `age` je `null` u `ProfileView` i `ProfileCard` za druge (admin pregled ga vidi).
+- `emails.newMatchingProfile` je `Preference.alertOnNewMatch`. `emails.none` gasi sve lifecycle mailove u `EmailService`; transakcioni (potvrda emaila, reset lozinke, odobren/odbijen profil) idu uvijek.
+
 ## Transakcije (ACID)
 
 Sve što mijenja više redova radi se u jednoj `prisma.$transaction`. Mailovi i ostali spoljni pozivi idu tek poslije commita, pa rollback nikad ne pošalje mail. Unique ograničenja u šemi su posljednja linija odbrane: Prisma `P2002` se mapira u 409.
@@ -142,11 +156,12 @@ Sve što mijenja više redova radi se u jednoj `prisma.$transaction`. Mailovi i 
 | Odbijanje | Request → `DECLINED` | isti uslovni update |
 | Poruka | Message + `Match.lastMessageAt` | — |
 | Blokiranje | Block + svi `PENDING` zahtjevi između njih → `DECLINED` | `@@id([blockerId, blockedId])` |
+| Podešavanja | User (`pausedAt`, `cofounderMatchId`) + Preference (emailovi) + Profile (`hideAge`) | — |
 | Rješavanje prijave | Report status (+ `User.deactivatedAt`) | — |
 
 ## Zajednička pravila (jedno mjesto u kodu)
 
-- **`visibleTo(viewerId)`:** Prisma `where` fragment koji vraća odobren profil, aktivan nalog, nije `viewerId` i nema blokade ni u jednom smjeru. Koriste ga Discover, `/api/profiles/:userId`, liste zahtjeva i matchevi.
+- **`visibleTo(viewerId)`:** Prisma `where` fragment koji vraća odobren profil, aktivan (ni deaktiviran ni pauziran) nalog, nije `viewerId` i nema blokade ni u jednom smjeru. Koriste ga Discover, `/api/profiles/:userId`, liste zahtjeva i matchevi.
 - **`effectiveStatus(request, now)`:** `PENDING` sa `expiresAt < now` tretira kao `EXPIRED`. Koriste ga sve liste i accept/decline.
 - **`toDisplayStatus(request, now)`:** mapiranje za pošiljaoca, opisano gore.
 - **`touchLastActive(userId)`:** ažurira `lastActiveAt` najviše jednom na sat. Poziva se iz `withRoute`.

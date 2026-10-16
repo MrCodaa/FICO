@@ -29,6 +29,7 @@ function createFakeRepo(overrides: Partial<AuthRepository> = {}): AuthRepository
     consumeAuthTokenAndVerifyEmail: vi.fn().mockResolvedValue(true),
     consumeAuthTokenAndResetPassword: vi.fn().mockResolvedValue(true),
     acceptAgreement: vi.fn().mockResolvedValue(undefined),
+    deleteUser: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -200,5 +201,23 @@ describe("createAuthService.acceptAgreement", () => {
     await service.acceptAgreement("user-1");
 
     expect(repo.acceptAgreement).toHaveBeenCalledWith("user-1", NOW);
+  });
+});
+
+describe("deleteAccount", () => {
+  const me = { id: "user-1", email: "ana@fico.test", emailVerifiedAt: NOW, agreementAcceptedAt: NOW, profileStatus: "APPROVED" as const };
+
+  it("briše nalog kad se upisani email poklapa (bez obzira na velika slova)", async () => {
+    const repo = createFakeRepo({ findMeById: vi.fn().mockResolvedValue(me) });
+    const service = createAuthService({ repo, email: createFakeEmail(), clock: createFakeClock() });
+    await service.deleteAccount("user-1", " Ana@FICO.test ");
+    expect(repo.deleteUser).toHaveBeenCalledWith("user-1");
+  });
+
+  it("odbija pogrešan email i ne briše ništa", async () => {
+    const repo = createFakeRepo({ findMeById: vi.fn().mockResolvedValue(me) });
+    const service = createAuthService({ repo, email: createFakeEmail(), clock: createFakeClock() });
+    await expect(service.deleteAccount("user-1", "drugi@fico.test")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repo.deleteUser).not.toHaveBeenCalled();
   });
 });

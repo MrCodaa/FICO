@@ -67,6 +67,7 @@ export interface DiscoverRepository {
   getRelation(viewerId: string, targetId: string): Promise<RelationRow>;
   upsertDecision(viewerId: string, targetId: string, type: DecisionType, now: Date): Promise<void>;
   deleteDecision(viewerId: string, targetId: string): Promise<void>;
+  deleteAllNotInterested(viewerId: string): Promise<number>;
   listDecisions(
     viewerId: string,
     type: DecisionType,
@@ -174,6 +175,11 @@ export const discoverRepository: DiscoverRepository = {
 
   async deleteDecision(viewerId, targetId) {
     await db.decision.delete({ where: { userId_targetId: { userId: viewerId, targetId } } }).catch(() => {});
+  },
+
+  async deleteAllNotInterested(viewerId) {
+    const { count } = await db.decision.deleteMany({ where: { userId: viewerId, type: "NOT_INTERESTED" } });
+    return count;
   },
 
   async listDecisions(viewerId, type, cursor, limit) {

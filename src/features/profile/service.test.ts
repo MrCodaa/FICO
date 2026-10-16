@@ -52,6 +52,7 @@ function completeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecord 
     twitterUrl: null,
     instagramUrl: null,
     heardFrom: null,
+    hideAge: false,
     ideaStatus: "EXPLORING",
     ideas: null,
     hasCofounder: null,

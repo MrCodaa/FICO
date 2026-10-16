@@ -95,9 +95,11 @@ describe("createRequestService.acceptRequest", () => {
 
     expect(result).toEqual({ matchId: "match-1" });
     expect(repo.getUserEmail).toHaveBeenCalledWith("sender-1");
-    expect(email.send).toHaveBeenCalledWith(
-      expect.objectContaining({ to: "sender@example.com" }),
-    );
+    // Lifecycle mail ("Novi zahtjevi i matchevi") — EmailService provjerava podešavanja pošiljaoca.
+    expect(email.send).toHaveBeenCalledWith(expect.objectContaining({ to: "sender@example.com" }), {
+      userId: "sender-1",
+      category: "invites",
+    });
   });
 });
 

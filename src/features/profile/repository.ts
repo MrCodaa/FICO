@@ -26,6 +26,7 @@ export interface ProfileRecord {
   twitterUrl: string | null;
   instagramUrl: string | null;
   heardFrom: string | null;
+  hideAge: boolean;
   ideaStatus: IdeaStatus | null;
   ideas: string | null;
   hasCofounder: boolean | null;

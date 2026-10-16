@@ -1,6 +1,7 @@
 export * from "./EmailProvider";
 export * from "./ConsoleEmailProvider";
 export * from "./ResendEmailProvider";
+export * from "./EmailService";
 
 import { ConsoleEmailProvider } from "./ConsoleEmailProvider";
 import { ResendEmailProvider } from "./ResendEmailProvider";

@@ -1,6 +1,6 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
-import type { EmailProvider } from "@/lib/email";
+import type { EmailService, LifecycleOptions } from "@/lib/email/EmailService";
 import { evaluateMatch } from "@/lib/matching/score";
 import { sr } from "@/content/sr";
 import type { CreateRequestInput } from "./schemas";
@@ -9,7 +9,7 @@ import { toReceivedRequestView, toSentRequestView } from "./mappers";
 
 export interface RequestServiceDeps {
   repo: RequestRepository;
-  email: EmailProvider;
+  email: EmailService;
   clock: Clock;
 }
 
@@ -18,9 +18,9 @@ export function createRequestService(deps: RequestServiceDeps) {
 
   // Mail je sporedan efekat poslije commita — provider greška ne smije
   // oboriti odgovor za operaciju koja je već upisana u bazu.
-  async function trySendEmail(message: Parameters<EmailProvider["send"]>[0]) {
+  async function trySendEmail(message: Parameters<EmailService["send"]>[0], lifecycle: LifecycleOptions) {
     try {
-      await email.send(message);
+      await email.send(message, lifecycle);
     } catch (err) {
       console.error("[requests] slanje maila nije uspjelo:", err);
     }
@@ -37,7 +37,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           to: receiverEmail,
           subject: sr.requests.emails.received.subject,
           text: sr.requests.emails.received.body,
-        });
+        }, { userId: input.receiverId, category: "invites" });
       }
       return { ...created, likesRemaining };
     },
@@ -74,7 +74,7 @@ export function createRequestService(deps: RequestServiceDeps) {
           to: senderEmail,
           subject: sr.requests.emails.matched.subject,
           text: sr.requests.emails.matched.body,
-        });
+        }, { userId: result.senderId, category: "invites" });
       }
       return { matchId: result.matchId };
     },

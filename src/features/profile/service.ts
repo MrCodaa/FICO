@@ -100,7 +100,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
     async listPendingProfiles(status: ProfileStatus = "PENDING_REVIEW", cursor?: string, limit = 20) {
       const { items, nextCursor } = await repo.listProfilesByStatus(status, cursor, limit);
       return {
-        items: items.map((p) => toProfileView(p, clock.now(), { preference: p.preference ?? null })),
+        items: items.map((p) => toProfileView(p, clock.now(), { preference: p.preference ?? null, revealAge: true })),
         nextCursor,
       };
     },

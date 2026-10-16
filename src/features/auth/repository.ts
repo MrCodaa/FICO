@@ -32,6 +32,7 @@ export interface AuthRepository {
     now: Date,
   ): Promise<boolean>;
   acceptAgreement(userId: string, now: Date): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
 }
 
 export const authRepository: AuthRepository = {
@@ -115,4 +116,10 @@ export const authRepository: AuthRepository = {
   async acceptAgreement(userId, now) {
     await db.user.update({ where: { id: userId }, data: { agreementAcceptedAt: now } });
   },
+
+  async deleteUser(userId) {
+    // Sve ostalo (profil, preference, odluke, zahtjevi, matchevi, poruke…) ide kaskadno.
+    await db.user.delete({ where: { id: userId } });
+  },
 };
+

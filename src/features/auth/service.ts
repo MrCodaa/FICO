@@ -134,6 +134,16 @@ export function createAuthService(deps: AuthServiceDeps) {
     async acceptAgreement(userId: string) {
       await repo.acceptAgreement(userId, clock.now());
     },
+
+    /** Podešavanja → "Obriši nalog": potvrda je upisan email naloga. */
+    async deleteAccount(userId: string, confirmEmail: string) {
+      const user = await repo.findMeById(userId);
+      if (!user) throw new ApiError("NOT_FOUND", "Korisnik ne postoji.");
+      if (user.email !== confirmEmail.trim().toLowerCase()) {
+        throw new ApiError("VALIDATION_ERROR", "Email se ne poklapa.", { email: "Email se ne poklapa." });
+      }
+      await repo.deleteUser(userId);
+    },
   };
 }
 

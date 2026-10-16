@@ -27,7 +27,8 @@ export function toProfileCard(profile: ProfileRecord, now: Date): ProfileCard {
     photoUrl: profile.photoUrl,
     countryCode: profile.countryCode,
     city: profile.city,
-    age: profile.birthDate ? computeAge(profile.birthDate, now) : null,
+    // Podešavanja → "sakrij godine": drugi ne vide godine.
+    age: profile.birthDate && !profile.hideAge ? computeAge(profile.birthDate, now) : null,
     gender: profile.gender,
     isTechnical: profile.isTechnical,
     timing: profile.timing,

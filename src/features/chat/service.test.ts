@@ -35,6 +35,7 @@ function createFakeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecor
     twitterUrl: null,
     instagramUrl: null,
     heardFrom: null,
+    hideAge: false,
     ideaStatus: null,
     ideas: null,
     hasCofounder: null,

@@ -128,8 +128,12 @@ model User {
   tokenVersion        Int       @default(0) // ++ na reset lozinke = poništava sve sesije
   lastActiveAt        DateTime  @default(now())
   deactivatedAt       DateTime?
+  pausedAt            DateTime? // Podešavanja: pauziran nalog = isključen iz Discover-a (kao nevidljiv)
+  cofounderMatchId    String? // Podešavanja: "Sa kim si postao/la co-founder?"
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
+
+  cofounderMatch Match? @relation("CofounderMatch", fields: [cofounderMatchId], references: [id], onDelete: SetNull)
 
   authTokens    AuthToken[]
   profile       Profile?
@@ -192,6 +196,7 @@ model Profile {
   twitterUrl     String?
   instagramUrl   String?
   heardFrom      String?
+  hideAge        Boolean   @default(false) // Podešavanja: sakrij godine od drugih
 
   // Više o tebi
   ideaStatus         IdeaStatus?
@@ -238,7 +243,16 @@ model Preference {
 
   interestsImportance Importance? // poredi se sa interesima autora
 
-  alertOnNewMatch Boolean @default(false)
+  alertOnNewMatch Boolean @default(false) // email: novi profil koji odgovara svim preferencama
+
+  // Podešavanja → "Koje emailove želiš da primaš?"; emailNone gasi sve (provjera u EmailService)
+  emailInvites       Boolean @default(true)
+  emailMessages      Boolean @default(true)
+  emailReminders     Boolean @default(true)
+  emailWeekly        Boolean @default(true)
+  emailAnnouncements Boolean @default(true)
+  emailEvents        Boolean @default(true)
+  emailNone          Boolean @default(false)
 
   updatedAt DateTime @updatedAt
 
@@ -294,10 +308,11 @@ model Match {
   lastMessageAt DateTime?
   createdAt     DateTime  @default(now())
 
-  userA    User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
-  userB    User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
-  request  Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  messages Message[]
+  userA       User      @relation("MatchUserA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB       User      @relation("MatchUserB", fields: [userBId], references: [id], onDelete: Cascade)
+  request     Request   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  cofounderOf User[]    @relation("CofounderMatch")
 
   @@unique([userAId, userBId])
   @@index([userBId])

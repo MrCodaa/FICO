@@ -73,6 +73,11 @@ export function createDiscoverService(deps: DiscoverServiceDeps) {
       await repo.deleteDecision(viewerId, targetId);
     },
 
+    /** Podešavanja → "Resetuj preskočene profile": briše sve "Ne zanima me" odluke. */
+    async resetNotInterested(viewerId: string) {
+      return { deleted: await repo.deleteAllNotInterested(viewerId) };
+    },
+
     async listDecisions(viewerId: string, type: DecisionType, cursor?: string, limit = 20) {
       const viewer = await repo.getViewerPerson(viewerId);
       if (!viewer) throw new ApiError("NOT_FOUND", "Profil ne postoji.");

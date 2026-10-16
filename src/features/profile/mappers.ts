@@ -76,9 +76,11 @@ export interface ProfileView {
 export function toProfileView(
   profile: ProfileRecord,
   now: Date,
-  extras: { preference?: PreferenceRecord | null; lastActiveAt?: Date | null } = {},
+  extras: { preference?: PreferenceRecord | null; lastActiveAt?: Date | null; revealAge?: boolean } = {},
 ): ProfileView {
-  const age = profile.birthDate ? computeAge(profile.birthDate, now) : null;
+  // Podešavanja → "sakrij godine": drugi ne vide godine (admin pregled ih vidi — revealAge).
+  const showAge = !profile.hideAge || extras.revealAge === true;
+  const age = profile.birthDate && showAge ? computeAge(profile.birthDate, now) : null;
   const pref = extras.preference ?? null;
   return {
     userId: profile.userId,

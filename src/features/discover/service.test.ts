@@ -80,6 +80,7 @@ function fakeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecord {
     twitterUrl: null,
     instagramUrl: null,
     heardFrom: null,
+    hideAge: false,
     ideaStatus: null,
     ideas: null,
     hasCofounder: null,
@@ -102,6 +103,7 @@ function createFakeRepo(overrides: Partial<DiscoverRepository> = {}): DiscoverRe
   return {
     getViewerPerson: vi.fn().mockResolvedValue(fakePerson({ userId: "viewer" })),
     getExcludedUserIds: vi.fn().mockResolvedValue([]),
+    deleteAllNotInterested: vi.fn().mockResolvedValue(4),
     getRelation: vi.fn().mockResolvedValue({ decision: null, sent: null, received: null, matchId: null }),
     listCandidates: vi.fn().mockResolvedValue([]),
     getCandidateById: vi.fn().mockResolvedValue(null),
@@ -244,5 +246,12 @@ describe("createDiscoverService.listDecisions", () => {
     expect(result.items[0]?.profile).toMatchObject({ userId: "target", firstName: "Mara", age: 30 });
     expect(result.items[0]?.decidedAt).toBe(decidedAt);
     expect(result.items[0]?.match).toEqual({ score: 0.7, reasons: ["r"] });
+  });
+
+  it("resetNotInterested vraća broj obrisanih odluka", async () => {
+    const repo = createFakeRepo();
+    const service = createDiscoverService({ repo, clock: createFakeClock() });
+    await expect(service.resetNotInterested("viewer")).resolves.toEqual({ deleted: 4 });
+    expect(repo.deleteAllNotInterested).toHaveBeenCalledWith("viewer");
   });
 });
