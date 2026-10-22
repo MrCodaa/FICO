@@ -74,7 +74,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
     },
 
     async submitProfile(userId: string) {
-      const { profile } = await repo.getProfileAndPreference(userId);
+      const { profile, preference } = await repo.getProfileAndPreference(userId);
       if (!profile) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob.
       // PRIVREMENO isključeno dok Vercel Blob (BLOB_READ_WRITE_TOKEN) nije
@@ -83,7 +83,7 @@ export function createProfileService(deps: ProfileServiceDeps) {
       // if (!profile.photoUrl) {
       //   throw new ApiError("PROFILE_INCOMPLETE", sr.profile.errors.incomplete, { photoUrl: "Obavezno polje" });
       // }
-      const parsed = profileSubmitSchema.safeParse(profile);
+      const parsed = profileSubmitSchema.safeParse({ ...profile, lookingFor: preference?.lookingFor ?? null });
       if (!parsed.success) {
         const fields: Record<string, string> = {};
         for (const issue of parsed.error.issues) {

@@ -26,6 +26,16 @@ import {
 } from "../src/generated/prisma/enums";
 import { hashPassword } from "../src/lib/auth/password";
 import { citiesByCountry, countryCodes, interestCodes } from "../src/content/catalog";
+import {
+  EQUITY_OPTIONS,
+  FREE_TIME_OPTIONS,
+  IDEAS_OPTIONS,
+  LIFE_PATH_OPTIONS,
+  LOOKING_FOR_OPTIONS,
+  OTHER_NOTES,
+  textAt,
+} from "./seed-texts";
+import { SHOWCASE_PROFILES } from "./seed-showcase";
 
 const SEED_DOMAIN = "fico.test";
 const SEED_PASSWORD = "Seed123!";
@@ -122,34 +132,6 @@ const LAST_NAMES = [
 const HEARD_FROM_OPTIONS = [
   "Preporuka prijatelja", "LinkedIn", "Facebook grupa za startupe", "Konferencija",
   "Startup Weekend", "Twitter/X",
-] as const;
-
-const EQUITY_OPTIONS = ["10-15%", "15-20%", "20-30%", "Dijelimo pola-pola", "Otvoreno za razgovor"] as const;
-
-const FREE_TIME_OPTIONS = [
-  "Planinarenje i fotografija", "Čitanje i šah", "Trčanje i podcasti o tehnologiji",
-  "Kuhanje i putovanja", "Gitara i muzika", "Rolanje i video igre",
-] as const;
-
-const LIFE_PATH_OPTIONS = [
-  "Prešao sam iz korporacije u startup svijet prije par godina i ne žalim.",
-  "Studirao sam informatiku, radio u par agencija, sada tražim nešto svoje.",
-  "Pokrenula sam i zatvorila jedan startup — učim iz grešaka i idem dalje.",
-  "Dugo sam freelance radio, sada želim nešto dugoročnije sa timom.",
-] as const;
-
-const OTHER_NOTES = [
-  "Najviše mi je bitna otvorena komunikacija i jasna podjela odgovornosti.",
-  "Tražim nekog ko je spreman na honorarni commitment prvih par mjeseci.",
-  "Preselio bih se za pravu priliku i pravog co-foundera.",
-  "Imam malu ušteđevinu koju sam spreman uložiti u zajednički projekat.",
-] as const;
-
-const LOOKING_FOR_OPTIONS = [
-  "Tražim tehničkog co-foundera koji može samostalno voditi razvoj proizvoda.",
-  "Tražim poslovnog co-foundera sa iskustvom u prodaji i razvoju biznisa.",
-  "Tražim nekoga posvećenog, sa sličnom vizijom i spremnog na puno radno vrijeme.",
-  "Otvoren/a sam za razgovor — bitnija mi je hemija i komplementarne vještine od CV-a.",
 ] as const;
 
 function introFor(isTechnical: boolean, areas: Area[]): string {
@@ -265,18 +247,20 @@ async function main(): Promise<void> {
     const hasLinkedin = chance(0.7);
     const birthDate = yearsAgo(randInt(22, 45), randInt(0, 364));
 
-    // Opciona polja — svako nezavisno ispunjeno s ~40% šansom.
+    // Opciona polja (linkovi, odakle je čuo) — svako nezavisno s nekom šansom.
     const videoUrl = chance(0.3) ? `https://www.youtube.com/watch?v=seed-intro-${i}` : null;
     const schedulingUrl = chance(0.35) ? `https://cal.com/seed-${slugify(firstName)}-${i}` : null;
     const twitterUrl = chance(0.3) ? `https://x.com/seed_${slugify(firstName)}${i}` : null;
     const instagramUrl = chance(0.25) ? `https://instagram.com/seed_${slugify(firstName)}${i}` : null;
     const heardFrom = chance(0.5) ? pick(HEARD_FROM_OPTIONS) : null;
-    const ideas = chance(0.45) ? "Radim na konceptu koji spaja AI alate i lokalno tržište usluga." : null;
+    // YC sekcije su pune na svakom profilu, da Discover izgleda kao pravi.
+    // Ideja je obavezna za COMMITTED/EXPLORING, a OPEN je ima na pola profila.
+    const ideas = ideaStatus !== IdeaStatus.OPEN || i % 2 === 0 ? textAt(IDEAS_OPTIONS, i) : null;
     const hasCofounder = chance(0.5) ? chance(0.3) : null;
-    const equityExpectations = chance(0.4) ? pick(EQUITY_OPTIONS) : null;
-    const freeTime = chance(0.4) ? pick(FREE_TIME_OPTIONS) : null;
-    const lifePath = chance(0.35) ? pick(LIFE_PATH_OPTIONS) : null;
-    const other = chance(0.3) ? pick(OTHER_NOTES) : null;
+    const equityExpectations = textAt(EQUITY_OPTIONS, i, 1);
+    const freeTime = textAt(FREE_TIME_OPTIONS, i, 2);
+    const lifePath = textAt(LIFE_PATH_OPTIONS, i, 3);
+    const other = textAt(OTHER_NOTES, i, 4);
 
     const isSubmitted = status !== ProfileStatus.DRAFT;
     const isReviewed = status === ProfileStatus.APPROVED || status === ProfileStatus.REJECTED;
@@ -334,13 +318,13 @@ async function main(): Promise<void> {
     createdUsers.push({ id: user.id, index: i });
 
     // Preference: prvih 15 profila (indeksi 0-14) ostaje potpuno "bez preference"
-    // (sva polja null) — testira fallback kad korisnik nije ništa podesio.
+    // (sva polja null osim opisa "Idealan co-founder") — testira fallback kad korisnik nije ništa podesio.
     // Ostalih 25 (indeksi 15-39) ima miks REQUIRED/PREFERRED po raznim poljima.
     const hasAnyPreference = i >= 15;
 
     if (!hasAnyPreference) {
       await db.preference.create({
-        data: { userId: user.id },
+        data: { userId: user.id, lookingFor: textAt(LOOKING_FOR_OPTIONS, i, 5) },
       });
     } else {
       // Ciklički mijenjamo koja su polja REQUIRED, koja PREFERRED, koja izostavljena,
@@ -372,7 +356,7 @@ async function main(): Promise<void> {
       await db.preference.create({
         data: {
           userId: user.id,
-          lookingFor: chance(0.6) ? pick(LOOKING_FOR_OPTIONS) : null,
+          lookingFor: textAt(LOOKING_FOR_OPTIONS, i, 5),
           idea,
           ideaImportance,
           technical,
@@ -393,6 +377,69 @@ async function main(): Promise<void> {
   }
 
   console.log(`Seed: kreirano ${createdUsers.length} profila.`);
+
+  // ─────────────────────── Demo profili (uvijek isti tekst) ───────────────────────
+  // Ručno napisani, potpuni profili za prezentaciju — aktivni "danas" da budu
+  // pri vrhu Discover reda.
+  const nowMs = Date.now();
+  for (const [i, p] of SHOWCASE_PROFILES.entries()) {
+    const birthDate = new Date(nowMs);
+    birthDate.setFullYear(birthDate.getFullYear() - p.age);
+    birthDate.setMonth((i * 5) % 12);
+    await db.user.create({
+      data: {
+        email: `${slugify(p.first)}.${slugify(p.last)}.${p.emailTag}@${SEED_DOMAIN}`,
+        passwordHash: sharedPasswordHash,
+        emailVerifiedAt: new Date(),
+        agreementAcceptedAt: new Date(),
+        lastActiveAt: new Date(nowMs - i * 20 * 60 * 1000),
+        profile: {
+          create: {
+            status: ProfileStatus.APPROVED,
+            submittedAt: daysAgo(2),
+            reviewedAt: daysAgo(1),
+            firstName: p.first,
+            lastName: p.last,
+            photoUrl: p.photoUrl,
+            linkedinUrl: `https://www.linkedin.com/in/${slugify(p.first)}-${slugify(p.last)}`,
+            noLinkedin: false,
+            countryCode: p.country,
+            city: p.city,
+            intro: p.intro,
+            accomplishment: p.accomplishment,
+            education: p.education,
+            employment: p.employment,
+            isTechnical: p.tech,
+            gender: p.gender === "FEMALE" ? Gender.FEMALE : Gender.MALE,
+            birthDate,
+            ideaStatus: IdeaStatus[p.ideaStatus],
+            ideas: p.ideas,
+            hasCofounder: false,
+            timing: Timing[p.timing],
+            areas: p.areas.map((a) => Area[a as keyof typeof Area]),
+            interests: p.interests,
+            equityExpectations: p.equity,
+            freeTime: p.freeTime,
+            lifePath: p.lifePath,
+            other: p.other,
+          },
+        },
+        preference: {
+          create: {
+            lookingFor: p.lookingFor,
+            technical:
+              p.wantTech === null ? null : p.wantTech ? TechnicalPreference.TECHNICAL : TechnicalPreference.NON_TECHNICAL,
+            technicalImportance: p.wantTech === null ? null : Importance.PREFERRED,
+            location: LocationScope.SAME_REGION,
+            locationImportance: Importance.PREFERRED,
+            interestsImportance: Importance.PREFERRED,
+            timingImportance: Importance.PREFERRED,
+          },
+        },
+      },
+    });
+  }
+  console.log(`Seed: kreirano ${SHOWCASE_PROFILES.length} demo profila.`);
 
   // ─────────────────────── Bonus: Decision i Request zapisi ───────────────────────
   // Nekoliko ručno postavljenih veza da Discover isključivanje ima šta da testira.

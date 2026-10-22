@@ -54,14 +54,14 @@ function completeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecord 
     heardFrom: null,
     hideAge: false,
     ideaStatus: "EXPLORING",
-    ideas: null,
+    ideas: "Platforma za co-foundere na Balkanu.",
     hasCofounder: null,
     timing: "WITHIN_YEAR",
     areas: ["ENGINEERING"],
     interests: ["AI_ML"],
-    equityExpectations: null,
+    equityExpectations: "50/50",
     freeTime: null,
-    lifePath: null,
+    lifePath: "Odrasla u Sarajevu, studirala ETF.",
     other: null,
     submittedAt: null,
     reviewedAt: null,
@@ -201,9 +201,55 @@ describe("createProfileService.submitProfile", () => {
     expect(repo.submitProfile).not.toHaveBeenCalled();
   });
 
+  it("traži životni put, udio, ideju (kad je ima) i idealnog co-foundera", async () => {
+    const repo = createFakeRepo({
+      getProfileAndPreference: vi.fn().mockResolvedValue({
+        profile: completeProfile({ ideaStatus: "COMMITTED", ideas: null, lifePath: " ", equityExpectations: null }),
+        preference: null,
+      }),
+    });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
+
+    await expect(service.submitProfile("user-1")).rejects.toMatchObject({
+      code: "PROFILE_INCOMPLETE",
+      fields: {
+        ideas: expect.any(String),
+        lifePath: expect.any(String),
+        equityExpectations: expect.any(String),
+        lookingFor: expect.any(String),
+      },
+    });
+  });
+
+  it("ne traži opis ideje kad je korisnik otvoren za ideje", async () => {
+    const repo = createFakeRepo({
+      getProfileAndPreference: vi.fn().mockResolvedValue({
+        profile: completeProfile({ ideaStatus: "OPEN", ideas: null }),
+        preference: createFakePreference({ lookingFor: "Tehnički co-founder" }),
+      }),
+      submitProfile: vi.fn().mockResolvedValue(true),
+    });
+    const service = createProfileService({
+      repo,
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
+
+    await expect(service.submitProfile("user-1")).resolves.toBe("PENDING_REVIEW");
+  });
+
   it("baca INVALID_STATUS kad repo vrati false za kompletan profil", async () => {
     const repo = createFakeRepo({
-      getProfileAndPreference: vi.fn().mockResolvedValue({ profile: completeProfile(), preference: null }),
+      getProfileAndPreference: vi.fn().mockResolvedValue({
+        profile: completeProfile(),
+        preference: createFakePreference({ lookingFor: "Tehnički co-founder" }),
+      }),
       submitProfile: vi.fn().mockResolvedValue(false),
     });
     const service = createProfileService({
@@ -218,7 +264,10 @@ describe("createProfileService.submitProfile", () => {
 
   it("vraća PENDING_REVIEW kad je profil kompletan i repo uspije", async () => {
     const repo = createFakeRepo({
-      getProfileAndPreference: vi.fn().mockResolvedValue({ profile: completeProfile(), preference: null }),
+      getProfileAndPreference: vi.fn().mockResolvedValue({
+        profile: completeProfile(),
+        preference: createFakePreference({ lookingFor: "Tehnički co-founder" }),
+      }),
       submitProfile: vi.fn().mockResolvedValue(true),
     });
     const service = createProfileService({

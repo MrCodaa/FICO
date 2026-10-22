@@ -38,6 +38,10 @@ export const FIELD_LABELS: Record<string, string> = {
   timing: more.timing,
   areas: more.areas,
   interests: more.interests,
+  ideas: more.ideas,
+  equityExpectations: more.equityExpectations,
+  lifePath: more.lifePath,
+  lookingFor: sr.profile.steps.preference.lookingFor,
 };
 
 export function fieldLabel(key: string): string {

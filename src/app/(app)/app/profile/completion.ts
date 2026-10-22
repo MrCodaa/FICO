@@ -16,12 +16,16 @@ const moreKeys = new Set<string>(MORE_FIELDS);
  * ne pada na njegova polja.
  */
 export function stepCompletion(values: ProfileFormValues, status: string | undefined): Record<StepKey, boolean> {
-  const result = profileSubmitSchema.safeParse({ ...toBasicPayload(values), ...toMorePayload(values) });
+  const result = profileSubmitSchema.safeParse({
+    ...toBasicPayload(values),
+    ...toMorePayload(values),
+    lookingFor: toPreferencePayload(values).lookingFor,
+  });
   const failing = new Set(result.success ? [] : result.error.issues.map((issue) => String(issue.path[0])));
   return {
     basic: ![...failing].some((key) => basicKeys.has(key)),
     more: ![...failing].some((key) => moreKeys.has(key)),
-    preference: preferenceDraftSchema.safeParse(toPreferencePayload(values)).success,
+    preference: !failing.has("lookingFor") && preferenceDraftSchema.safeParse(toPreferencePayload(values)).success,
     preview: status === "PENDING_REVIEW" || status === "APPROVED",
   };
 }

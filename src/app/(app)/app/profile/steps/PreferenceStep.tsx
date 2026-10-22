@@ -43,7 +43,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
     <fieldset disabled={disabled} className="flex flex-col gap-10">
       <p className="text-foreground/80">{t.subtitle}</p>
 
-      <Field label={t.lookingFor} htmlFor="lookingFor">
+      <Field label={t.lookingFor} htmlFor="lookingFor" required>
         <Textarea id="lookingFor" maxLength={1000} className="min-h-32" {...register("lookingFor")} />
       </Field>
 

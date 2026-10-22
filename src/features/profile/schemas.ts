@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { countryCodes, interestCodes } from "@/content/catalog";
+import { sr } from "@/content/sr";
 
 const AREA_VALUES = ["PRODUCT", "ENGINEERING", "DESIGN", "SALES_MARKETING", "OPERATIONS"] as const;
 
@@ -45,13 +46,25 @@ export const profileSubmitSchema = profileBaseSchema
     // Slanje na pregled MORA imati stvaran datum — preprocess odbacuje null
     // PRIJE coerce-a da z.coerce.date() ne pretvori tiho null u 1.1.1970.
     birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
+    // Preference.lookingFor ("Idealan co-founder") — servis ga dodaje iz Preference.
+    lookingFor: z.string().trim().max(1000).optional().nullable(),
   })
   .superRefine((data, ctx) => {
+    // Nacrt ih čuva kao null, ali za slanje su obavezni da Discover prikaže
+    // pune YC sekcije (Životna priča, Potencijalne ideje, Šta tražim, udio).
+    const required: (keyof typeof data)[] = ["lifePath", "equityExpectations", "lookingFor"];
+    if (data.ideaStatus === "COMMITTED" || data.ideaStatus === "EXPLORING") required.push("ideas");
+    for (const key of required) {
+      const value = data[key];
+      if (typeof value !== "string" || !value.trim()) {
+        ctx.addIssue({ code: "custom", path: [key], message: sr.profile.errors.required });
+      }
+    }
     if (!data.noLinkedin && !data.linkedinUrl) {
       ctx.addIssue({
         code: "custom",
         path: ["linkedinUrl"],
-        message: 'Unesi LinkedIn profil ili označi "Nemam LinkedIn".',
+        message: sr.profile.errors.linkedinRequired,
       });
     }
   });

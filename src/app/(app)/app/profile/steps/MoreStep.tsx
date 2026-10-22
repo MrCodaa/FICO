@@ -34,7 +34,11 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         />
       </Field>
 
-      <Field label={t.ideas} htmlFor="ideas">
+      <Field
+        label={t.ideas}
+        htmlFor="ideas"
+        required={watch("ideaStatus") === "COMMITTED" || watch("ideaStatus") === "EXPLORING"}
+      >
         <Textarea id="ideas" maxLength={1000} className="min-h-32" {...register("ideas")} />
       </Field>
 
@@ -84,7 +88,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         />
       </Field>
 
-      <Field label={t.equityExpectations} htmlFor="equityExpectations">
+      <Field label={t.equityExpectations} htmlFor="equityExpectations" required>
         <Input id="equityExpectations" maxLength={250} {...register("equityExpectations")} />
       </Field>
 
@@ -92,7 +96,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         <Textarea id="freeTime" maxLength={500} {...register("freeTime")} />
       </Field>
 
-      <Field label={t.lifePath} htmlFor="lifePath">
+      <Field label={t.lifePath} htmlFor="lifePath" required>
         <Textarea id="lifePath" maxLength={500} {...register("lifePath")} />
       </Field>
 

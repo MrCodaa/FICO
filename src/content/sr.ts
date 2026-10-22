@@ -274,6 +274,7 @@ export const sr = {
       photoTooLarge: "Slika je prevelika (maksimalno 4 MB).",
       photoInvalidType: "Dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
+      required: "Obavezno polje",
       validationError: "Provjeri unesene podatke — neko polje nije ispravno popunjeno.",
       // TODO: ukloniti kad se uključi Vercel Blob (slika ponovo obavezna).
       photoUnavailable: "Upload slike trenutno nije dostupan. Možeš nastaviti bez slike.",
