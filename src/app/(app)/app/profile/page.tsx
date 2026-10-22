@@ -366,6 +366,17 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
                       disabled={locked || saveMutation.isPending}
                       onClick={() => {
                         setSaveError(null);
+                        // LinkedIn: ili pravi link, ili označeno "Nemam LinkedIn" — prazno polje ne prolazi dalje.
+                        if (step === "basic") {
+                          const v = form.getValues();
+                          if (!v.noLinkedin && !v.linkedinUrl.trim()) {
+                            setSaveError({
+                              message: sr.profile.errors.validationError,
+                              fields: { linkedinUrl: fe.byField.linkedinUrl ?? fe.required },
+                            });
+                            return;
+                          }
+                        }
                         saveMutation.mutate(step);
                       }}
                     >
