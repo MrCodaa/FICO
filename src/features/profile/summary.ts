@@ -1,4 +1,4 @@
-import { countries, regionByCountry } from "@/content/catalog";
+import { countries } from "@/content/catalog";
 import { sr } from "@/content/sr";
 
 // Rečenice-rezimei iz odgovora u profilu, kao na YC-u ("I'm technical, ready
@@ -118,9 +118,7 @@ export function idealSummary(pref: IdealInput, owner: OwnerInput): SummaryPart[]
   const country = countryName(owner.countryCode);
   if (pref.location === "SAME_CITY" && owner.city) clauses.push([b(s.wantSameCity(owner.city))]);
   else if (pref.location === "SAME_COUNTRY" && country) clauses.push([b(s.wantSameCountry(country))]);
-  else if (pref.location === "SAME_REGION" && owner.countryCode && regionByCountry[owner.countryCode]) {
-    clauses.push([b(s.wantSameRegion(regionByCountry[owner.countryCode]!))]);
-  }
+
 
   if (pref.interestsImportance) clauses.push([b(s.wantInterests)]);
 

@@ -27,13 +27,15 @@ import {
   toPreferencePayload,
 } from "./api";
 import { STEP_KEYS, stepCompletion, type StepKey } from "./completion";
+import { FieldErrorsContext } from "./fields";
 import { BasicStep } from "./steps/BasicStep";
 import { MoreStep } from "./steps/MoreStep";
 import { PreferenceStep } from "./steps/PreferenceStep";
-import { fieldLabel, ReviewStep } from "./steps/ReviewStep";
+import { ReviewStep } from "./steps/ReviewStep";
 import { emptyFormValues, type ProfileFormValues } from "./types";
 
 const w = sr.profile.wizard;
+const NO_FIELD_ERRORS: Record<string, string> = {};
 const DRAFT_KEY = "fico:profile-draft";
 
 const STEP_TITLES: Record<StepKey, string> = {
@@ -77,6 +79,39 @@ function clearDraft() {
   } catch {
     // ignoriši
   }
+}
+
+const fe = sr.profile.fieldErrors;
+// Zod (engleske) poruke bez našeg teksta: zamijeni šablonom sa nazivom polja.
+const ZOD_GENERIC = /^(Invalid|Too (small|big)|Expected|Required|String must|Number must)/;
+
+/** Server vraća ključeve polja forme; city i countryCode dijele isto polje "Lokacija". */
+function errorTarget(key: string): string {
+  const base = key.split(".")[0] ?? key;
+  if (base === "city" || base === "countryCode") return "location";
+  if (base === "ageMax") return "ageMin";
+  return base;
+}
+
+function isEmptyValue(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length === 0;
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+}
+
+function buildFieldErrors(fields: Record<string, unknown>, values: ProfileFormValues): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(fields)) {
+    const base = key.split(".")[0] ?? key;
+    const target = errorTarget(key);
+    if (target in result) continue;
+    const serverMessage = typeof raw === "string" ? raw : "";
+    const value = (values as unknown as Record<string, unknown>)[base];
+    if (fe.byField[base]) result[target] = fe.byField[base];
+    else if (isEmptyValue(value) || serverMessage === sr.profile.errors.required) result[target] = fe.required;
+    else if (serverMessage && !ZOD_GENERIC.test(serverMessage)) result[target] = serverMessage;
+    else result[target] = fe.invalid;
+  }
+  return result;
 }
 
 function errorMessage(code: string): string {
@@ -146,7 +181,7 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
     };
   });
   const [stepIndex, setStepIndex] = useState(initial.stepIndex);
-  const [saveError, setSaveError] = useState<{ message: string; fields: string[] } | null>(null);
+  const [saveError, setSaveError] = useState<{ message: string; fields: Record<string, string> } | null>(null);
   const [savedStep, setSavedStep] = useState<StepKey | null>(null);
   const [submitError, setSubmitError] = useState<{ code: string; fields?: Record<string, unknown> } | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -167,6 +202,38 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
     });
   }, [form, viewerId, stepIndex]);
 
+  const fieldErrors = saveError?.fields ?? NO_FIELD_ERRORS;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+  // Greška nestaje čim korisnik izmijeni to polje.
+  useEffect(() => {
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ name }) => {
+        if (!name) return;
+        const target = errorTarget(name);
+        setSaveError((prev) => {
+          if (!prev || !(target in prev.fields)) return prev;
+          const rest = { ...prev.fields };
+          delete rest[target];
+          return { ...prev, fields: rest };
+        });
+      },
+    });
+  }, [form]);
+
+  // Pri neuspjelom slanju: skrol do prvog neispravnog polja i fokus na njega.
+  useEffect(() => {
+    if (!saveError || Object.keys(saveError.fields).length === 0) return;
+    const first = document.querySelector<HTMLElement>("[data-field-error]");
+    if (!first) return;
+    first.scrollIntoView({ behavior: "smooth", block: "center" });
+    first
+      .querySelector<HTMLElement>("input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)")
+      ?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveError?.message, saveError && Object.keys(saveError.fields).join("|")]);
+
   const saveMutation = useMutation({
     mutationFn: async (key: StepKey) => {
       const values = form.getValues();
@@ -181,9 +248,10 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
       goTo(Math.min(stepIndex + 1, STEP_KEYS.length - 1));
     },
     onError: (err) => {
+      const fields = err instanceof ApiError && err.fields ? buildFieldErrors(err.fields, form.getValues()) : {};
       setSaveError({
         message: err instanceof ApiError ? errorMessage(err.code) : sr.profile.errors.generic,
-        fields: err instanceof ApiError && err.fields ? Object.keys(err.fields) : [],
+        fields,
       });
     },
   });
@@ -261,9 +329,20 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
                 <p className="bg-beige border-beige-border rounded-md border px-4 py-3 font-medium">{w.pendingNotice}</p>
               )}
 
-              {step === "basic" && <BasicStep form={form} email={meQuery.data?.email ?? ""} disabled={locked} />}
-              {step === "more" && <MoreStep form={form} disabled={locked} />}
-              {step === "preference" && <PreferenceStep form={form} disabled={locked} />}
+              {step !== "preview" && hasFieldErrors && (
+                <p
+                  role="alert"
+                  className="border-destructive/50 bg-destructive/5 text-destructive rounded-md border px-4 py-3 font-medium"
+                >
+                  {fe.banner}
+                </p>
+              )}
+
+              <FieldErrorsContext.Provider value={fieldErrors}>
+                {step === "basic" && <BasicStep form={form} email={meQuery.data?.email ?? ""} disabled={locked} />}
+                {step === "more" && <MoreStep form={form} disabled={locked} />}
+                {step === "preference" && <PreferenceStep form={form} disabled={locked} />}
+              </FieldErrorsContext.Provider>
               {step === "preview" && (
                 <ReviewStep
                   values={values}
@@ -278,16 +357,7 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
               {step !== "preview" && (
                 <div className="flex flex-col gap-3 border-t pt-6">
-                  {saveError && (
-                    <div className="text-destructive flex flex-col gap-1">
-                      <p>{saveError.message}</p>
-                      {saveError.fields.length > 0 && (
-                        <p className="text-sm">
-                          {w.invalidFields} {saveError.fields.map(fieldLabel).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  {saveError && !hasFieldErrors && <p className="text-destructive">{saveError.message}</p>}
                   <div className="flex flex-wrap items-center gap-4">
                     <Button
                       type="button"

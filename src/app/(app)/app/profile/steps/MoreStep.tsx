@@ -24,7 +24,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-8">
-      <Field label={t.ideaStatus} required>
+      <Field label={t.ideaStatus} name="ideaStatus" required>
         <RadioGroup
           name="ideaStatus"
           disabled={disabled}
@@ -42,7 +42,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         <Textarea id="ideas" maxLength={1000} className="min-h-32" {...register("ideas")} />
       </Field>
 
-      <Field label={t.hasCofounder}>
+      <Field label={t.hasCofounder} name="hasCofounder">
         <RadioGroup
           name="hasCofounder"
           inline
@@ -56,7 +56,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         />
       </Field>
 
-      <Field label={t.timing} required>
+      <Field label={t.timing} name="timing" required>
         <RadioGroup
           name="timing"
           disabled={disabled}
@@ -69,7 +69,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         />
       </Field>
 
-      <Field label={t.areas} required>
+      <Field label={t.areas} name="areas" required>
         <CheckboxGroup
           disabled={disabled}
           values={watch("areas")}
@@ -78,7 +78,7 @@ export function MoreStep({ form, disabled }: MoreStepProps) {
         />
       </Field>
 
-      <Field label={t.interests} required>
+      <Field label={t.interests} name="interests" required>
         <CheckboxGroup
           columns={3}
           disabled={disabled}

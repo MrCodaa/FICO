@@ -42,6 +42,10 @@ export const FIELD_LABELS: Record<string, string> = {
   equityExpectations: more.equityExpectations,
   lifePath: more.lifePath,
   lookingFor: sr.profile.steps.preference.lookingFor,
+  idea: sr.profile.steps.preference.idea,
+  technical: sr.profile.steps.preference.technical,
+  location: sr.profile.steps.preference.location,
+  ...sr.profile.fieldErrors.labels,
 };
 
 export function fieldLabel(key: string): string {

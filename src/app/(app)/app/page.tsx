@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Mail, MessageSquare, Search, Star } from "lucide-react";
+import { Handshake, Mail, MessageSquare, Search, Star } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -25,6 +25,7 @@ interface Dashboard {
   thinkingCount: number;
   newRequests: number;
   unreadMessages: number;
+  matchCount: number;
 }
 
 type CountText = { before: string; after: readonly [string, string, string]; action: string };
@@ -123,6 +124,9 @@ export default function DashboardPage() {
               />
               <StatCard icon={Mail} count={data.newRequests} text={t.requests} href="/app/requests" />
               <StatCard icon={MessageSquare} count={data.unreadMessages} text={t.messages} href="/app/messages" />
+              {data.matchCount > 0 && (
+                <StatCard icon={Handshake} count={data.matchCount} text={t.matches} href="/app/messages" />
+              )}
             </div>
           )}
         </div>

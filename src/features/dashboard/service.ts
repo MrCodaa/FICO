@@ -14,7 +14,11 @@ export function createDashboardService(deps: DashboardServiceDeps) {
 
   return {
     async getDashboard(userId: string) {
-      const [profile, counts] = await Promise.all([repo.getProfileStatus(userId), notifications.getCounts(userId)]);
+      const [profile, counts, matchCount] = await Promise.all([
+        repo.getProfileStatus(userId),
+        notifications.getCounts(userId),
+        repo.countMatches(userId),
+      ]);
       const approved = profile?.status === "APPROVED";
       // Red kandidata postoji tek kad je profil odobren (Discover traži APPROVED).
       const queue = approved ? await discover.getQueueStats(userId) : { queueCount: 0, thinkingCount: 0 };
@@ -25,6 +29,7 @@ export function createDashboardService(deps: DashboardServiceDeps) {
         thinkingCount: queue.thinkingCount,
         newRequests: counts.requests,
         unreadMessages: counts.messages,
+        matchCount,
       };
     },
   };

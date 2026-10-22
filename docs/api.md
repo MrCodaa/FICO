@@ -134,7 +134,7 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | PATCH | `/api/settings` | auth | `settingsSchema` (sve opciono): `{ active?, emails?, cofounderMatchId?, hideAge? }` | 200 isti oblik kao GET; 400 ako `cofounderMatchId` nije tvoj match |
 | DELETE | `/api/decisions/not-interested` | onboarded | — | 200 `{ deleted }` (briše sve "Ne zanima me" odluke) |
 | DELETE | `/api/me` | auth | `{ email }` (potvrda, mora biti email naloga) | 204, briše nalog kaskadno i cookie; 400 ako se email ne poklapa |
-| GET | `/api/dashboard` | onboarded | — | `{ profileStatus, rejectionReason, queueCount, thinkingCount, newRequests, unreadMessages }` |
+| GET | `/api/dashboard` | onboarded | — | `{ profileStatus, rejectionReason, queueCount, thinkingCount, newRequests, unreadMessages, matchCount }` |
 
 - `active: false` upisuje `User.pausedAt`; pauziran nalog je van `visibleTo` (nevidljiv u Discover-u i na javnom profilu).
 - `hideAge: true` → `age` je `null` u `ProfileView` i `ProfileCard` za druge (admin pregled ga vidi).

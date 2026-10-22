@@ -1,7 +1,12 @@
 "use client";
 
+import { createContext, useContext } from "react";
+
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
+
+/** Poruke grešaka po imenu polja (ključ iz forme); popunjava ih stranica profila. */
+export const FieldErrorsContext = createContext<Record<string, string>>({});
 
 // Komponente polja za "Moj profil" (yc-my-profile.png): podebljan naslov
 // pitanja sa crvenom zvjezdicom, opcioni podnaslov, veliki inputi i radio
@@ -10,6 +15,7 @@ import { cn } from "@/lib/utils";
 export function Field({
   label,
   htmlFor,
+  name,
   required,
   hint,
   children,
@@ -17,14 +23,28 @@ export function Field({
 }: {
   label: React.ReactNode;
   htmlFor?: string;
+  /** Ime polja u formi; ako fali, koristi se htmlFor. Služi za prikaz greške uz polje. */
+  name?: string;
   required?: boolean;
   hint?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
 }) {
+  const fieldName = name ?? htmlFor;
+  const errors = useContext(FieldErrorsContext);
+  const error = fieldName ? errors[fieldName] : undefined;
   const LabelTag = htmlFor ? "label" : "p";
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
+    <div
+      className={cn(
+        "flex scroll-mt-24 flex-col gap-2",
+        error &&
+          "[&_input:not([type=radio]):not([type=checkbox])]:border-destructive [&_textarea]:border-destructive [&_select]:border-destructive",
+        className,
+      )}
+      {...(fieldName ? { "data-field": fieldName } : {})}
+      {...(error ? { "data-field-error": "" } : {})}
+    >
       <div className="flex flex-col gap-0.5">
         <LabelTag {...(htmlFor ? { htmlFor } : {})} className="text-[1.0625rem] font-semibold">
           {label}
@@ -37,6 +57,11 @@ export function Field({
         {hint && <p className="text-foreground/80">{hint}</p>}
       </div>
       {children}
+      {error && (
+        <p id={`${fieldName}-error`} className="text-destructive text-sm font-medium">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

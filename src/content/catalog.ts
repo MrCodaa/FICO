@@ -1,3 +1,5 @@
+import { rawCitiesByCountry } from "./cities-data";
+
 export interface Country {
   code: string;
   name: string;
@@ -17,21 +19,18 @@ export const countries: Country[] = [
 
 export const countryCodes: readonly string[] = countries.map((c) => c.code);
 
-// Region se izvodi iz države (CLAUDE.md). Koristi se u lib/matching za SAME_REGION.
+// Region se izvodi iz države (CLAUDE.md). Ne nudi se kao preferenca lokacije.
 export const regionByCountry: Record<string, string> = Object.fromEntries(
   countries.map((c) => [c.code, c.region]),
 );
 
-export const citiesByCountry: Record<string, string[]> = {
-  BA: ["Sarajevo", "Banja Luka", "Tuzla", "Mostar", "Zenica"],
-  RS: ["Beograd", "Novi Sad", "Niš", "Kragujevac", "Subotica"],
-  HR: ["Zagreb", "Split", "Rijeka", "Osijek", "Zadar"],
-  ME: ["Podgorica", "Nikšić", "Budva", "Bar", "Herceg Novi"],
-  MK: ["Skoplje", "Bitola", "Kumanovo", "Ohrid", "Prilep"],
-  SI: ["Ljubljana", "Maribor", "Celje", "Kranj", "Koper"],
-  XK: ["Priština", "Prizren", "Peć", "Gnjilane", "Mitrovica"],
-  AL: ["Tirana", "Drač", "Vlora", "Elbasan", "Škodra"],
-};
+// Gradovi i veća naselja po državi (podaci u cities-data.ts): bez duplikata, sortirano po abecedi.
+export const citiesByCountry: Record<string, string[]> = Object.fromEntries(
+  Object.entries(rawCitiesByCountry).map(([code, list]) => [
+    code,
+    [...new Set(list)].sort((a, b) => a.localeCompare(b, "sr")),
+  ]),
+);
 
 export interface Interest {
   code: string;

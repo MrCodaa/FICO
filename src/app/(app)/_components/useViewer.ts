@@ -14,7 +14,7 @@ function toFilters(data: GetProfileResponse | undefined): ViewerFilters | null {
           idea: preference.idea ?? null,
           technical: preference.technical ?? null,
           timingImportance: preference.timingImportance ?? null,
-          location: preference.location ?? null,
+          location: preference.location === "SAME_REGION" ? null : (preference.location ?? null),
           interestsImportance: preference.interestsImportance ?? null,
           wantedAreas: preference.wantedAreas ?? [],
         }

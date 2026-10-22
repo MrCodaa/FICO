@@ -337,7 +337,7 @@ async function main(): Promise<void> {
       const idea = chance(0.5) ? pick([IdeaPreference.HAS_IDEA, IdeaPreference.OPEN_TO_IDEAS]) : null;
       const ideaImportance = idea ? (variant === 1 ? Importance.REQUIRED : Importance.PREFERRED) : null;
 
-      const location = chance(0.55) ? pick([LocationScope.SAME_CITY, LocationScope.SAME_COUNTRY, LocationScope.SAME_REGION]) : null;
+      const location = chance(0.55) ? pick([LocationScope.SAME_CITY, LocationScope.SAME_COUNTRY]) : null;
       const locationImportance = location ? (variant === 2 ? Importance.REQUIRED : Importance.PREFERRED) : null;
 
       const wantedAreas = chance(0.5)
@@ -430,8 +430,8 @@ async function main(): Promise<void> {
             technical:
               p.wantTech === null ? null : p.wantTech ? TechnicalPreference.TECHNICAL : TechnicalPreference.NON_TECHNICAL,
             technicalImportance: p.wantTech === null ? null : Importance.PREFERRED,
-            location: LocationScope.SAME_REGION,
-            locationImportance: Importance.PREFERRED,
+            location: null,
+            locationImportance: null,
             interestsImportance: Importance.PREFERRED,
             timingImportance: Importance.PREFERRED,
           },
@@ -480,6 +480,28 @@ async function main(): Promise<void> {
   });
 
   console.log("Seed: dodano 3 Decision i 2 Request zapisa za testiranje Discover isključivanja.");
+
+  // Jedan gotov match (prihvaćen zahtjev + prva poruka) da se u razvoju vidi
+  // "Pogledaj svoje matcheve" na Kontrolnoj tabli i chat u Porukama.
+  const matchSender = userAt(10);
+  const matchReceiver = userAt(21);
+  const matchMessage = "Zdravo! Mislim da bismo se dobro dopunjavali, hoćemo li na kratku kafu?";
+  const matchRequest = await db.request.create({
+    data: {
+      senderId: matchSender,
+      receiverId: matchReceiver,
+      message: matchMessage,
+      status: "ACCEPTED",
+      expiresAt: in14Days,
+      respondedAt: now,
+    },
+  });
+  const [pairA, pairB] = matchSender < matchReceiver ? [matchSender, matchReceiver] : [matchReceiver, matchSender];
+  const seedMatch = await db.match.create({
+    data: { userAId: pairA, userBId: pairB, requestId: matchRequest.id, lastMessageAt: now },
+  });
+  await db.message.create({ data: { matchId: seedMatch.id, senderId: matchSender, body: matchMessage } });
+  console.log("Seed: dodan 1 match (korisnici na indexu 10 i 21).");
 
   await db.$disconnect();
   console.log("Seed: gotovo.");

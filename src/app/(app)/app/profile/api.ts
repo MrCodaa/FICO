@@ -173,7 +173,7 @@ export function mapServerToForm(data: GetProfileResponse): ProfileFormValues {
     technicalImportance:
       (pref.technicalImportance as ProfileFormValues["technicalImportance"]) ?? "",
     timingImportance: (pref.timingImportance as ProfileFormValues["timingImportance"]) ?? "",
-    location: (pref.location as ProfileFormValues["location"]) ?? "",
+    location: pref.location === "SAME_CITY" || pref.location === "SAME_COUNTRY" ? pref.location : "",
     locationImportance:
       (pref.locationImportance as ProfileFormValues["locationImportance"]) ?? "",
     ageMin: numToStr(pref.ageMin),

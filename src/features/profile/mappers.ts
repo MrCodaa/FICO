@@ -117,7 +117,7 @@ export function toProfileView(
           idea: pref.idea,
           technical: pref.technical,
           timingImportance: pref.timingImportance,
-          location: pref.location,
+          location: pref.location === "SAME_REGION" ? null : pref.location,
           interestsImportance: pref.interestsImportance,
           wantedAreas: pref.wantedAreas,
         }

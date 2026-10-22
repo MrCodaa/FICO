@@ -47,7 +47,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         <Textarea id="lookingFor" maxLength={1000} className="min-h-32" {...register("lookingFor")} />
       </Field>
 
-      <Field label={t.idea}>
+      <Field label={t.idea} name="idea">
         <RadioGroup
           name="idea"
           disabled={disabled}
@@ -58,7 +58,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         {importance("ideaImportance")}
       </Field>
 
-      <Field label={t.technical}>
+      <Field label={t.technical} name="technical">
         <RadioGroup
           name="technical"
           inline
@@ -70,16 +70,19 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         {importance("technicalImportance")}
       </Field>
 
-      <Field label={more.timing}>{importance("timingImportance")}</Field>
+      <Field label={more.timing} name="timingImportance">{importance("timingImportance")}</Field>
 
-      <Field label={t.location}>
+      <Field label={t.location} name="location">
         <RadioGroup
           name="location"
           inline
           disabled={disabled}
-          value={watch("location")}
-          onChange={(v) => setValue("location", v, { shouldDirty: true })}
-          options={(["SAME_CITY", "SAME_COUNTRY", "SAME_REGION"] as const).map((v) => ({
+          value={watch("location") === "" ? "ANYWHERE" : watch("location")}
+          onChange={(v) => {
+            setValue("location", v === "ANYWHERE" ? "" : v, { shouldDirty: true });
+            if (v === "ANYWHERE") setValue("locationImportance", "", { shouldDirty: true });
+          }}
+          options={(["SAME_CITY", "SAME_COUNTRY", "ANYWHERE"] as const).map((v) => ({
             value: v,
             label: t.locationOptions[v],
           }))}
@@ -87,7 +90,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         {importance("locationImportance")}
       </Field>
 
-      <Field label={t.ageRange}>
+      <Field label={t.ageRange} name="ageMin">
         <div className="flex max-w-sm gap-3">
           <label className="flex flex-1 flex-col gap-1">
             <span className="text-muted-foreground text-sm">{t.ageMin}</span>
@@ -101,7 +104,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         {importance("ageImportance")}
       </Field>
 
-      <Field label={t.wantedAreas}>
+      <Field label={t.wantedAreas} name="wantedAreas">
         <CheckboxGroup
           disabled={disabled}
           values={watch("wantedAreas")}
@@ -111,7 +114,7 @@ export function PreferenceStep({ form, disabled }: PreferenceStepProps) {
         {importance("areasImportance")}
       </Field>
 
-      <Field label={more.interests}>{importance("interestsImportance")}</Field>
+      <Field label={more.interests} name="interestsImportance">{importance("interestsImportance")}</Field>
     </fieldset>
   );
 }

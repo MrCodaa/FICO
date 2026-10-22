@@ -1,18 +1,39 @@
 import { z } from "zod";
 import { countryCodes, interestCodes } from "@/content/catalog";
+import { findCatalogCity } from "@/content/cities-search";
 import { sr } from "@/content/sr";
+import { linkedinUrlSchema, videoUrlSchema, webUrlSchema } from "./urlSchemas";
 
 const AREA_VALUES = ["PRODUCT", "ENGINEERING", "DESIGN", "SALES_MARKETING", "OPERATIONS"] as const;
+
+// Grad mora biti tačno iz kataloga (bez slobodnog unosa); poređenje ignoriše velika/mala slova i
+// dijakritike, a vraća se zvanični zapis iz kataloga. Poklapanje sa državom provjerava
+// cityMatchesCountry. Ista šema za formu i API.
+const citySchema = z.string().transform((value, ctx) => {
+  const official = findCatalogCity(value);
+  if (!official) {
+    ctx.addIssue({ code: "custom", message: sr.profile.fieldErrors.byField.city });
+    return z.NEVER;
+  }
+  return official;
+});
+
+/** Grad mora pripadati izabranoj državi (kad su oba polja prisutna). */
+function cityMatchesCountry(data: { city?: string; countryCode?: string }, ctx: z.RefinementCtx) {
+  if (data.city && data.countryCode && findCatalogCity(data.city, data.countryCode) !== data.city) {
+    ctx.addIssue({ code: "custom", path: ["city"], message: sr.profile.fieldErrors.byField.city });
+  }
+}
 
 const profileBaseSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
-  linkedinUrl: z.string().trim().url().optional().nullable(),
+  linkedinUrl: linkedinUrlSchema,
   noLinkedin: z.boolean(),
   countryCode: z.enum(countryCodes),
-  city: z.string().trim().min(1).max(100),
+  city: citySchema,
   intro: z.string().trim().min(1).max(1000),
-  videoUrl: z.string().trim().url().optional().nullable(),
+  videoUrl: videoUrlSchema,
   accomplishment: z.string().trim().min(1).max(1000),
   education: z.string().trim().min(1).max(800),
   employment: z.string().trim().min(1).max(800),
@@ -22,9 +43,9 @@ const profileBaseSchema = z.object({
   // legitimno čuva birthDate: null dok korisnik još nije stigao do tog polja —
   // strogo odbijanje null-a ide samo u profileSubmitSchema ispod (.extend()).
   birthDate: z.coerce.date().nullable(),
-  schedulingUrl: z.string().trim().url().optional().nullable(),
-  twitterUrl: z.string().trim().url().optional().nullable(),
-  instagramUrl: z.string().trim().url().optional().nullable(),
+  schedulingUrl: webUrlSchema,
+  twitterUrl: webUrlSchema,
+  instagramUrl: webUrlSchema,
   heardFrom: z.string().trim().max(200).optional().nullable(),
 
   ideaStatus: z.enum(["COMMITTED", "EXPLORING", "OPEN"]),
@@ -39,7 +60,7 @@ const profileBaseSchema = z.object({
   other: z.string().trim().max(500).optional().nullable(),
 });
 
-export const profileDraftSchema = profileBaseSchema.partial();
+export const profileDraftSchema = profileBaseSchema.partial().superRefine(cityMatchesCountry);
 
 export const profileSubmitSchema = profileBaseSchema
   .extend({
@@ -50,6 +71,7 @@ export const profileSubmitSchema = profileBaseSchema
     lookingFor: z.string().trim().max(1000).optional().nullable(),
   })
   .superRefine((data, ctx) => {
+    cityMatchesCountry(data, ctx);
     // Nacrt ih čuva kao null, ali za slanje su obavezni da Discover prikaže
     // pune YC sekcije (Životna priča, Potencijalne ideje, Šta tražim, udio).
     const required: (keyof typeof data)[] = ["lifePath", "equityExpectations", "lookingFor"];
@@ -76,7 +98,7 @@ export const preferenceDraftSchema = z.object({
   technical: z.enum(["TECHNICAL", "NON_TECHNICAL"]).optional().nullable(),
   technicalImportance: z.enum(["REQUIRED", "PREFERRED"]).optional().nullable(),
   timingImportance: z.enum(["REQUIRED", "PREFERRED"]).optional().nullable(),
-  location: z.enum(["SAME_CITY", "SAME_COUNTRY", "SAME_REGION"]).optional().nullable(),
+  location: z.enum(["SAME_CITY", "SAME_COUNTRY"]).optional().nullable(),
   locationImportance: z.enum(["REQUIRED", "PREFERRED"]).optional().nullable(),
   ageMin: z.coerce.number().int().min(16).max(100).optional().nullable(),
   ageMax: z.coerce.number().int().min(16).max(100).optional().nullable(),

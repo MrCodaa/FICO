@@ -45,7 +45,8 @@ export function toMatchPreference(preference: PreferenceLike | null | undefined)
     idea: preference.idea,
     ideaImportance: preference.ideaImportance,
     timingImportance: preference.timingImportance,
-    location: preference.location,
+    // SAME_REGION ostaje u bazi, ali se ne nudi: tretira se kao "Bilo gdje".
+    location: preference.location === "SAME_REGION" ? null : preference.location,
     locationImportance: preference.locationImportance,
     ageMin: preference.ageMin,
     ageMax: preference.ageMax,

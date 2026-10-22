@@ -43,7 +43,7 @@ export interface ProfileFormValues {
   technical: "" | "TECHNICAL" | "NON_TECHNICAL";
   technicalImportance: "" | "REQUIRED" | "PREFERRED";
   timingImportance: "" | "REQUIRED" | "PREFERRED";
-  location: "" | "SAME_CITY" | "SAME_COUNTRY" | "SAME_REGION";
+  location: "" | "SAME_CITY" | "SAME_COUNTRY";
   locationImportance: "" | "REQUIRED" | "PREFERRED";
   ageMin: string;
   ageMax: string;
