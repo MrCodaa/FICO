@@ -16,7 +16,7 @@ import { getNextRoute, type MeState } from "@/lib/nextRoute";
 
 const loginSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8),
+  password: z.string().min(1),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;

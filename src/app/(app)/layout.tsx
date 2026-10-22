@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { sr } from "@/content/sr";
 import { fetchMe } from "@/lib/http/apiClient";
+import { isAppUnlocked, isOpenBeforeApproval } from "@/lib/appAccess";
 
 import { AppFooter } from "./_components/AppFooter";
 import { AppNav } from "./_components/AppSidebar";
@@ -18,15 +19,20 @@ import { NotificationBell } from "./_components/NotificationBell";
 // sredina koja se skroluje (sa footerom na dnu), zvonce gore desno.
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const [drawerOpen, setDrawerOpen] = useState(false);
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
 
-  // Neprijavljen → prijava; nepotvrđen email → potvrda; bez pravila → pravila platforme.
+  // Neprijavljen → prijava; nepotvrđen email → potvrda; bez pravila → pravila platforme;
+  // profil nije odobren → samo Uredi profil (ostalo je zaključano).
+  const me = meQuery.data;
+  const blocked = !!me && !isAppUnlocked(me.profileStatus) && !isOpenBeforeApproval(pathname);
   useEffect(() => {
-    if (meQuery.data === null) router.replace("/prijava");
-    else if (meQuery.data && !meQuery.data.emailVerified) router.replace("/potvrda-emaila");
-    else if (meQuery.data && !meQuery.data.agreementAccepted) router.replace("/pravila");
-  }, [meQuery.data, router]);
+    if (me === null) router.replace("/prijava");
+    else if (me && !me.emailVerified) router.replace("/potvrda-emaila");
+    else if (me && !me.agreementAccepted) router.replace("/pravila");
+    else if (blocked) router.replace("/app/profile");
+  }, [me, blocked, router]);
 
   return (
     <div className="bg-surface flex min-h-screen flex-col lg:flex-row">
@@ -75,7 +81,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="relative flex-1">
           <NotificationBell className="absolute top-4 right-4 z-30 hidden sm:right-8 lg:block" />
-          <main>{children}</main>
+          <main>{blocked ? null : children}</main>
         </div>
         <AppFooter />
       </div>

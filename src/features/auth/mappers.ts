@@ -1,4 +1,6 @@
 import type { ProfileStatus } from "@/generated/prisma/client";
+import { isEmailVerified } from "@/lib/auth/emailVerification";
+import { OPEN_ACCESS } from "@/lib/devAccess";
 
 export interface Me {
   id: string;
@@ -22,8 +24,8 @@ export function toMe(
   return {
     id: user.id,
     email: user.email,
-    emailVerified: user.emailVerifiedAt !== null,
-    agreementAccepted: user.agreementAcceptedAt !== null,
+    emailVerified: isEmailVerified(user.emailVerifiedAt),
+    agreementAccepted: OPEN_ACCESS || user.agreementAcceptedAt !== null,
     profileStatus: user.profileStatus,
     isAdmin,
   };

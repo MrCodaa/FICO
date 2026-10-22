@@ -484,6 +484,8 @@ export const sr = {
     editProfile: "Uredi profil",
     settings: "Podešavanja",
     logout: "Odjavi se",
+    locked: "Zaključano",
+    lockedHint: "Otključava se kad admin odobri tvoj profil.",
     notifications: "Obavještenja",
     notificationsEmpty: "Nema novih obavještenja.",
     markAllRead: "Označi sve kao pročitano",

@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
 import { getSessionPayload } from "@/lib/auth/session";
 import { isAdminEmail } from "@/lib/auth/isAdminEmail";
+import { isEmailVerified } from "@/lib/auth/emailVerification";
+import { OPEN_ACCESS } from "@/lib/devAccess";
 
 export type GuardName = "public" | "auth" | "verified" | "onboarded" | "approved" | "admin";
 
@@ -49,20 +51,20 @@ export const guards: Record<GuardName, Guard> = {
   },
   verified: async (req) => {
     const { userId, emailVerifiedAt } = await requireSessionUser(req);
-    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    if (!isEmailVerified(emailVerifiedAt)) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
     return { userId };
   },
   onboarded: async (req) => {
     const { userId, emailVerifiedAt, agreementAcceptedAt } = await requireSessionUser(req);
-    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
-    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    if (!isEmailVerified(emailVerifiedAt)) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    if (!agreementAcceptedAt && !OPEN_ACCESS) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
     return { userId };
   },
   approved: async (req) => {
     const { userId, emailVerifiedAt, agreementAcceptedAt, profileStatus } = await requireSessionUser(req);
-    if (!emailVerifiedAt) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
-    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
-    if (profileStatus !== "APPROVED") {
+    if (!isEmailVerified(emailVerifiedAt)) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
+    if (!agreementAcceptedAt && !OPEN_ACCESS) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    if (profileStatus !== "APPROVED" && !OPEN_ACCESS) {
       throw new ApiError("PROFILE_NOT_APPROVED", "Profil nije odobren.");
     }
     return { userId };

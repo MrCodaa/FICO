@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { CheckCircle2, Circle } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -133,6 +133,7 @@ function ProfileEditor() {
 function ProfileForm({ data }: { data: GetProfileResponse }) {
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
+  const router = useRouter();
   const viewerId = data.profile.userId ?? "";
 
   const [initial] = useState(() => {
@@ -189,10 +190,17 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
   const submitMutation = useMutation({
     mutationFn: submitProfile,
-    onSuccess: () => {
-      setSubmitSuccess(true);
+    onSuccess: async (res) => {
       setSubmitError(null);
       clearDraft();
+      // Otvoren ulaz (lib/devAccess.ts): profil je odmah odobren, pa ide pravo u aplikaciju.
+      if (res.status === "APPROVED") {
+        await queryClient.invalidateQueries({ queryKey: ["me"] });
+        queryClient.invalidateQueries({ queryKey: ["profile"] });
+        router.push("/app");
+        return;
+      }
+      setSubmitSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },

@@ -3,13 +3,14 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronRight, LayoutDashboard, Mail, MessageSquare, Search, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, LayoutDashboard, Lock, Mail, MessageSquare, Search, Star } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { sr } from "@/content/sr";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
-import { fetchCounts } from "@/lib/http/apiClient";
+import { fetchCounts, fetchMe } from "@/lib/http/apiClient";
+import { isAppUnlocked } from "@/lib/appAccess";
 import { cn } from "@/lib/utils";
 import { fetchProfile } from "../app/profile/api";
 
@@ -41,6 +42,26 @@ function Badge({ count }: { count: number }) {
     <span className="bg-destructive text-destructive-foreground inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold">
       {count > 99 ? "99+" : count}
     </span>
+  );
+}
+
+/** Stavka menija dok profil nije odobren: vidi se, ali ne vodi nigdje. */
+function LockedItem({ label, icon: Icon, sub }: { label: string; icon?: LucideIcon; sub?: boolean }) {
+  return (
+    <div
+      aria-disabled="true"
+      title={sr.nav.lockedHint}
+      className={cn(sub ? subItemClass : itemClass, "cursor-not-allowed opacity-60 hover:bg-transparent", sub && "flex items-center gap-2")}
+    >
+      {Icon && <Icon className="text-sidebar-muted size-7 shrink-0" strokeWidth={2} fill={Icon === Star ? "currentColor" : "none"} />}
+      <span className={cn("min-w-0 flex-1 leading-snug text-sidebar-muted", !sub && "font-semibold")}>
+        {label}
+        <span className="mt-0.5 flex items-center gap-1 text-xs font-normal">
+          <Lock className="size-3" />
+          {sr.nav.locked}
+        </span>
+      </span>
+    </div>
   );
 }
 
@@ -141,7 +162,9 @@ function SubLink({
 /** Sadržaj menija — isti za desktop (sticky kolona) i telefon (fioka). */
 export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname() ?? "";
-  const countsQuery = useQuery({ queryKey: ["me", "counts"], queryFn: fetchCounts });
+  const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
+  const unlocked = isAppUnlocked(meQuery.data?.profileStatus);
+  const countsQuery = useQuery({ queryKey: ["me", "counts"], queryFn: fetchCounts, enabled: unlocked });
   const profileQuery = useQuery({ queryKey: ["profile"], queryFn: fetchProfile });
   const logoutMutation = useLogout();
 
@@ -150,10 +173,12 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav className="text-sidebar-foreground flex flex-col gap-1 px-2 py-4">
-      <Link href="/app" onClick={onNavigate} className="mb-2 flex items-center px-5 py-3">
+      <Link href={unlocked ? "/app" : "/app/profile"} onClick={onNavigate} className="mb-2 flex items-center px-5 py-3">
         <FicoLogo className="text-base" />
       </Link>
 
+      {unlocked ? (
+        <>
       <NavLink href="/app" exact label={sr.nav.dashboard} icon={LayoutDashboard} pathname={pathname} onNavigate={onNavigate} />
       <NavLink href="/app/discover" label={sr.nav.discover} icon={Search} pathname={pathname} onNavigate={onNavigate} />
 
@@ -189,6 +214,16 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
         pathname={pathname}
         onNavigate={onNavigate}
       />
+        </>
+      ) : (
+        <>
+          <LockedItem label={sr.nav.dashboard} icon={LayoutDashboard} />
+          <LockedItem label={sr.nav.discover} icon={Search} />
+          <LockedItem label={sr.nav.revisit} icon={Star} />
+          <LockedItem label={sr.nav.requests} icon={Mail} />
+          <LockedItem label={sr.nav.messages} icon={MessageSquare} />
+        </>
+      )}
 
       <SubMenu
         label={sr.nav.account}
@@ -204,7 +239,11 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
         }
       >
         <SubLink href="/app/profile" label={sr.nav.editProfile} pathname={pathname} onNavigate={onNavigate} />
-        <SubLink href="/app/settings" label={sr.nav.settings} pathname={pathname} onNavigate={onNavigate} />
+        {unlocked ? (
+          <SubLink href="/app/settings" label={sr.nav.settings} pathname={pathname} onNavigate={onNavigate} />
+        ) : (
+          <LockedItem label={sr.nav.settings} sub />
+        )}
         <button
           type="button"
           disabled={logoutMutation.isPending}

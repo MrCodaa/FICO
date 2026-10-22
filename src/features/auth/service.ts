@@ -5,6 +5,7 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateAuthToken, hashAuthToken } from "@/lib/auth/tokens";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { isAdminEmail } from "@/lib/auth/isAdminEmail";
+import { OPEN_ACCESS } from "@/lib/devAccess";
 import type { EmailProvider } from "@/lib/email";
 import { sr } from "@/content/sr";
 import type { AuthRepository } from "./repository";
@@ -70,8 +71,17 @@ export function createAuthService(deps: AuthServiceDeps) {
     },
 
     async login(input: { email: string; password: string }) {
-      const user = await repo.findUserByEmail(input.email);
-      if (!user || user.deactivatedAt || !(await verifyPassword(input.password, user.passwordHash))) {
+      let user = await repo.findUserByEmail(input.email);
+      // Otvoren ulaz (lib/devAccess.ts): lozinka se ne provjerava, a nepostojeći nalog se napravi.
+      if (OPEN_ACCESS && !user) {
+        const created = await repo.createUserWithProfile({
+          email: input.email,
+          passwordHash: await hashPassword(input.password),
+        });
+        user = await repo.findUserByEmail(created.email);
+      }
+      const passwordOk = OPEN_ACCESS || (user ? await verifyPassword(input.password, user.passwordHash) : false);
+      if (!user || user.deactivatedAt || !passwordOk) {
         throw new ApiError("INVALID_CREDENTIALS", sr.auth.errors.invalidCredentials);
       }
       const sessionToken = await signSessionToken({ sub: user.id, tv: user.tokenVersion });

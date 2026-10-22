@@ -1,3 +1,4 @@
+import { EMAIL_VERIFICATION_REQUIRED } from "@/lib/auth/emailVerification";
 import { describe, expect, it, vi } from "vitest";
 import { Prisma } from "@/generated/prisma/client";
 import type { Clock } from "@/lib/clock";
@@ -58,7 +59,7 @@ describe("createAuthService.register", () => {
 
     const result = await service.register({ email: "a@b.com", password: "password1" });
 
-    expect(result.me).toMatchObject({ id: "user-1", email: "a@b.com", emailVerified: false, profileStatus: "DRAFT" });
+    expect(result.me).toMatchObject({ id: "user-1", email: "a@b.com", emailVerified: !EMAIL_VERIFICATION_REQUIRED, profileStatus: "DRAFT" });
     expect(result.sessionToken).toBeTypeOf("string");
     expect(callOrder).toEqual(["createUserWithProfile", "email.send"]);
   });

@@ -1,4 +1,5 @@
 import type { Clock } from "@/lib/clock";
+import { OPEN_ACCESS } from "@/lib/devAccess";
 import { ApiError } from "@/lib/errors";
 import type { EmailProvider } from "@/lib/email";
 import type { StorageProvider } from "@/lib/storage";
@@ -94,6 +95,11 @@ export function createProfileService(deps: ProfileServiceDeps) {
       }
       const ok = await repo.submitProfile(userId, clock.now());
       if (!ok) throw new ApiError("INVALID_STATUS", "Profil nije u stanju koje dozvoljava slanje.");
+      // Otvoren ulaz (lib/devAccess.ts): bez admin pregleda, profil je odmah odobren.
+      if (OPEN_ACCESS) {
+        await repo.approveProfile(userId, clock.now());
+        return "APPROVED" as const;
+      }
       return "PENDING_REVIEW" as const;
     },
 

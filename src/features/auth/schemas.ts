@@ -5,7 +5,11 @@ export const registerSchema = z.object({
   password: z.string().min(8),
 });
 
-export const loginSchema = registerSchema;
+// Prijava ne provjerava dužinu lozinke (to je pravilo registracije).
+export const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1),
+});
 
 export const verifyEmailSchema = z.object({
   token: z.string().min(1),
