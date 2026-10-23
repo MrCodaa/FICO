@@ -124,6 +124,9 @@ export const sr = {
     },
     errors: {
       validationError: "Provjeri unesene podatke.",
+      emailInvalid: "Unesi ispravnu email adresu.",
+      passwordRequired: "Unesi lozinku.",
+      passwordTooShort: "Lozinka mora imati najmanje 8 karaktera.",
       invalidCredentials: "Email ili lozinka nisu tačni.",
       emailTaken: "Nalog sa ovim emailom već postoji.",
       tokenInvalid: "Link nije validan ili je istekao.",

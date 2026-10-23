@@ -15,8 +15,8 @@ import { sr } from "@/content/sr";
 import { getNextRoute, type MeState } from "@/lib/nextRoute";
 
 const registerSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8),
+  email: z.string().trim().toLowerCase().email({ error: sr.auth.errors.emailInvalid }),
+  password: z.string().min(8, { error: sr.auth.errors.passwordTooShort }),
 });
 
 type RegisterForm = z.infer<typeof registerSchema>;

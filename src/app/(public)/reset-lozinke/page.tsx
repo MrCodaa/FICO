@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 
 const resetPasswordSchema = z.object({
-  password: z.string().min(8),
+  password: z.string().min(8, { error: sr.auth.errors.passwordTooShort }),
 });
 
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;

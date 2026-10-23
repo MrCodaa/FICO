@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
+  email: z.string().trim().toLowerCase().email({ error: sr.auth.errors.emailInvalid }),
 });
 
 type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
