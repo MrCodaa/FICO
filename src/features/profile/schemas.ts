@@ -4,15 +4,40 @@ import { sr } from "@/content/sr";
 
 const AREA_VALUES = ["PRODUCT", "ENGINEERING", "DESIGN", "SALES_MARKETING", "OPERATIONS"] as const;
 
+// Ljudi linkove obično lijepe bez protokola ("linkedin.com/in/ime"), što
+// z.url() odbija — dopuni https:// prije provjere, pa se i čuva pun URL.
+// Host mora biti pravi domen (sa TLD-om), inače bi "asdf" → "https://asdf"
+// prošao kao ispravan URL. `sites` ograničava link na određene sajtove.
+const urlField = (sites?: { label: string; domains: string[] }) =>
+  z.preprocess(
+    (val) => {
+      if (typeof val !== "string") return val;
+      const trimmed = val.trim();
+      return trimmed && !/^[a-z][a-z\d+.-]*:\/\//i.test(trimmed) ? `https://${trimmed}` : trimmed;
+    },
+    z
+      .url({ protocol: /^https?$/, hostname: z.regexes.domain, error: sr.profile.errors.invalidUrl })
+      .refine(
+        (url) => {
+          if (!sites || !URL.canParse(url)) return true; // neispravan URL je već prijavljen iznad
+          const host = new URL(url).hostname.toLowerCase();
+          return sites.domains.some((domain) => host === domain || host.endsWith(`.${domain}`));
+        },
+        { error: sr.profile.errors.wrongSite(sites?.label ?? "") },
+      )
+      .optional()
+      .nullable(),
+  );
+
 const profileBaseSchema = z.object({
   firstName: z.string().trim().min(1).max(100),
   lastName: z.string().trim().min(1).max(100),
-  linkedinUrl: z.string().trim().url().optional().nullable(),
+  linkedinUrl: urlField({ label: "LinkedIn", domains: ["linkedin.com"] }),
   noLinkedin: z.boolean(),
   countryCode: z.enum(countryCodes),
   city: z.string().trim().min(1).max(100),
   intro: z.string().trim().min(1).max(1000),
-  videoUrl: z.string().trim().url().optional().nullable(),
+  videoUrl: urlField(),
   accomplishment: z.string().trim().min(1).max(1000),
   education: z.string().trim().min(1).max(800),
   employment: z.string().trim().min(1).max(800),
@@ -22,9 +47,9 @@ const profileBaseSchema = z.object({
   // legitimno čuva birthDate: null dok korisnik još nije stigao do tog polja —
   // strogo odbijanje null-a ide samo u profileSubmitSchema ispod (.extend()).
   birthDate: z.coerce.date().nullable(),
-  schedulingUrl: z.string().trim().url().optional().nullable(),
-  twitterUrl: z.string().trim().url().optional().nullable(),
-  instagramUrl: z.string().trim().url().optional().nullable(),
+  schedulingUrl: urlField(),
+  twitterUrl: urlField({ label: "X/Twitter", domains: ["x.com", "twitter.com"] }),
+  instagramUrl: urlField({ label: "Instagram", domains: ["instagram.com"] }),
   heardFrom: z.string().trim().max(200).optional().nullable(),
 
   ideaStatus: z.enum(["COMMITTED", "EXPLORING", "OPEN"]),
@@ -39,7 +64,14 @@ const profileBaseSchema = z.object({
   other: z.string().trim().max(500).optional().nullable(),
 });
 
-export const profileDraftSchema = profileBaseSchema.partial();
+// Nacrt čuva null za sve što korisnik još nije popunio (kolone su nullable),
+// osim polja koja u bazi nisu nullable (noLinkedin, areas, interests).
+const { noLinkedin, areas, interests, ...nullableDraftFields } = profileBaseSchema.shape;
+type NullableShape<T extends z.ZodRawShape> = { [K in keyof T]: z.ZodNullable<T[K]> };
+const nullableDraftShape = Object.fromEntries(
+  Object.entries(nullableDraftFields).map(([key, field]) => [key, field.nullable()]),
+) as NullableShape<typeof nullableDraftFields>;
+export const profileDraftSchema = z.object({ ...nullableDraftShape, noLinkedin, areas, interests }).partial();
 
 export const profileSubmitSchema = profileBaseSchema
   .extend({

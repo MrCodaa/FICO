@@ -206,17 +206,17 @@ function strToNumOrNull(value: string): number | null {
 
 export function toBasicPayload(v: ProfileFormValues) {
   return {
-    firstName: v.firstName.trim(),
-    lastName: v.lastName.trim(),
+    firstName: emptyToNull(v.firstName),
+    lastName: emptyToNull(v.lastName),
     linkedinUrl: emptyToNull(v.linkedinUrl),
     noLinkedin: v.noLinkedin,
     countryCode: emptyToNull(v.countryCode),
     city: emptyToNull(v.city),
-    intro: v.intro.trim(),
+    intro: emptyToNull(v.intro),
     videoUrl: emptyToNull(v.videoUrl),
-    accomplishment: v.accomplishment.trim(),
-    education: v.education.trim(),
-    employment: v.employment.trim(),
+    accomplishment: emptyToNull(v.accomplishment),
+    education: emptyToNull(v.education),
+    employment: emptyToNull(v.employment),
     isTechnical: radioToBool(v.isTechnical),
     gender: v.gender === "" ? null : v.gender,
     birthDate: v.birthDate === "" ? null : v.birthDate,

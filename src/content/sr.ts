@@ -275,6 +275,8 @@ export const sr = {
       photoInvalidType: "Dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
       required: "Obavezno polje",
+      invalidUrl: "Unesi ispravan link (npr. https://primjer.com).",
+      wrongSite: (site: string) => `Link mora voditi na ${site}.`,
       validationError: "Provjeri unesene podatke — neko polje nije ispravno popunjeno.",
       // TODO: ukloniti kad se uključi Vercel Blob (slika ponovo obavezna).
       photoUnavailable: "Upload slike trenutno nije dostupan. Možeš nastaviti bez slike.",
