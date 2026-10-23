@@ -88,15 +88,7 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">{passwordLabel}</Label>
-              <Link
-                href="/zaboravljena-lozinka"
-                className="text-muted-foreground text-xs underline-offset-4 hover:underline"
-              >
-                {forgotLink}
-              </Link>
-            </div>
+            <Label htmlFor="password">{passwordLabel}</Label>
             <PasswordInput id="password" autoComplete="current-password" {...form.register("password")} />
             {form.formState.errors.password && (
               <p className="text-destructive text-sm">
@@ -114,6 +106,13 @@ export default function LoginPage() {
           <Button type="submit" disabled={mutation.isPending} className="mt-2">
             {submit}
           </Button>
+
+          <Link
+            href="/zaboravljena-lozinka"
+            className="text-muted-foreground text-center text-sm underline-offset-4 hover:underline"
+          >
+            {forgotLink}
+          </Link>
         </form>
 
         <p className="text-muted-foreground text-center text-sm">

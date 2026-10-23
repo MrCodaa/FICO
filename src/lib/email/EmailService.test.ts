@@ -51,3 +51,26 @@ describe("createEmailService", () => {
     expect(provider.send).not.toHaveBeenCalled();
   });
 });
+
+describe("createEmailService blacklist", () => {
+  it("ne šalje blokiranoj adresi, ni transakcioni ni lifecycle mail", async () => {
+    const provider = { send: vi.fn().mockResolvedValue(undefined) };
+    const isBlocked = vi.fn().mockResolvedValue(true);
+    const service = createEmailService({ provider, getPreferences: vi.fn().mockResolvedValue(ALL_ON), isBlocked });
+    await service.send(message);
+    await service.send(message, { userId: "u1", category: "invites" });
+    expect(isBlocked).toHaveBeenCalledWith("a@b.c");
+    expect(provider.send).not.toHaveBeenCalled();
+  });
+
+  it("šalje kad adresa nije blokirana", async () => {
+    const provider = { send: vi.fn().mockResolvedValue(undefined) };
+    const service = createEmailService({
+      provider,
+      getPreferences: vi.fn().mockResolvedValue(ALL_ON),
+      isBlocked: vi.fn().mockResolvedValue(false),
+    });
+    await service.send(message);
+    expect(provider.send).toHaveBeenCalledWith(message);
+  });
+});

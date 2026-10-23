@@ -36,6 +36,7 @@ import {
   textAt,
 } from "./seed-texts";
 import { SHOWCASE_PROFILES } from "./seed-showcase";
+import { TEST_ACCOUNT_COUNT, TEST_ACCOUNT_PASSWORD, createTestAccounts, testAccountEmail } from "./seed-test-accounts";
 
 const SEED_DOMAIN = "fico.test";
 const SEED_PASSWORD = "Seed123!";
@@ -440,6 +441,12 @@ async function main(): Promise<void> {
     });
   }
   console.log(`Seed: kreirano ${SHOWCASE_PROFILES.length} demo profila.`);
+
+  // ───────────────── Test nalozi za prijavu (test1…test10@fico.test) ─────────────────
+  await createTestAccounts(db, await hashPassword(TEST_ACCOUNT_PASSWORD));
+  console.log(
+    `Seed: kreirano ${TEST_ACCOUNT_COUNT} test naloga (${testAccountEmail(1)} … ${testAccountEmail(TEST_ACCOUNT_COUNT)}), lozinka: ${TEST_ACCOUNT_PASSWORD}`,
+  );
 
   // ─────────────────────── Bonus: Decision i Request zapisi ───────────────────────
   // Nekoliko ručno postavljenih veza da Discover isključivanje ima šta da testira.

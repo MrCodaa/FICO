@@ -5,16 +5,19 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateAuthToken, hashAuthToken } from "@/lib/auth/tokens";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { isAdminEmail } from "@/lib/auth/isAdminEmail";
-import { OPEN_ACCESS } from "@/lib/devAccess";
+import { emailDomainExists, type EmailDomainChecker } from "@/lib/auth/emailDomain";
 import type { EmailProvider } from "@/lib/email";
 import { sr } from "@/content/sr";
 import type { AuthRepository } from "./repository";
 import { toMe } from "./mappers";
+import type { RegisterInput } from "./schemas";
 
 export interface AuthServiceDeps {
   repo: AuthRepository;
   email: EmailProvider;
   clock: Clock;
+  /** Provjera da domen emaila postoji (u testovima se zamjenjuje fake-om). */
+  emailDomainExists?: EmailDomainChecker;
 }
 
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h — nije navedeno u api.md, pretpostavka
@@ -23,6 +26,7 @@ const RESEND_COOLDOWN_MS = 60 * 1000; // api.md: 429 ako je prethodni mail mlađ
 
 export function createAuthService(deps: AuthServiceDeps) {
   const { repo, email, clock } = deps;
+  const domainExists = deps.emailDomainExists ?? emailDomainExists;
 
   // Mail je sporedan efekat poslije uspješne transakcije — ako provider
   // zakaže (loš API ključ, mreža), ne smije oboriti operaciju koja je već
@@ -49,11 +53,24 @@ export function createAuthService(deps: AuthServiceDeps) {
   }
 
   return {
-    async register(input: { email: string; password: string }) {
+    async register(input: RegisterInput) {
+      const domain = input.email.split("@")[1] ?? "";
+      if (!(await domainExists(domain))) {
+        throw new ApiError("VALIDATION_ERROR", sr.auth.errors.emailDomainMissing, {
+          email: sr.auth.errors.emailDomainMissing,
+        });
+      }
       const passwordHash = await hashPassword(input.password);
       let created: { id: string; email: string };
       try {
-        created = await repo.createUserWithProfile({ email: input.email, passwordHash });
+        created = await repo.createUserWithProfile({
+          email: input.email,
+          passwordHash,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          linkedinUrl: input.linkedinUrl,
+          noLinkedin: input.noLinkedin,
+        });
       } catch (err: unknown) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
           throw new ApiError("EMAIL_TAKEN", sr.auth.errors.emailTaken);
@@ -71,16 +88,8 @@ export function createAuthService(deps: AuthServiceDeps) {
     },
 
     async login(input: { email: string; password: string }) {
-      let user = await repo.findUserByEmail(input.email);
-      // Otvoren ulaz (lib/devAccess.ts): lozinka se ne provjerava, a nepostojeći nalog se napravi.
-      if (OPEN_ACCESS && !user) {
-        const created = await repo.createUserWithProfile({
-          email: input.email,
-          passwordHash: await hashPassword(input.password),
-        });
-        user = await repo.findUserByEmail(created.email);
-      }
-      const passwordOk = OPEN_ACCESS || (user ? await verifyPassword(input.password, user.passwordHash) : false);
+      const user = await repo.findUserByEmail(input.email);
+      const passwordOk = user ? await verifyPassword(input.password, user.passwordHash) : false;
       if (!user || user.deactivatedAt || !passwordOk) {
         throw new ApiError("INVALID_CREDENTIALS", sr.auth.errors.invalidCredentials);
       }
@@ -139,6 +148,15 @@ export function createAuthService(deps: AuthServiceDeps) {
       const user = await repo.findMeById(userId);
       if (!user) throw new ApiError("NOT_FOUND", "Korisnik ne postoji.");
       return toMe(user, isAdminEmail(user.email));
+    },
+
+    /** Kontrolna tabla → "Odblokiraj": skida blacklist adresu i šalje novi mejl za potvrdu. */
+    async unblockEmail(userId: string) {
+      const user = await repo.findMeById(userId);
+      if (!user) throw new ApiError("NOT_FOUND", "Korisnik ne postoji.");
+      if (!user.emailBlockedAt) return;
+      await repo.clearEmailBlock(userId);
+      await sendVerificationEmail(userId, user.email);
     },
 
     async acceptAgreement(userId: string) {

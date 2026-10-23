@@ -12,6 +12,8 @@ function createFakeClock(now: Date = NOW): Clock {
   return { now: () => now };
 }
 
+const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0]);
+
 function createFakeStorage(): StorageProvider & {
   put: ReturnType<typeof vi.fn>;
   remove: ReturnType<typeof vi.fn>;
@@ -115,7 +117,7 @@ describe("createProfileService.uploadPhoto", () => {
     const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
 
     await expect(
-      service.uploadPhoto("user-1", { buffer: Buffer.from("x"), contentType: "image/gif", size: 10 }),
+      service.uploadPhoto("user-1", { buffer: Buffer.from("GIF89a-nije-slika"), contentType: "image/png", size: 10 }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(storage.put).not.toHaveBeenCalled();
   });
@@ -127,7 +129,7 @@ describe("createProfileService.uploadPhoto", () => {
 
     await expect(
       service.uploadPhoto("user-1", {
-        buffer: Buffer.from("x"),
+        buffer: PNG,
         contentType: "image/png",
         size: 4 * 1024 * 1024 + 1,
       }),
@@ -150,7 +152,7 @@ describe("createProfileService.uploadPhoto", () => {
     const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
 
     const url = await service.uploadPhoto("user-1", {
-      buffer: Buffer.from("x"),
+      buffer: PNG,
       contentType: "image/png",
       size: 10,
     });
@@ -162,9 +164,7 @@ describe("createProfileService.uploadPhoto", () => {
 });
 
 describe("createProfileService.submitProfile", () => {
-  // PRIVREMENO preskočeno — vezano za isključenu provjeru u service.ts
-  // (čeka BLOB_READ_WRITE_TOKEN), vrati zajedno sa njom.
-  it.skip("baca PROFILE_INCOMPLETE kad nedostaje photoUrl", async () => {
+  it("baca PROFILE_INCOMPLETE kad nedostaje photoUrl", async () => {
     const repo = createFakeRepo({
       getProfileAndPreference: vi
         .fn()
@@ -466,5 +466,74 @@ describe("createProfileService.rejectProfile", () => {
         text: expect.stringContaining("Nepotpune informacije"),
       }),
     );
+  });
+});
+
+describe("admin prijava: email, razlog i mailovi poslije commita", () => {
+  const make = (repoOverrides = {}) => {
+    const email = createFakeEmail();
+    const repo = createFakeRepo(repoOverrides);
+    const service = createProfileService({ repo, storage: createFakeStorage(), clock: createFakeClock(), email });
+    return { email, repo, service };
+  };
+
+  it("lista vraća email naloga i hideAge, a godine otkriva adminu", async () => {
+    const { service } = make({
+      listProfilesByStatus: vi.fn().mockResolvedValue({
+        items: [{ ...completeProfile(), hideAge: true, birthDate: new Date("1990-01-01"), email: "ana@example.com" }],
+        nextCursor: null,
+      }),
+    });
+    const result = await service.listPendingProfiles("PENDING_REVIEW");
+    expect(result.items[0]).toMatchObject({ email: "ana@example.com", hideAge: true });
+    expect(result.items[0]?.age).not.toBeNull();
+    expect(result.items[0]).not.toHaveProperty("birthDate");
+  });
+
+  it("odbijanje bez razloga (prazan ili > 1000 znakova) ne dira bazu ni mail", async () => {
+    const { email, repo, service } = make();
+    await expect(service.rejectProfile("user-1", "   ")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    await expect(service.rejectProfile("user-1", "x".repeat(1001))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repo.rejectProfile).not.toHaveBeenCalled();
+    expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("odbijanje upisuje trimovan razlog, pa šalje mail sa razlogom i linkom na ispravku", async () => {
+    const order: string[] = [];
+    const { email, repo, service } = make({
+      rejectProfile: vi.fn().mockImplementation(async () => {
+        order.push("repo");
+        return { email: "ana@example.com" };
+      }),
+    });
+    email.send.mockImplementation(async () => void order.push("mail"));
+    await service.rejectProfile("user-1", "  Dodaj LinkedIn.  ");
+    expect(repo.rejectProfile).toHaveBeenCalledWith("user-1", "Dodaj LinkedIn.", expect.any(Date));
+    expect(order).toEqual(["repo", "mail"]);
+    const sent = email.send.mock.calls[0]![0] as { text: string };
+    expect(sent.text).toContain("Dodaj LinkedIn.");
+    expect(sent.text).toContain("/app/profile");
+  });
+
+  it("odobravanje šalje mail sa linkom na aplikaciju", async () => {
+    const { email, service } = make({ approveProfile: vi.fn().mockResolvedValue({ email: "ana@example.com" }) });
+    await service.approveProfile("user-1");
+    expect((email.send.mock.calls[0]![0] as { text: string }).text).toContain("/app");
+  });
+
+  it("dupli klik: druga obrada dobija INVALID_STATUS (409) i ne šalje drugi mail", async () => {
+    const { email, service } = make({
+      approveProfile: vi.fn().mockResolvedValueOnce({ email: "ana@example.com" }).mockResolvedValueOnce("INVALID_STATUS"),
+    });
+    await service.approveProfile("user-1");
+    await expect(service.approveProfile("user-1")).rejects.toMatchObject({ code: "INVALID_STATUS" });
+    expect(email.send).toHaveBeenCalledTimes(1);
+  });
+
+  it("greška providera ne obara odobravanje koje je već upisano", async () => {
+    const { email, service } = make({ approveProfile: vi.fn().mockResolvedValue({ email: "ana@example.com" }) });
+    email.send.mockRejectedValue(new Error("resend down"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(service.approveProfile("user-1")).resolves.toBeUndefined();
   });
 });

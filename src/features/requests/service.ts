@@ -1,44 +1,23 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
-import type { EmailService, LifecycleOptions } from "@/lib/email/EmailService";
 import { evaluateMatch } from "@/lib/matching/score";
-import { sr } from "@/content/sr";
 import type { CreateRequestInput } from "./schemas";
 import type { RequestRepository } from "./repository";
 import { toReceivedRequestView, toSentRequestView } from "./mappers";
 
 export interface RequestServiceDeps {
   repo: RequestRepository;
-  email: EmailService;
   clock: Clock;
 }
 
 export function createRequestService(deps: RequestServiceDeps) {
-  const { repo, email, clock } = deps;
+  const { repo, clock } = deps;
 
-  // Mail je sporedan efekat poslije commita — provider greška ne smije
-  // oboriti odgovor za operaciju koja je već upisana u bazu.
-  async function trySendEmail(message: Parameters<EmailService["send"]>[0], lifecycle: LifecycleOptions) {
-    try {
-      await email.send(message, lifecycle);
-    } catch (err) {
-      console.error("[requests] slanje maila nije uspjelo:", err);
-    }
-  }
-
+  // Zahtjevi i matchevi ne šalju mail — korisnik dobija samo zvonce (notifikacija se upisuje u transakciji repoa).
   return {
     async sendRequest(senderId: string, input: CreateRequestInput) {
       const created = await repo.createRequest(senderId, input, clock.now());
       const likesRemaining = await repo.getLikesRemaining(senderId, clock.now());
-      // Mail ide tek poslije uspješne transakcije (ACID princip) — rollback nikad ne pošalje mail.
-      const receiverEmail = await repo.getUserEmail(input.receiverId);
-      if (receiverEmail) {
-        await trySendEmail({
-          to: receiverEmail,
-          subject: sr.requests.emails.received.subject,
-          text: sr.requests.emails.received.body,
-        }, { userId: input.receiverId, category: "invites" });
-      }
       return { ...created, likesRemaining };
     },
 
@@ -68,14 +47,6 @@ export function createRequestService(deps: RequestServiceDeps) {
     async acceptRequest(receiverId: string, requestId: string) {
       const result = await repo.acceptRequest(receiverId, requestId, clock.now());
       if (result === "NOT_PENDING") throw new ApiError("REQUEST_NOT_PENDING", "Zahtjev nije na čekanju.");
-      const senderEmail = await repo.getUserEmail(result.senderId);
-      if (senderEmail) {
-        await trySendEmail({
-          to: senderEmail,
-          subject: sr.requests.emails.matched.subject,
-          text: sr.requests.emails.matched.body,
-        }, { userId: result.senderId, category: "invites" });
-      }
       return { matchId: result.matchId };
     },
 

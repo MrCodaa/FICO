@@ -53,8 +53,6 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
       const { photoUrl: uploadedUrl } = await uploadPhoto(blob, file.name);
       setValue("photoUrl", uploadedUrl, { shouldDirty: true });
     } catch (err) {
-      // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. Do tada upload
-      // pada (nema BLOB_READ_WRITE_TOKEN) — poruka kaže da se može nastaviti bez slike.
       if (err instanceof ApiError && err.code === "VALIDATION_ERROR") {
         const fileError = err.fields?.file;
         setPhotoError(typeof fileError === "string" ? fileError : errors.photoInvalidType);
@@ -68,7 +66,6 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-8">
-      {/* TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. */}
       <div className="flex flex-col items-center gap-2">
         <ProfileAvatar
           photoUrl={photoUrl}
@@ -83,6 +80,7 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
           className="text-link cursor-pointer text-lg hover:underline disabled:opacity-50"
         >
           {t.photoChange}
+          <span className="text-destructive"> *</span>
         </button>
         <input
           ref={fileInputRef}

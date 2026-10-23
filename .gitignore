@@ -31,3 +31,6 @@ coverage/
 
 # claude code local session state
 .claude/
+
+# lokalni upload slika (LocalStorageProvider)
+public/uploads/

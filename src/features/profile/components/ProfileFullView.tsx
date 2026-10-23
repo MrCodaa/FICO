@@ -53,6 +53,9 @@ export interface ProfileFullViewData {
   videoUrl?: string | null;
   heardFrom?: string | null;
   submittedAt?: string | null;
+  /** Samo admin prijava: email naloga i da li korisnik krije godine od drugih. */
+  email?: string;
+  hideAge?: boolean;
 }
 
 interface ProfileFullViewProps {
@@ -231,6 +234,12 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
       {admin && (
         <SectionCard title={sec.adminDetails}>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            {profile.email && (
+              <div className="flex flex-col">
+                <dt className="text-muted-foreground text-sm">{sr.admin.queue.accountEmail}</dt>
+                <dd className="break-all">{profile.email}</dd>
+              </div>
+            )}
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.gender}</dt>
               <dd>
@@ -241,7 +250,10 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
             </div>
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.age}</dt>
-              <dd>{profile.age ?? v.empty}</dd>
+              <dd>
+                {profile.age ?? v.empty}
+                {profile.hideAge && <span className="text-muted-foreground"> ({sr.admin.queue.hideAge})</span>}
+              </dd>
             </div>
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.heardFrom}</dt>

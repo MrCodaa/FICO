@@ -14,13 +14,21 @@ export interface AuthMeRecord {
   email: string;
   emailVerifiedAt: Date | null;
   agreementAcceptedAt: Date | null;
+  emailBlockedAt?: Date | null;
   profileStatus: ProfileStatus;
 }
 
 export interface AuthRepository {
   findUserByEmail(email: string): Promise<AuthUserRecord | null>;
   findMeById(userId: string): Promise<AuthMeRecord | null>;
-  createUserWithProfile(input: { email: string; passwordHash: string }): Promise<{ id: string; email: string }>;
+  createUserWithProfile(input: {
+    email: string;
+    passwordHash: string;
+    firstName: string;
+    lastName: string;
+    linkedinUrl: string | null;
+    noLinkedin: boolean;
+  }): Promise<{ id: string; email: string }>;
   createAuthToken(input: { userId: string; type: TokenType; tokenHash: string; expiresAt: Date }): Promise<void>;
   findValidAuthToken(tokenHash: string, type: TokenType, now: Date): Promise<{ id: string; userId: string } | null>;
   findLatestAuthToken(userId: string, type: TokenType): Promise<{ createdAt: Date } | null>;
@@ -33,6 +41,7 @@ export interface AuthRepository {
   ): Promise<boolean>;
   acceptAgreement(userId: string, now: Date): Promise<void>;
   deleteUser(userId: string): Promise<void>;
+  clearEmailBlock(userId: string): Promise<void>;
 }
 
 export const authRepository: AuthRepository = {
@@ -51,6 +60,7 @@ export const authRepository: AuthRepository = {
         email: true,
         emailVerifiedAt: true,
         agreementAcceptedAt: true,
+        emailBlockedAt: true,
         profile: { select: { status: true } },
       },
     });
@@ -60,14 +70,15 @@ export const authRepository: AuthRepository = {
       email: user.email,
       emailVerifiedAt: user.emailVerifiedAt,
       agreementAcceptedAt: user.agreementAcceptedAt,
+      emailBlockedAt: user.emailBlockedAt,
       profileStatus: user.profile?.status ?? "DRAFT",
     };
   },
 
-  async createUserWithProfile({ email, passwordHash }) {
+  async createUserWithProfile({ email, passwordHash, firstName, lastName, linkedinUrl, noLinkedin }) {
     return db.$transaction(async (tx) => {
       const user = await tx.user.create({ data: { email, passwordHash } });
-      await tx.profile.create({ data: { userId: user.id } });
+      await tx.profile.create({ data: { userId: user.id, firstName, lastName, linkedinUrl, noLinkedin } });
       await tx.preference.create({ data: { userId: user.id } });
       return { id: user.id, email: user.email };
     });
@@ -115,6 +126,10 @@ export const authRepository: AuthRepository = {
 
   async acceptAgreement(userId, now) {
     await db.user.update({ where: { id: userId }, data: { agreementAcceptedAt: now } });
+  },
+
+  async clearEmailBlock(userId) {
+    await db.user.update({ where: { id: userId }, data: { emailBlockedAt: null, emailBlockReason: null } });
   },
 
   async deleteUser(userId) {

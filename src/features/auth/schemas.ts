@@ -1,9 +1,23 @@
 import { z } from "zod";
+import { sr } from "@/content/sr";
+import { linkedinUrlSchema } from "@/features/profile/urlSchemas";
 
-export const registerSchema = z.object({
-  email: z.string().trim().toLowerCase().email(),
-  password: z.string().min(8),
-});
+export const registerSchema = z
+  .object({
+    firstName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
+    lastName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
+    email: z.string().trim().toLowerCase().email(),
+    password: z.string().min(8),
+    linkedinUrl: linkedinUrlSchema,
+    noLinkedin: z.boolean().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (!data.noLinkedin && !data.linkedinUrl) {
+      ctx.addIssue({ code: "custom", path: ["linkedinUrl"], message: sr.profile.errors.linkedinRequired });
+    }
+  })
+  // "Nemam LinkedIn" poništava eventualno upisan link.
+  .transform((data) => ({ ...data, linkedinUrl: data.noLinkedin ? null : (data.linkedinUrl ?? null) }));
 
 // Prijava ne provjerava dužinu lozinke (to je pravilo registracije).
 export const loginSchema = z.object({

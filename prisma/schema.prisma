@@ -129,6 +129,8 @@ model User {
   lastActiveAt        DateTime  @default(now())
   deactivatedAt       DateTime?
   pausedAt            DateTime? // Podešavanja: pauziran nalog = isključen iz Discover-a (kao nevidljiv)
+  emailBlockedAt      DateTime? // Resend webhook: mejl se vratio (bounce/complaint) — ne šaljemo mu više mailove
+  emailBlockReason    String? // "bounced" | "complained"
   cofounderMatchId    String? // Podešavanja: "Sa kim si postao/la co-founder?"
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt

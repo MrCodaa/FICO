@@ -158,7 +158,6 @@ export const PREFERENCE_FIELDS = [
 // Polja koja nisu obavezna za slanje profila na pregled (sva ostala Profile
 // polja jesu obavezna). Preference polja su sva opciona.
 export const OPTIONAL_PROFILE_FIELDS = new Set<keyof ProfileFormValues>([
-  "photoUrl", // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob
   "linkedinUrl", // obavezno samo ako noLinkedin nije true
   "videoUrl",
   "schedulingUrl",

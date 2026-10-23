@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -167,8 +168,8 @@ function ProfileEditor() {
 
 function ProfileForm({ data }: { data: GetProfileResponse }) {
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const viewerId = data.profile.userId ?? "";
 
   const [initial] = useState(() => {
@@ -258,19 +259,16 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
   const submitMutation = useMutation({
     mutationFn: submitProfile,
-    onSuccess: async (res) => {
+    onSuccess: async () => {
       setSubmitError(null);
       clearDraft();
-      // Otvoren ulaz (lib/devAccess.ts): profil je odmah odobren, pa ide pravo u aplikaciju.
-      if (res.status === "APPROVED") {
-        await queryClient.invalidateQueries({ queryKey: ["me"] });
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        router.push("/app");
-        return;
-      }
       setSubmitSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      router.replace("/app");
     },
     onError: (err) => {
       setSubmitError(err instanceof ApiError ? { code: err.code, fields: err.fields } : { code: "GENERIC" });
@@ -326,7 +324,12 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
             <SectionCard title={STEP_TITLES[step]}>
               {locked && (
-                <p className="bg-beige border-beige-border rounded-md border px-4 py-3 font-medium">{w.pendingNotice}</p>
+                <p className="bg-beige border-beige-border flex flex-col gap-2 rounded-md border px-4 py-3 font-medium">
+                  {w.pendingNotice}
+                  <Link href="/app" className="text-primary underline-offset-4 hover:underline">
+                    {sr.dashboard.backToDashboard}
+                  </Link>
+                </p>
               )}
 
               {step !== "preview" && hasFieldErrors && (

@@ -59,8 +59,6 @@ export interface RequestRepository {
 
   expireRequests(now: Date): Promise<number>;
 
-  getUserEmail(userId: string): Promise<string | null>;
-
   getLikesRemaining(senderId: string, now: Date): Promise<number>;
   getViewerMatchPerson(userId: string): Promise<MatchPerson | null>;
   getMatchPersonForProfile(profile: ProfileRecord): Promise<MatchPerson>;
@@ -261,11 +259,6 @@ export const requestRepository: RequestRepository = {
       data: { status: "EXPIRED" },
     });
     return result.count;
-  },
-
-  async getUserEmail(userId) {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
-    return user?.email ?? null;
   },
 
   async getLikesRemaining(senderId, now) {

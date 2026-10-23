@@ -65,7 +65,7 @@ export interface PreferenceRecord {
 
 // Admin pregled prikazuje i "Šta tražim u co-founderu" (Preference), pa ga
 // lista na pregledu dodaje uz profil.
-export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null };
+export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null; email: string };
 
 export interface ProfileRepository {
   getProfileAndPreference(
@@ -133,7 +133,11 @@ export const profileRepository: ProfileRepository = {
   async listProfilesByStatus(status, cursor, limit) {
     const items = await db.profile.findMany({
       where: { status },
-      orderBy: { submittedAt: "asc" },
+      // Na pregledu: najstarija prijava prva; obrađene: najnovije prve.
+      orderBy:
+        status === "PENDING_REVIEW"
+          ? [{ submittedAt: "asc" }, { userId: "asc" }]
+          : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { userId: "asc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { userId: cursor }, skip: 1 } : {}),
     });
@@ -143,8 +147,16 @@ export const profileRepository: ProfileRepository = {
       ? await db.preference.findMany({ where: { userId: { in: page.map((p) => p.userId) } } })
       : [];
     const preferenceByUserId = new Map(preferences.map((p) => [p.userId, p]));
+    const users = page.length
+      ? await db.user.findMany({ where: { id: { in: page.map((p) => p.userId) } }, select: { id: true, email: true } })
+      : [];
+    const emailByUserId = new Map(users.map((u) => [u.id, u.email]));
     return {
-      items: page.map((p) => ({ ...p, preference: preferenceByUserId.get(p.userId) ?? null })),
+      items: page.map((p) => ({
+        ...p,
+        preference: preferenceByUserId.get(p.userId) ?? null,
+        email: emailByUserId.get(p.userId) ?? "",
+      })),
       nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null,
     };
   },

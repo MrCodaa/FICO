@@ -73,6 +73,29 @@ export interface ProfileView {
   submittedAt: Date | null;
 }
 
+// Admin prijava: cijeli profil + email naloga i podaci koje drugi ne vide
+// (hideAge — godine se admin uvijek vide, ali admin zna da ih korisnik krije).
+export interface AdminProfileView extends ProfileView {
+  email: string;
+  hideAge: boolean;
+  noLinkedin: boolean;
+  reviewedAt: Date | null;
+}
+
+export function toAdminProfileView(
+  profile: ProfileRecord,
+  now: Date,
+  extras: { preference?: PreferenceRecord | null; email: string },
+): AdminProfileView {
+  return {
+    ...toProfileView(profile, now, { preference: extras.preference, revealAge: true }),
+    email: extras.email,
+    hideAge: profile.hideAge,
+    noLinkedin: profile.noLinkedin,
+    reviewedAt: profile.reviewedAt,
+  };
+}
+
 export function toProfileView(
   profile: ProfileRecord,
   now: Date,

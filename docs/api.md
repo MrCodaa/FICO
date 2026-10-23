@@ -42,14 +42,16 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
-| POST | `/api/auth/register` | public | `{ email, password }` (min 8) | 201 `Me` + cookie; šalje mail za potvrdu |
+| POST | `/api/auth/register` | public | `{ firstName, lastName, email, password (min 8), linkedinUrl?, noLinkedin }` (LinkedIn link ili `noLinkedin: true`) | 201 `Me` + cookie; upisuje Profile(DRAFT) sa imenom i LinkedInom, šalje mail za potvrdu; 400 `VALIDATION_ERROR` (`fields.email` = "Greška: ...") ako domen emaila ne postoji |
 | POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie |
 | POST | `/api/auth/logout` | auth | — | 204, briše cookie |
 | POST | `/api/auth/verify-email` | public | `{ token }` | 204 |
 | POST | `/api/auth/resend-verification` | auth | — | 204; 429 ako je prethodni mail mlađi od 60 s |
 | POST | `/api/auth/forgot-password` | public | `{ email }` | 204 uvijek (ne otkriva da li nalog postoji) |
 | POST | `/api/auth/reset-password` | public | `{ token, password }` | 204; `tokenVersion++` odjavljuje sve sesije |
-| GET | `/api/me` | auth | — | `{ id, email, emailVerified, agreementAccepted, profileStatus, isAdmin }` |
+| GET | `/api/me` | auth | — | `{ id, email, emailVerified, agreementAccepted, profileStatus, isAdmin, emailBlocked }` |
+| POST | `/api/me/email-unblock` | auth | — | 204; briše `User.emailBlockedAt/emailBlockReason` i šalje novi mejl za potvrdu (Kontrolna tabla → Odblokiraj) |
+| POST | `/api/webhooks/resend` | public (Svix potpis) | Resend događaj | 200 `{ blocked }`; 401 bez važećeg potpisa |
 
 ### Faza 3: Pravila platforme
 
@@ -73,9 +75,11 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
-| GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW&cursor=` | `{ items: ProfileView[], nextCursor }` |
-| POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + obavještenje + mail |
-| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason }` | 204 + obavještenje + mail |
+| GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW|APPROVED|REJECTED&cursor=` | `{ items: AdminProfileView[], nextCursor }` |
+| POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + zvonce `PROFILE_APPROVED` + mail (link na aplikaciju); 409 `INVALID_STATUS` ako nije na pregledu |
+| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason }` (obavezan, 1–1000) | 204 + zvonce `PROFILE_REJECTED` + mail (razlog + link na ispravku); 409 `INVALID_STATUS` ako nije na pregledu |
+
+`AdminProfileView` je `ProfileView` plus `email` naloga, `hideAge`, `noLinkedin` i `reviewedAt`. Admin uvijek vidi `age` (i kad je `hideAge`). Pending lista ide od najstarije prijave, a odobreni i odbijeni od najnovije obrade. Mailovi idu poslije commita transakcije; dupli klik drugi put dobija 409 (uslovni `updateMany`).
 
 ### Faza 6: Discover i odluke
 
@@ -138,6 +142,8 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 
 - `active: false` upisuje `User.pausedAt`; pauziran nalog je van `visibleTo` (nevidljiv u Discover-u i na javnom profilu).
 - `hideAge: true` → `age` je `null` u `ProfileView` i `ProfileCard` za druge (admin pregled ga vidi).
+- **Mailovi:** šalju se samo potvrda emaila, reset lozinke i odobren/odbijen profil. Novi zahtjev i match imaju samo zvonce.
+- **Blacklist mejlova:** Resend webhook (`email.bounced` samo `Permanent`, i `email.complained`) upisuje `User.emailBlockedAt/emailBlockReason`; `EmailService` ne šalje ništa blokiranoj adresi. Potpis je Svix (`svix-id`, `svix-timestamp`, `svix-signature`, tajna `RESEND_WEBHOOK_SECRET`), stariji od 5 minuta se odbija.
 - `emails.newMatchingProfile` je `Preference.alertOnNewMatch`. `emails.none` gasi sve lifecycle mailove u `EmailService`; transakcioni (potvrda emaila, reset lozinke, odobren/odbijen profil) idu uvijek.
 
 ## Transakcije (ACID)
