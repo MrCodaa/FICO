@@ -54,6 +54,8 @@ export const rawCitiesByCountry: Record<string, string[]> = {
     "Žitište", "Žitorađa",
     // Prigradske opštine Beograda koje su zasebna mjesta
     "Mladenovac", "Obrenovac", "Lazarevac", "Barajevo", "Grocka", "Sopot", "Surčin",
+    // Gradovi i opštine sa Kosova (privremeno vođeni pod Srbijom; vidi legacyCountryCodes u catalog.ts)
+    "Priština", "Prizren", "Peć", "Gnjilane", "Mitrovica", "Severna Mitrovica", "Uroševac", "Đakovica", "Vučitrn", "Podujevo", "Kosovo Polje", "Obilić", "Glogovac", "Lipljan", "Suva Reka", "Dečani", "Istok", "Klina", "Srbica", "Vitina", "Kamenica", "Štimlje", "Kačanik", "Elez Han", "Novo Brdo", "Gračanica", "Ranilug", "Parteš", "Klokot", "Štrpce", "Zvečan", "Zubin Potok", "Leposavić", "Junik", "Mališevo", "Dragaš", "Mamuša", "Orahovac",
   ],
   HR: [
     // Gradovi
@@ -178,21 +180,5 @@ export const rawCitiesByCountry: Record<string, string[]> = {
     "Škocjan", "Škofljica", "Šmarješke Toplice", "Šmartno ob Paki", "Šmartno pri Litiji", "Štore", "Tabor", "Tišina",
     "Trnovska vas", "Velika Polana", "Veržej", "Vojnik", "Vransko", "Vuzenica", "Zavrč", "Železniki",
     "Žetale", "Žužemberk",
-  ],
-  XK: [
-    "Priština", "Prizren", "Peć", "Gnjilane", "Mitrovica", "Severna Mitrovica", "Uroševac", "Đakovica",
-    "Vučitrn", "Podujevo", "Kosovo Polje", "Obilić", "Glogovac", "Lipljan", "Suva Reka", "Dečani", "Istok",
-    "Klina", "Srbica", "Vitina", "Kamenica", "Štimlje", "Kačanik", "Elez Han", "Novo Brdo", "Gračanica",
-    "Ranilug", "Parteš", "Klokot", "Štrpce", "Zvečan", "Zubin Potok", "Leposavić", "Junik", "Mališevo",
-    "Dragaš", "Mamuša", "Orahovac",
-  ],
-  AL: [
-    // 61 opština (zvanična albanska imena)
-    "Belsh", "Berat", "Bulqizë", "Cërrik", "Delvinë", "Devoll", "Dibër", "Dimal", "Divjakë", "Dropull",
-    "Durrës", "Elbasan", "Fier", "Finiq", "Fushë-Arrëz", "Gjirokastër", "Gramsh", "Has", "Himarë", "Kamëz",
-    "Kavajë", "Klos", "Kolonjë", "Konispol", "Korçë", "Krujë", "Kuçovë", "Kukës", "Kurbin", "Lezhë", "Libohovë",
-    "Librazhd", "Lushnjë", "Malësi e Madhe", "Maliq", "Mallakastër", "Mat", "Memaliaj", "Mirditë", "Patos",
-    "Peqin", "Përmet", "Pogradec", "Poliçan", "Prrenjas", "Pukë", "Pustec", "Roskovec", "Rrogozhinë", "Ura Vajgurore", "Sarandë",
-    "Selenicë", "Shijak", "Shkodër", "Skrapar", "Tepelenë", "Tiranë", "Tropojë", "Vau i Dejës", "Vlorë", "Vorë",
   ],
 };

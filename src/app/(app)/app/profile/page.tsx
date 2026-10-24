@@ -283,7 +283,7 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   }
 
   const values = { ...emptyFormValues, ...watched } as ProfileFormValues;
-  const completion = stepCompletion(values, status);
+  const completion = stepCompletion(values);
 
   return (
     <>

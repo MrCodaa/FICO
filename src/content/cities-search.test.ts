@@ -9,7 +9,7 @@ describe("cities-search", () => {
   it("ignoriše dijakritike i velika/mala slova", () => {
     expect(findCatalogCity("sarajevo", "BA")).toBe("Sarajevo");
     expect(findCatalogCity("nis", "RS")).toBe("Niš");
-    expect(findCatalogCity("DJAKOVICA", "XK")).toBe("Đakovica");
+    expect(findCatalogCity("DJAKOVICA", "RS")).toBe("Đakovica");
     expect(searchCities("RS", "NIS")).toContain("Niš");
   });
 

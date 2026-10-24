@@ -13,9 +13,18 @@ export const countries: Country[] = [
   { code: "ME", name: "Crna Gora", region: "Zapadni Balkan" },
   { code: "MK", name: "Sjeverna Makedonija", region: "Zapadni Balkan" },
   { code: "SI", name: "Slovenija", region: "Jadran" },
-  { code: "XK", name: "Kosovo", region: "Zapadni Balkan" },
-  { code: "AL", name: "Albanija", region: "Jugoistok" },
 ] as const;
+
+// Kodovi država koji više nisu u katalogu, a mogu postojati u starim profilima u bazi.
+// Čitanje ih tolerantno mapira (baza se ne mijenja); null = nepoznata država.
+// Vraćanje Kosova kao zasebne države: vidi izvještaj (vrati XK u countries i blok gradova, ukloni ovaj unos).
+export const legacyCountryCodes: Record<string, string | null> = { XK: "RS", AL: null };
+
+export function normalizeCountryCode(code: string | null | undefined): string | null {
+  if (!code) return null;
+  if (code in legacyCountryCodes) return legacyCountryCodes[code] ?? null;
+  return code;
+}
 
 export const countryCodes: readonly string[] = countries.map((c) => c.code);
 

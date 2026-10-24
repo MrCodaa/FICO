@@ -5,7 +5,8 @@ Kad stavku završiš, označi je sa [x].
 
 ## Tajne i pristup
 - [x] GitHub: Secret scanning i Push protection uključeni (repo je javan).
-- [ ] Neon: lozinka baze promijenjena (dev branch) i produkcijski branch ima SVOJU lozinku.
+- [x] Neon: lozinka PRODUKCIJSKOG brancha je promijenjena (24.10., greškom dok je bio izabran production). Novi string čuvaj za Vercel.
+- [ ] Neon: lozinka DEV brancha (ep-cold-river-bavbiwoe) još treba da se promijeni, jer je stari string bio u razgovoru.
 - [ ] Postavljeni na Vercelu (Settings > Environment Variables): `DATABASE_URL` (pooled), `DIRECT_URL`,
       `JWT_SECRET` (nov, 32+ nasumična znaka, ne isti kao lokalno), `CRON_SECRET`, `APP_URL`,
       `ADMIN_EMAILS`, `ADMIN_PATH` (npr. `/upravljanje-k7x2q`; bez njega je admin ugašen),

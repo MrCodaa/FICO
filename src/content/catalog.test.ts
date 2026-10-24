@@ -5,13 +5,11 @@ import { citiesByCountry, countries } from "@/content/catalog";
 // Minimalni brojevi zvaničnih jedinica lokalne samouprave (donja granica, da niko ne ispadne).
 const MIN_COUNT: Record<string, number> = {
   BA: 140,
-  RS: 150,
+  RS: 188,
   HR: 540,
   ME: 25,
   MK: 70,
   SI: 212,
-  XK: 38,
-  AL: 61,
 };
 
 describe("catalog gradova", () => {

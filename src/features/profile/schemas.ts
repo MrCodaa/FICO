@@ -65,6 +65,49 @@ const profileBaseSchema = z.object({
   other: optionalSafeText(500, ML),
 });
 
+/**
+ * Pravila slanja koja nisu u osnovnim poljima (grad↔država, obavezni tekstovi, LinkedIn).
+ * Izdvojeno da ih forma može pokrenuti i kad osnovna šema ne prođe (Zod tada
+ * preskače superRefine) — zelene kvačice u wizardu koriste isto pravilo.
+ */
+export function submitRules(
+  data: {
+    city?: string | null;
+    countryCode?: string | null;
+    lifePath?: string | null;
+    equityExpectations?: string | null;
+    lookingFor?: string | null;
+    ideas?: string | null;
+    ideaStatus?: string | null;
+    noLinkedin?: boolean | null;
+    linkedinUrl?: string | null;
+  },
+  ctx: z.RefinementCtx,
+) {
+  cityMatchesCountry({ city: data.city ?? undefined, countryCode: data.countryCode ?? undefined }, ctx);
+  // Nacrt ih čuva kao null, ali za slanje su obavezni da Discover prikaže
+  // pune YC sekcije (Životna priča, Potencijalne ideje, Šta tražim, udio).
+  const required: ("lifePath" | "equityExpectations" | "lookingFor" | "ideas")[] = [
+    "lifePath",
+    "equityExpectations",
+    "lookingFor",
+  ];
+  if (data.ideaStatus === "COMMITTED" || data.ideaStatus === "EXPLORING") required.push("ideas");
+  for (const key of required) {
+    const value = data[key];
+    if (typeof value !== "string" || !value.trim()) {
+      ctx.addIssue({ code: "custom", path: [key], message: sr.profile.errors.required });
+    }
+  }
+  if (!data.noLinkedin && !data.linkedinUrl) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["linkedinUrl"],
+      message: sr.profile.errors.linkedinRequired,
+    });
+  }
+}
+
 export const profileDraftSchema = profileBaseSchema.partial().superRefine(cityMatchesCountry);
 
 export const profileSubmitSchema = profileBaseSchema
@@ -75,26 +118,7 @@ export const profileSubmitSchema = profileBaseSchema
     // Preference.lookingFor ("Idealan co-founder") — servis ga dodaje iz Preference.
     lookingFor: optionalSafeText(1000, ML),
   })
-  .superRefine((data, ctx) => {
-    cityMatchesCountry(data, ctx);
-    // Nacrt ih čuva kao null, ali za slanje su obavezni da Discover prikaže
-    // pune YC sekcije (Životna priča, Potencijalne ideje, Šta tražim, udio).
-    const required: (keyof typeof data)[] = ["lifePath", "equityExpectations", "lookingFor"];
-    if (data.ideaStatus === "COMMITTED" || data.ideaStatus === "EXPLORING") required.push("ideas");
-    for (const key of required) {
-      const value = data[key];
-      if (typeof value !== "string" || !value.trim()) {
-        ctx.addIssue({ code: "custom", path: [key], message: sr.profile.errors.required });
-      }
-    }
-    if (!data.noLinkedin && !data.linkedinUrl) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["linkedinUrl"],
-        message: sr.profile.errors.linkedinRequired,
-      });
-    }
-  });
+  .superRefine(submitRules);
 
 export const preferenceDraftSchema = z.object({
   lookingFor: optionalSafeText(1000, ML),

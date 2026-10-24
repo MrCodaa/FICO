@@ -1,3 +1,4 @@
+import { normalizeCountryCode } from "@/content/catalog";
 import type { ProfileRecord } from "@/features/profile/repository";
 import type { MatchPerson, MatchPreference } from "./types";
 
@@ -70,7 +71,7 @@ export function buildMatchPerson(
       areas: profile.areas,
       ideaStatus: profile.ideaStatus,
       timing: profile.timing,
-      countryCode: profile.countryCode,
+      countryCode: normalizeCountryCode(profile.countryCode),
       city: profile.city,
       interests: profile.interests,
       birthDate: profile.birthDate,
