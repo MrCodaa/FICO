@@ -10,7 +10,8 @@ src/generated/
 
 # env
 .env
-.env*.local
+.env.*
+!.env.example
 
 # logs
 *.log

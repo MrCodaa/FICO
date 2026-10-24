@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AppFooter } from "@/app/(app)/_components/AppFooter";
 import { FicoLogo } from "@/app/(app)/_components/FicoLogo";
 import { useHomeHref } from "@/app/(app)/_components/useHomeHref";
-import { Button } from "@/components/ui/button";
+import { PublicAuthNav } from "./PublicAuthNav";
 import { sr } from "@/content/sr";
 import { getNextRoute } from "@/lib/nextRoute";
 import { fetchMe } from "@/lib/http/apiClient";
@@ -32,20 +32,12 @@ export function StaticPageShell({ children }: { children: React.ReactNode }) {
             className="flex items-center gap-2"
             aria-busy={meQuery.isLoading}
           >
-            {meQuery.isLoading ? null : appHref ? (
-              <Button asChild>
-                <Link href={appHref}>{sr.landing.nav.openApp}</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild variant="ghost">
-                  <Link href="/prijava">{sr.publicPages.login}</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/registracija">{sr.publicPages.register}</Link>
-                </Button>
-              </>
-            )}
+            <PublicAuthNav
+              appHref={appHref}
+              loading={meQuery.isLoading}
+              loginLabel={sr.publicPages.login}
+              registerLabel={sr.publicPages.register}
+            />
           </nav>
         </div>
       </header>

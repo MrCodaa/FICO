@@ -1,7 +1,7 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
 import type { EmailProvider } from "@/lib/email";
-import { detectImageType, type StorageProvider } from "@/lib/storage";
+import { detectImageType, stripImageMetadata, type StorageProvider } from "@/lib/storage";
 import type { ProfileStatus } from "@/generated/prisma/client";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";
@@ -17,7 +17,9 @@ export interface ProfileServiceDeps {
 }
 
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
+export const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
+export const PHOTO_UPLOADS_PER_HOUR = 10;
+const HOUR_MS = 60 * 60 * 1000;
 
 const appUrl = () => (process.env.APP_URL ?? "").replace(/[/]$/, "");
 
@@ -68,8 +70,14 @@ export function createProfileService(deps: ProfileServiceDeps) {
         });
       }
       const ext = detected === "image/png" ? "png" : detected === "image/webp" ? "webp" : "jpg";
-      const key = `profiles/${userId}/${crypto.randomUUID()}.${ext}`;
-      const { url } = await storage.put({ key, data: file.buffer, contentType: detected });
+      const allowed = await repo.consumeUploadSlot(userId, clock.now(), PHOTO_UPLOADS_PER_HOUR, HOUR_MS);
+      if (!allowed) {
+        throw new ApiError("TOO_MANY_REQUESTS", sr.profile.errors.photoRateLimited);
+      }
+      // Ime fajla je nasumično (UUID v4) i ne sadrži ni userId ni email.
+      const key = `profiles/${crypto.randomUUID()}.${ext}`;
+      const data = stripImageMetadata(file.buffer, detected);
+      const { url } = await storage.put({ key, data, contentType: detected });
       const { oldPhotoUrl } = await repo.updateProfilePhoto(userId, url);
       if (oldPhotoUrl) {
         await storage.remove(oldPhotoUrl).catch(() => {});
@@ -116,9 +124,10 @@ export function createProfileService(deps: ProfileServiceDeps) {
       });
     },
 
-    async rejectProfile(userId: string, rawReason: string) {
-      const reason = rawReason.trim();
-      if (reason.length < 1 || reason.length > 1000) {
+    async rejectProfile(userId: string, rawReason?: string | null) {
+      // Razlog je opcionalan: prazan se čuva kao null.
+      const reason = rawReason?.trim() || null;
+      if (reason !== null && reason.length > 1000) {
         throw new ApiError("VALIDATION_ERROR", sr.admin.queue.reasonRequired, { reason: sr.admin.queue.reasonRequired });
       }
       const result = await repo.rejectProfile(userId, reason, clock.now());

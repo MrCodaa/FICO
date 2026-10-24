@@ -5,7 +5,7 @@ import { withRoute } from "@/lib/http/withRoute";
 import { container } from "@/lib/container";
 
 const rejectSchema = z.object({
-  reason: z.string().trim().min(1).max(1000),
+  reason: z.string().trim().max(1000).optional(),
 });
 
 export const POST = withRoute(

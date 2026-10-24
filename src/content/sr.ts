@@ -24,6 +24,7 @@ export const sr = {
       login: "Prijava",
       register: "Registruj se",
       openApp: "Otvori aplikaciju",
+      logout: "Odjavi se",
     },
     hero: {
       eyebrow: "Find Co-Founder za Balkan",
@@ -329,6 +330,7 @@ export const sr = {
         submit: "Pošalji na pregled",
         incomplete: "Profil nije kompletan. Vrati se i popuni označena polja.",
         rejectedNotice: "Profil je odbijen. Razlog:",
+        rejectedNoReason: "Tvoj profil nije odobren. Ispravi ga i pošalji ponovo.",
       },
     },
     errors: {
@@ -336,6 +338,7 @@ export const sr = {
       incomplete: "Profil nije kompletan.",
       generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
       photoTooLarge: "Greška: slika je prevelika (maksimalno 4 MB).",
+      photoRateLimited: "Greška: previše pokušaja otpremanja slike. Pokušaj ponovo za sat vremena.",
       photoInvalidType: "Greška: dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
       linkedinInvalid: "Greška: ovo nije pravi LinkedIn link. Unesi link oblika linkedin.com/in/tvoje-ime.",
@@ -426,12 +429,12 @@ export const sr = {
       empty: "Nema prijava u ovoj grupi.",
       approve: "Odobri",
       reject: "Odbij",
-      reasonLabel: "Razlog odbijanja (vidi ga korisnik)",
+      reasonLabel: "Razlog odbijanja (nije obavezan, vidi ga korisnik)",
       reasonPlaceholder: "Objasni zašto se profil odbija i šta treba ispraviti...",
-      reasonRequired: "Razlog je obavezan (1–1000 znakova).",
+      reasonRequired: "Razlog može imati najviše 1000 znakova.",
       reasonTooLong: "Razlog može imati najviše 1000 znakova.",
       confirmReject: "Odbij profil",
-      confirmRejectPrompt: "Sigurno odbijaš ovaj profil? Korisnik dobija razlog na mail i u obavještenju.",
+      confirmRejectPrompt: "Sigurno odbijaš ovaj profil? Korisnik dobija obavještenje i mail.",
       cancel: "Otkaži",
       forbidden: "Nemaš pristup ovoj stranici.",
       loadMore: "Učitaj još",
@@ -462,8 +465,10 @@ export const sr = {
       },
       rejected: {
         subject: "Tvoj FICO profil treba izmjene",
-        body: (reason: string, link: string) =>
-          `Zdravo,\n\nTvoj profil nije odobren iz sljedećeg razloga:\n${reason}\n\nIspravi ga i pošalji ponovo na pregled:\n${link}`,
+        body: (reason: string | null, link: string) =>
+          reason
+            ? `Zdravo,\n\nTvoj profil nije odobren iz sljedećeg razloga:\n${reason}\n\nIspravi ga i pošalji ponovo na pregled:\n${link}`
+            : `Zdravo,\n\nTvoj profil nije odobren.\n\nIspravi ga i pošalji ponovo na pregled:\n${link}`,
       },
     },
   },
@@ -627,6 +632,7 @@ export const sr = {
     backToDashboard: "Nazad na Kontrolnu tablu",
     draft: "Tvoj profil još nije poslat na pregled. Završi ga i pošalji da bi otkrivao druge osnivače.",
     rejected: "Tvoj profil nije odobren. Razlog:",
+    rejectedNoReason: "Tvoj profil nije odobren.",
     rejectedFix: "Ispravi profil i pošalji ga ponovo",
     editProfile: "Uredi profil",
     error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
@@ -742,6 +748,10 @@ export const sr = {
       RESOLVED: "Riješena",
       DISMISSED: "Odbačena",
     },
+  },
+  notFoundPage: {
+    title: "Nije pronađeno",
+    body: "Zatraženi URL nije pronađen na ovom serveru.",
   },
   misc: {
     about: {

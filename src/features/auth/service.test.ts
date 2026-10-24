@@ -439,7 +439,7 @@ describe("createAuthService.login zaključavanje", () => {
     await expect(service.login({ email: "novi@b.com", password: "x" }, "8.8.8.8")).rejects.toMatchObject({
       code: "INVALID_CREDENTIALS",
     });
-  }, 60_000);
+  });
 
   it("19 pogrešnih po IP adresi ne zaključava", async () => {
     const { service } = await setup({ userExists: false });
@@ -451,7 +451,7 @@ describe("createAuthService.login zaključavanje", () => {
     await expect(service.login({ email: "novi@b.com", password: "x" }, IP)).rejects.toMatchObject({
       code: "INVALID_CREDENTIALS",
     });
-  }, 60_000);
+  });
 
   it("poslije isteka zaključavanja prijava ponovo radi i brojač je obrisan", async () => {
     const { service, table, setNow } = await setup();

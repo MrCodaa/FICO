@@ -86,7 +86,7 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 | --- | --- | --- | --- | --- |
 | GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW|APPROVED|REJECTED&cursor=` | `{ items: AdminProfileView[], nextCursor }` |
 | POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + zvonce `PROFILE_APPROVED` + mail (link na aplikaciju); 409 `INVALID_STATUS` ako nije na pregledu |
-| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason }` (obavezan, 1–1000) | 204 + zvonce `PROFILE_REJECTED` + mail (razlog + link na ispravku); 409 `INVALID_STATUS` ako nije na pregledu |
+| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason? }` (opcionalan, 0–1000; prazan = bez razloga, čuva se `null`) | 204 + zvonce `PROFILE_REJECTED` + mail (razlog ako postoji + link na ispravku); 409 `INVALID_STATUS` ako nije na pregledu |
 
 `AdminProfileView` je `ProfileView` plus `email` naloga, `hideAge`, `noLinkedin` i `reviewedAt`. Admin uvijek vidi `age` (i kad je `hideAge`). Pending lista ide od najstarije prijave, a odobreni i odbijeni od najnovije obrade. Mailovi idu poslije commita transakcije; dupli klik drugi put dobija 409 (uslovni `updateMany`).
 

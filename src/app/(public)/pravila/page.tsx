@@ -45,7 +45,7 @@ export default function AgreementPage() {
       // agreementAccepted se promijenio: keš ["me"] mora biti svjež prije navigacije,
       // inače (app) layout vidi stari Me i vrati korisnika na pravila (drugi krug).
       const me = await refreshMe(queryClient);
-      router.push(me ? getNextRoute(me) : "/prijava");
+      router.replace(me ? getNextRoute(me) : "/prijava");
     },
   });
 

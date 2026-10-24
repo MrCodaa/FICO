@@ -74,6 +74,8 @@ export interface ProfileRepository {
   updateProfileDraft(userId: string, data: Record<string, unknown>): Promise<ProfileRecord>;
   updatePreferenceDraft(userId: string, data: Record<string, unknown>): Promise<PreferenceRecord>;
   updateProfilePhoto(userId: string, photoUrl: string): Promise<{ oldPhotoUrl: string | null }>;
+  /** Troši jedno mjesto iz limita otpremanja slika (fiksni prozor). false = limit je potrošen. */
+  consumeUploadSlot(userId: string, now: Date, limit: number, windowMs: number): Promise<boolean>;
   submitProfile(userId: string, now: Date): Promise<boolean>;
   listProfilesByStatus(
     status: ProfileStatus,
@@ -83,7 +85,7 @@ export interface ProfileRepository {
   approveProfile(userId: string, now: Date): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
   rejectProfile(
     userId: string,
-    reason: string,
+    reason: string | null,
     now: Date,
   ): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
 }
@@ -120,6 +122,30 @@ export const profileRepository: ProfileRepository = {
     const existing = await db.profile.findUnique({ where: { userId }, select: { photoUrl: true } });
     await db.profile.update({ where: { userId }, data: { photoUrl } });
     return { oldPhotoUrl: existing?.photoUrl ?? null };
+  },
+
+  // Koristi postojeću tabelu LoginAttempt (bez migracije): key "upload:<userId>",
+  // failedCount = broj otpremanja u prozoru, lockedUntil = kraj prozora.
+  async consumeUploadSlot(userId, now, limit, windowMs) {
+    const key = `upload:${userId}`;
+    const inWindow = await db.loginAttempt.updateMany({
+      where: { key, lockedUntil: { gt: now }, failedCount: { lt: limit } },
+      data: { failedCount: { increment: 1 } },
+    });
+    if (inWindow.count === 1) return true;
+    const lockedUntil = new Date(now.getTime() + windowMs);
+    const expired = await db.loginAttempt.updateMany({
+      where: { key, OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }] },
+      data: { failedCount: 1, lockedUntil },
+    });
+    if (expired.count === 1) return true;
+    try {
+      await db.loginAttempt.create({ data: { key, failedCount: 1, lockedUntil } });
+      return true;
+    } catch (err) {
+      if ((err as { code?: string }).code === "P2002") return false; // red postoji, limit potrošen
+      throw err;
+    }
   },
 
   async submitProfile(userId, now) {

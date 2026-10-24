@@ -102,6 +102,7 @@ function createFakeRepo(overrides: Partial<ProfileRepository> = {}): ProfileRepo
     updateProfileDraft: vi.fn().mockResolvedValue(completeProfile()),
     updatePreferenceDraft: vi.fn().mockResolvedValue(createFakePreference()),
     updateProfilePhoto: vi.fn().mockResolvedValue({ oldPhotoUrl: null }),
+    consumeUploadSlot: vi.fn().mockResolvedValue(true),
     submitProfile: vi.fn().mockResolvedValue(true),
     listProfilesByStatus: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     approveProfile: vi.fn().mockResolvedValue({ email: "user@example.com" }),
@@ -160,6 +161,43 @@ describe("createProfileService.uploadPhoto", () => {
     expect(url).toBe("https://blob.example/new.jpg");
     expect(storage.remove).toHaveBeenCalledWith("https://blob.example/old.jpg");
     expect(callOrder).toEqual(["repo.updateProfilePhoto", "storage.remove"]);
+  });
+});
+
+describe("createProfileService.uploadPhoto zaštite", () => {
+  const deps = (repo: ProfileRepository, storage: StorageProvider) => ({
+    repo,
+    storage,
+    clock: createFakeClock(),
+    email: createFakeEmail(),
+  });
+
+  it("ime fajla je nasumično i ne sadrži userId", async () => {
+    const storage = createFakeStorage();
+    const service = createProfileService(deps(createFakeRepo(), storage));
+    await service.uploadPhoto("user-tajni-id", { buffer: PNG, contentType: "image/png", size: 10 });
+    const key: string = storage.put.mock.calls[0]![0].key;
+    expect(key).not.toContain("user-tajni-id");
+    expect(key).toMatch(/^profiles\/[0-9a-f-]{36}\.png$/);
+  });
+
+  it("odbija upload kad je potrošen limit na sat", async () => {
+    const storage = createFakeStorage();
+    const repo = createFakeRepo({ consumeUploadSlot: vi.fn().mockResolvedValue(false) });
+    const service = createProfileService(deps(repo, storage));
+    await expect(
+      service.uploadPhoto("user-1", { buffer: PNG, contentType: "image/png", size: 10 }),
+    ).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it("neispravan fajl ne troši limit", async () => {
+    const repo = createFakeRepo();
+    const service = createProfileService(deps(repo, createFakeStorage()));
+    await expect(
+      service.uploadPhoto("user-1", { buffer: Buffer.from("<svg/>"), contentType: "image/png", size: 6 }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(repo.consumeUploadSlot).not.toHaveBeenCalled();
   });
 });
 
@@ -490,12 +528,23 @@ describe("admin prijava: email, razlog i mailovi poslije commita", () => {
     expect(result.items[0]).not.toHaveProperty("birthDate");
   });
 
-  it("odbijanje bez razloga (prazan ili > 1000 znakova) ne dira bazu ni mail", async () => {
+  it("odbijanje sa razlogom dužim od 1000 znakova ne dira bazu ni mail", async () => {
     const { email, repo, service } = make();
-    await expect(service.rejectProfile("user-1", "   ")).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     await expect(service.rejectProfile("user-1", "x".repeat(1001))).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(repo.rejectProfile).not.toHaveBeenCalled();
     expect(email.send).not.toHaveBeenCalled();
+  });
+
+  it("odbijanje bez razloga (undefined, prazan ili razmaci) upisuje null, a mail nema dio o razlogu", async () => {
+    for (const reason of [undefined, "", "   "]) {
+      const { email, repo, service } = make({ rejectProfile: vi.fn().mockResolvedValue({ email: "ana@example.com" }) });
+      await service.rejectProfile("user-1", reason);
+      expect(repo.rejectProfile).toHaveBeenCalledWith("user-1", null, expect.any(Date));
+      const sent = email.send.mock.calls[0]![0] as { text: string };
+      expect(sent.text).toContain("Tvoj profil nije odobren.");
+      expect(sent.text).not.toContain("razloga");
+      expect(sent.text).toContain("/app/profile");
+    }
   });
 
   it("odbijanje upisuje trimovan razlog, pa šalje mail sa razlogom i linkom na ispravku", async () => {

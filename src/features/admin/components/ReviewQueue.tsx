@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ArrowLeft } from "lucide-react";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -88,6 +89,20 @@ function fullNameOf(p: AdminProfile): string {
   return [p.firstName, p.lastName].filter(Boolean).join(" ") || "—";
 }
 
+function BackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      onClick={onBack}
+      className="border-foreground/40 text-foreground min-h-11 w-full gap-2 border-2 font-semibold sm:w-auto"
+    >
+      <ArrowLeft aria-hidden className="h-4 w-4" />
+      {t.back}
+    </Button>
+  );
+}
+
 function ReviewDetail({
   profile,
   onBack,
@@ -135,7 +150,7 @@ function ReviewDetail({
   const trimmed = reason.trim();
 
   const confirmReject = () => {
-    if (trimmed.length < 1 || trimmed.length > REASON_MAX) {
+    if (trimmed.length > REASON_MAX) {
       setShowReasonError(true);
       return;
     }
@@ -146,9 +161,7 @@ function ReviewDetail({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Button type="button" variant="ghost" size="sm" onClick={onBack}>
-          {t.back}
-        </Button>
+        <BackButton onBack={onBack} />
       </div>
 
       <div className="text-muted-foreground flex flex-wrap gap-x-6 gap-y-1 text-sm">
@@ -204,7 +217,7 @@ function ReviewDetail({
               </div>
               {showReasonError && <p className="text-destructive text-sm">{t.reasonRequired}</p>}
               <div className="flex gap-2">
-                <Button type="button" disabled={busy || trimmed === ""} onClick={confirmReject}>
+                <Button type="button" disabled={busy} onClick={confirmReject}>
                   {t.confirmReject}
                 </Button>
                 <Button
@@ -224,6 +237,10 @@ function ReviewDetail({
           )}
         </div>
       )}
+
+      <div className="bg-background sticky bottom-0 z-10 -mx-4 border-t px-4 py-3 sm:mx-0 sm:rounded-md sm:border">
+        <BackButton onBack={onBack} />
+      </div>
     </div>
   );
 }

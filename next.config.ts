@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         source: "/app/:path*",
         headers: [{ key: "Cache-Control", value: "no-store, must-revalidate" }],
       },
+      {
+        // Lokalno otpremljene slike: browser ne smije "pogadjati" tip fajla.
+        source: "/uploads/:path*",
+        headers: [{ key: "X-Content-Type-Options", value: "nosniff" }],
+      },
     ];
   },
 };

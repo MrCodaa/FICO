@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { ADMIN_TTL_SECONDS, verifyAdminToken, verifySessionToken, type SessionPayload } from "@/lib/auth/jwt";
+import { verifyAdminToken, verifySessionToken, type SessionPayload } from "@/lib/auth/jwt";
 
 export const SESSION_COOKIE_NAME = "fico_session";
 export const SESSION_MAX_AGE_SECONDS = 60 * 60 * 24 * 7;
@@ -28,14 +28,13 @@ export function adminCookieOptions(): {
   secure: boolean;
   sameSite: "strict";
   path: "/";
-  maxAge: number;
 } {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
-    maxAge: ADMIN_TTL_SECONDS,
+    // Bez maxAge/expires: sesijski kolačić, nestaje zatvaranjem browsera. Rok od 2h čuva JWT `exp`.
   };
 }
 

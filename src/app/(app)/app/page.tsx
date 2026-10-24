@@ -111,7 +111,9 @@ function StatusBar({ data }: { data: Dashboard }) {
         {data.profileStatus === "DRAFT" && <p className="text-lg font-semibold">{t.draft}</p>}
         {data.profileStatus === "REJECTED" && (
           <>
-            <p className="text-lg font-semibold">{t.rejected}</p>
+            <p className="text-lg font-semibold">
+              {data.rejectionReason ? t.rejected : t.rejectedNoReason}
+            </p>
             {data.rejectionReason && <p>{data.rejectionReason}</p>}
           </>
         )}

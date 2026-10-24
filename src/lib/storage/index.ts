@@ -2,6 +2,7 @@ export * from "./StorageProvider";
 export * from "./VercelBlobStorageProvider";
 export * from "./LocalStorageProvider";
 export * from "./detectImageType";
+export * from "./stripMetadata";
 
 import { LocalStorageProvider } from "./LocalStorageProvider";
 import { VercelBlobStorageProvider } from "./VercelBlobStorageProvider";

@@ -88,7 +88,7 @@ export default function RegisterPage() {
     onSuccess: (me) => {
       // Svjež Me u keš: inače /app vidi stari "odjavljen" (null) iz keša i vrati na prijavu.
       queryClient.setQueryData(["me"], me);
-      router.push(getNextRoute(me));
+      router.replace(getNextRoute(me));
     },
   });
 

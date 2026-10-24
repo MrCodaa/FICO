@@ -114,10 +114,16 @@ export function ReviewStep({
     <div className="flex flex-col gap-8">
       <p className="text-foreground/80">{t.description}</p>
 
-      {status === "REJECTED" && rejectionReason && (
+      {status === "REJECTED" && (
         <div className="border-destructive/50 bg-destructive/5 flex flex-col gap-1 rounded-md border p-4">
-          <span className="text-destructive font-semibold">{t.rejectedNotice}</span>
-          <span>{rejectionReason}</span>
+          {rejectionReason ? (
+            <>
+              <span className="text-destructive font-semibold">{t.rejectedNotice}</span>
+              <span>{rejectionReason}</span>
+            </>
+          ) : (
+            <span className="text-destructive font-semibold">{t.rejectedNoReason}</span>
+          )}
         </div>
       )}
 
