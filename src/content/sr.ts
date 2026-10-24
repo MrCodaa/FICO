@@ -202,6 +202,7 @@ export const sr = {
       pendingNotice: "Profil je poslat na pregled. Dok ga admin ne pregleda, izmjene nisu moguće.",
       approvedNotice: "Izmjene su odmah vidljive drugim korisnicima.",
       invalidFields: "Provjeri ova polja:",
+      missingPrefix: "Fali:",
     },
     // Greške uz polja: kratak banner gore + crveni tekst ispod svakog neispravnog polja.
     fieldErrors: {

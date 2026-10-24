@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { interestCodes } from "@/content/catalog";
 
-import { stepCompletion } from "./completion";
+import { missingFields, stepCompletion } from "./completion";
 import { emptyFormValues, type ProfileFormValues } from "./types";
 
 const full: ProfileFormValues = {
@@ -49,5 +49,19 @@ describe("stepCompletion", () => {
     expect(stepCompletion({ ...values, firstName: "" }).basic).toBe(false);
     expect(stepCompletion({ ...values, lifePath: "" })).toMatchObject({ basic: true, more: false, preview: false });
     expect(stepCompletion({ ...values, firstName: "", lifePath: "" }).more).toBe(false);
+  });
+
+  it("bez slike Osnovno nema kvačicu, a Fali navodi sliku", () => {
+    const values = { ...full, photoUrl: "" };
+    expect(stepCompletion(values).basic).toBe(false);
+    expect(missingFields(values, "basic")).toEqual(["Slika profila"]);
+    expect(missingFields(full, "basic")).toEqual([]);
+  });
+
+  it("Fali navodi obavezna polja koraka Više o tebi", () => {
+    expect(missingFields({ ...full, lifePath: "", equityExpectations: "" }, "more")).toEqual([
+      "Očekivanja oko equity-ja",
+      "Tvoj životni put (ukratko)",
+    ]);
   });
 });

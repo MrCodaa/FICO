@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -27,13 +27,14 @@ import {
   toMorePayload,
   toPreferencePayload,
 } from "./api";
-import { STEP_KEYS, stepCompletion, type StepKey } from "./completion";
+import { STEP_KEYS, missingFields, stepCompletion, type StepKey } from "./completion";
+import { type Draft, isDraftEmpty, makeDraft, mergeDraft, parseDraft } from "./draft";
 import { FieldErrorsContext } from "./fields";
 import { BasicStep } from "./steps/BasicStep";
 import { MoreStep } from "./steps/MoreStep";
 import { PreferenceStep } from "./steps/PreferenceStep";
 import { ReviewStep } from "./steps/ReviewStep";
-import { emptyFormValues, type ProfileFormValues } from "./types";
+import { BASIC_FIELDS, emptyFormValues, MORE_FIELDS, PREFERENCE_FIELDS, type ProfileFormValues } from "./types";
 
 const w = sr.profile.wizard;
 const NO_FIELD_ERRORS: Record<string, string> = {};
@@ -46,21 +47,16 @@ const STEP_TITLES: Record<StepKey, string> = {
   preview: sr.profile.steps.review.title,
 };
 
-interface Draft {
-  userId: string;
-  stepIndex: number;
-  values: ProfileFormValues;
-}
-
 // Draft je vezan za userId da se na dijeljenom/testnom browseru ne bi
 // nacrt jednog korisnika tiho primijenio na nalog drugog (localStorage je
-// po porijeklu, ne po sesiji).
+// po porijeklu, ne po sesiji). Nacrt bez verzije/vremena se ignoriše.
 function readDraft(userId: string): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const draft = JSON.parse(raw) as Draft;
-    return draft.userId === userId ? draft : null;
+    const draft = parseDraft(JSON.parse(raw), userId);
+    if (!draft) clearDraft();
+    return draft;
   } catch {
     return null;
   }
@@ -173,14 +169,18 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   const viewerId = data.profile.userId ?? "";
 
   const [initial] = useState(() => {
+    const server = mapServerToForm(data);
     const draft = readDraft(viewerId);
     // ?step=preference (link "Uredi" iz "Tvoji filteri") ima prednost nad nacrtom.
     const fromUrl = STEP_KEYS.indexOf(searchParams.get("step") as StepKey);
     return {
-      values: { ...mapServerToForm(data), ...draft?.values },
+      server,
+      values: mergeDraft(server, draft),
       stepIndex: fromUrl >= 0 ? fromUrl : (draft?.stepIndex ?? 0),
     };
   });
+  // Server snapshot na koji se nacrt odnosi; pomjera se poslije svakog uspješnog čuvanja.
+  const baseRef = useRef<ProfileFormValues>(initial.server);
   const [stepIndex, setStepIndex] = useState(initial.stepIndex);
   const [saveError, setSaveError] = useState<{ message: string; fields: Record<string, string> } | null>(null);
   const [savedStep, setSavedStep] = useState<StepKey | null>(null);
@@ -195,13 +195,22 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   const locked = status === "PENDING_REVIEW";
   const step = STEP_KEYS[stepIndex] ?? "basic";
 
+  // Nacrt se upisuje samo dok se razlikuje od servera; kad je isti, nestaje.
+  const persistDraft = useCallback(
+    (index: number, current: ProfileFormValues) => {
+      if (!viewerId) return;
+      if (isDraftEmpty(baseRef.current, current)) clearDraft();
+      else writeDraft(makeDraft(viewerId, index, baseRef.current, current, Date.now()));
+    },
+    [viewerId],
+  );
+
   useEffect(() => {
-    if (!viewerId) return;
     return form.subscribe({
       formState: { values: true },
-      callback: ({ values }) => writeDraft({ userId: viewerId, stepIndex, values }),
+      callback: ({ values }) => persistDraft(stepIndex, values as ProfileFormValues),
     });
-  }, [form, viewerId, stepIndex]);
+  }, [form, persistDraft, stepIndex]);
 
   const fieldErrors = saveError?.fields ?? NO_FIELD_ERRORS;
   const hasFieldErrors = Object.keys(fieldErrors).length > 0;
@@ -243,6 +252,13 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
       else if (key === "preference") await patchPreference(toPreferencePayload(values));
     },
     onSuccess: (_data, key) => {
+      // Sačuvani koraka je sada na serveru: pomjeri snapshot i obriši nacrt tog dijela.
+      const saved = form.getValues();
+      const fields = (key === "basic" ? BASIC_FIELDS : key === "more" ? MORE_FIELDS : PREFERENCE_FIELDS) as readonly string[];
+      const nextBase = { ...baseRef.current } as unknown as Record<string, unknown>;
+      for (const f of fields) nextBase[f] = (saved as unknown as Record<string, unknown>)[f];
+      baseRef.current = nextBase as unknown as ProfileFormValues;
+      persistDraft(stepIndex, saved);
       setSavedStep(key);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["discover"] });
@@ -278,12 +294,13 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   function goTo(index: number) {
     setSaveError(null);
     setStepIndex(index);
-    if (viewerId) writeDraft({ userId: viewerId, stepIndex: index, values: form.getValues() });
+    persistDraft(index, form.getValues());
     window.scrollTo({ top: 0 });
   }
 
   const values = { ...emptyFormValues, ...watched } as ProfileFormValues;
   const completion = stepCompletion(values);
+  const missing = missingFields(values, step);
 
   return (
     <>
@@ -329,6 +346,12 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
                   <Link href="/app" className="text-primary underline-offset-4 hover:underline">
                     {sr.dashboard.backToDashboard}
                   </Link>
+                </p>
+              )}
+
+              {missing.length > 0 && (
+                <p className="text-destructive text-sm font-medium" data-testid="missing-fields">
+                  {w.missingPrefix} {missing.join(", ")}
                 </p>
               )}
 
