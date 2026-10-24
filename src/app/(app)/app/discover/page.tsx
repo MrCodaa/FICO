@@ -120,7 +120,7 @@ export default function DiscoverPage() {
           />
           <WhyCard reasons={nextQuery.data?.match?.reasons ?? []} />
           <FiltersCard filters={viewer.filters} />
-          <SafetyNote userId={candidate.userId} onBlocked={loadNext} />
+          <SafetyNote userId={candidate.userId} onBlocked={loadNext} onReported={loadNext} />
         </>
       }
     />

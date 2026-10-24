@@ -144,6 +144,7 @@ Lijevo, kartice u mreži (2 u redu):
 2. ★ "Imaš **N** profila o kojima razmišljaš." → **Pogledaj sačuvane** (Ponovo pogledaj → Razmisliću)
 3. ✉ "Imaš **N** novih zahtjeva." → **Pogledaj zahtjeve**
 4. 💬 "Imaš **N** nepročitanih poruka." → **Otvori poruke**
+5. 🤝 (FICO dodatak, samo kad korisnik ima bar jedan match) "Imaš **N** matcheva." → **Pogledaj svoje matcheve** (Poruke)
 
 Desno (kolona):
 

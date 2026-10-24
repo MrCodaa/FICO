@@ -2,6 +2,7 @@
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import "@/lib/zodErrorMap";
 import { useMutation } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -11,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
 
 const forgotPasswordSchema = z.object({
-  email: z.string().trim().toLowerCase().email({ error: sr.auth.errors.emailInvalid }),
+  email: z.string().trim().toLowerCase().email(),
 });
 
 type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;

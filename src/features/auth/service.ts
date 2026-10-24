@@ -5,24 +5,44 @@ import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { generateAuthToken, hashAuthToken } from "@/lib/auth/tokens";
 import { signSessionToken } from "@/lib/auth/jwt";
 import { isAdminEmail } from "@/lib/auth/isAdminEmail";
-import { OPEN_ACCESS } from "@/lib/devAccess";
+import { emailDomainExists, type EmailDomainChecker } from "@/lib/auth/emailDomain";
 import type { EmailProvider } from "@/lib/email";
 import { sr } from "@/content/sr";
 import type { AuthRepository } from "./repository";
 import { toMe } from "./mappers";
+import {
+  LOCKOUT_MS,
+  MAX_FAILED_PER_EMAIL,
+  MAX_FAILED_PER_IP,
+  emailAttemptKey,
+  ipAttemptKey,
+} from "./lockout";
+import type { RegisterInput } from "./schemas";
 
 export interface AuthServiceDeps {
   repo: AuthRepository;
   email: EmailProvider;
   clock: Clock;
+  /** Provjera da domen emaila postoji (u testovima se zamjenjuje fake-om). */
+  emailDomainExists?: EmailDomainChecker;
+  /** Slika se briše iz storage-a poslije brisanja naloga (opciono; testovi ga izostavljaju). */
+  accountFiles?: { getFileUrls(userId: string): Promise<string[]>; remove(url: string): Promise<void> };
 }
 
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h — nije navedeno u api.md, pretpostavka
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1h — nije navedeno u api.md, pretpostavka
 const RESEND_COOLDOWN_MS = 60 * 1000; // api.md: 429 ako je prethodni mail mlađi od 60s
 
+let dummyHashPromise: Promise<string> | undefined;
+/** Bcrypt hash (cost 12) za lažnu provjeru kad nalog ne postoji. */
+function dummyHash(): Promise<string> {
+  dummyHashPromise ??= hashPassword("fico-dummy-password");
+  return dummyHashPromise;
+}
+
 export function createAuthService(deps: AuthServiceDeps) {
   const { repo, email, clock } = deps;
+  const domainExists = deps.emailDomainExists ?? emailDomainExists;
 
   // Mail je sporedan efekat poslije uspješne transakcije — ako provider
   // zakaže (loš API ključ, mreža), ne smije oboriti operaciju koja je već
@@ -49,11 +69,24 @@ export function createAuthService(deps: AuthServiceDeps) {
   }
 
   return {
-    async register(input: { email: string; password: string }) {
+    async register(input: RegisterInput) {
+      const domain = input.email.split("@")[1] ?? "";
+      if (!(await domainExists(domain))) {
+        throw new ApiError("VALIDATION_ERROR", sr.auth.errors.emailDomainMissing, {
+          email: sr.auth.errors.emailDomainMissing,
+        });
+      }
       const passwordHash = await hashPassword(input.password);
       let created: { id: string; email: string };
       try {
-        created = await repo.createUserWithProfile({ email: input.email, passwordHash });
+        created = await repo.createUserWithProfile({
+          email: input.email,
+          passwordHash,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          linkedinUrl: input.linkedinUrl,
+          noLinkedin: input.noLinkedin,
+        });
       } catch (err: unknown) {
         if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
           throw new ApiError("EMAIL_TAKEN", sr.auth.errors.emailTaken);
@@ -70,24 +103,38 @@ export function createAuthService(deps: AuthServiceDeps) {
       return { me, sessionToken };
     },
 
-    async login(input: { email: string; password: string }) {
-      let user = await repo.findUserByEmail(input.email);
-      // Otvoren ulaz (lib/devAccess.ts): lozinka se ne provjerava, a nepostojeći nalog se napravi.
-      if (OPEN_ACCESS && !user) {
-        const created = await repo.createUserWithProfile({
-          email: input.email,
-          passwordHash: await hashPassword(input.password),
-        });
-        user = await repo.findUserByEmail(created.email);
+    async login(input: { email: string; password: string }, ip: string) {
+      const now = clock.now();
+      const emailKey = emailAttemptKey(input.email);
+      const ipKey = ipAttemptKey(ip);
+
+      // Brojači ne zavise od postojanja naloga: isto ponašanje i poruka za oba slučaja.
+      const attempts = await repo.findLoginAttempts([emailKey, ipKey]);
+      let longestLockMs = 0;
+      for (const attempt of attempts) {
+        if (!attempt.lockedUntil) continue;
+        const left = attempt.lockedUntil.getTime() - now.getTime();
+        if (left > 0) longestLockMs = Math.max(longestLockMs, left);
+        else await repo.clearLoginAttempt(attempt.key); // zaključavanje isteklo: brojanje kreće ispočetka
       }
-      const passwordOk = OPEN_ACCESS || (user ? await verifyPassword(input.password, user.passwordHash) : false);
+      if (longestLockMs > 0) {
+        throw new ApiError("TOO_MANY_REQUESTS", sr.auth.errors.loginLocked(Math.ceil(longestLockMs / 60000)));
+      }
+
+      const user = await repo.findUserByEmail(input.email);
+      // Za nepostojeći nalog radi se lažna bcrypt provjera da vrijeme odgovora bude slično.
+      const passwordOk = await verifyPassword(input.password, user ? user.passwordHash : await dummyHash());
       if (!user || user.deactivatedAt || !passwordOk) {
+        const lockedUntil = new Date(now.getTime() + LOCKOUT_MS);
+        await repo.registerFailedAttempt(emailKey, MAX_FAILED_PER_EMAIL, lockedUntil, now);
+        await repo.registerFailedAttempt(ipKey, MAX_FAILED_PER_IP, lockedUntil, now);
         throw new ApiError("INVALID_CREDENTIALS", sr.auth.errors.invalidCredentials);
       }
+      await repo.clearLoginAttempt(emailKey);
       const sessionToken = await signSessionToken({ sub: user.id, tv: user.tokenVersion });
       const meRecord = await repo.findMeById(user.id);
       const me = toMe(meRecord!, isAdminEmail(user.email));
-      return { me, sessionToken };
+      return { me, sessionToken, tokenVersion: user.tokenVersion };
     },
 
     async verifyEmail(input: { token: string }) {
@@ -141,6 +188,15 @@ export function createAuthService(deps: AuthServiceDeps) {
       return toMe(user, isAdminEmail(user.email));
     },
 
+    /** Kontrolna tabla → "Odblokiraj": skida blacklist adresu i šalje novi mejl za potvrdu. */
+    async unblockEmail(userId: string) {
+      const user = await repo.findMeById(userId);
+      if (!user) throw new ApiError("NOT_FOUND", "Korisnik ne postoji.");
+      if (!user.emailBlockedAt) return;
+      await repo.clearEmailBlock(userId);
+      await sendVerificationEmail(userId, user.email);
+    },
+
     async acceptAgreement(userId: string) {
       await repo.acceptAgreement(userId, clock.now());
     },
@@ -152,7 +208,10 @@ export function createAuthService(deps: AuthServiceDeps) {
       if (user.email !== confirmEmail.trim().toLowerCase()) {
         throw new ApiError("VALIDATION_ERROR", "Email se ne poklapa.", { email: "Email se ne poklapa." });
       }
+      const fileUrls = (await deps.accountFiles?.getFileUrls(userId)) ?? [];
       await repo.deleteUser(userId);
+      // Poslije commita: fajlovi sa ličnim podacima (slika) ne smiju ostati bez naloga.
+      for (const url of fileUrls) await deps.accountFiles?.remove(url).catch(() => {});
     },
   };
 }

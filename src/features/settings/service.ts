@@ -1,5 +1,6 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
+import { normalizeEmails } from "./emailToggle";
 import { fromEmailSettings, toSettingsView } from "./mappers";
 import type { SettingsRepository } from "./repository";
 import type { SettingsInput } from "./schemas";
@@ -31,7 +32,7 @@ export function createSettingsService(deps: SettingsServiceDeps) {
         ...(input.active !== undefined ? { pausedAt: input.active ? null : clock.now() } : {}),
         ...(input.cofounderMatchId !== undefined ? { cofounderMatchId: input.cofounderMatchId } : {}),
         ...(input.hideAge !== undefined ? { hideAge: input.hideAge } : {}),
-        ...(input.emails ? { email: fromEmailSettings(input.emails) } : {}),
+        ...(input.emails ? { email: fromEmailSettings(normalizeEmails(input.emails)) } : {}),
       });
       return getSettings(userId);
     },

@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ShieldAlert } from "lucide-react";
 
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { sr } from "@/content/sr";
 import { idealSummary, wantedAreasSummary, type IdealInput, type OwnerInput } from "@/features/profile/summary";
 import { SummaryText } from "@/features/profile/components/SummaryText";
@@ -61,19 +62,42 @@ export function FiltersCard({ filters, className }: { filters: ViewerFilters | n
   );
 }
 
-/** Sitni kurziv tekst o kontaktu van platforme + "Prijavi profil" (modal sa blokiranjem). */
-export function SafetyNote({ userId, onBlocked }: { userId: string; onBlocked?: () => void }) {
+/**
+ * Uočljiva kartica "Pravila platforme" (upozorenje o kontaktu van platforme) sa
+ * dugmetom "Prijavi profil" (modal sa blokiranjem). onReported: poslije uspješne
+ * prijave (npr. preskoči na sljedeći profil).
+ */
+export function SafetyNote({
+  userId,
+  onBlocked,
+  onReported,
+}: {
+  userId: string;
+  onBlocked?: () => void;
+  onReported?: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="text-foreground/80 flex flex-col gap-3 px-3 text-[0.9375rem] leading-relaxed">
-      <p className="italic">{t.safetyNote}</p>
-      <p className="italic">
-        <button type="button" onClick={() => setOpen(true)} className="text-link cursor-pointer italic hover:underline">
-          {t.reportLink}
-        </button>
-        {t.reportRest}
-      </p>
-      <ReportBlockModal userId={userId} open={open} onClose={() => setOpen(false)} onBlocked={onBlocked} />
+    <div
+      role="note"
+      className="flex flex-col gap-3 rounded-md border-2 border-amber-500 bg-amber-50 px-5 py-5 text-amber-950 dark:border-amber-400 dark:bg-amber-950/50 dark:text-amber-50"
+    >
+      <div className="flex items-center gap-2.5">
+        <ShieldAlert aria-hidden className="size-6 shrink-0 text-amber-600 dark:text-amber-300" />
+        <h2 className="text-lg font-semibold tracking-tight">{t.safetyTitle}</h2>
+      </div>
+      <p className="text-base leading-relaxed font-medium">{t.safetyNote}</p>
+      <p className="text-base leading-relaxed">{t.reportHint}</p>
+      <Button type="button" variant="outline" className="self-start" onClick={() => setOpen(true)}>
+        {t.reportLink}
+      </Button>
+      <ReportBlockModal
+        userId={userId}
+        open={open}
+        onClose={() => setOpen(false)}
+        onBlocked={onBlocked}
+        onReported={onReported}
+      />
     </div>
   );
 }

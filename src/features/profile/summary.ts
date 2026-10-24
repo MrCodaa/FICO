@@ -1,4 +1,4 @@
-import { countries, regionByCountry } from "@/content/catalog";
+import { countries, normalizeCountryCode } from "@/content/catalog";
 import { sr } from "@/content/sr";
 
 // Rečenice-rezimei iz odgovora u profilu, kao na YC-u ("I'm technical, ready
@@ -48,7 +48,8 @@ export function areaLabel(code: string): string {
 
 export function countryName(code: string | null | undefined): string | null {
   if (!code) return null;
-  return countries.find((c) => c.code === code)?.name ?? code;
+  // Nepoznat kod (npr. država uklonjena iz kataloga) se ne prikazuje; ostaje samo grad.
+  return countries.find((c) => c.code === normalizeCountryCode(code))?.name ?? null;
 }
 
 function timingPhrase(timing: string | null | undefined): string | null {
@@ -118,9 +119,7 @@ export function idealSummary(pref: IdealInput, owner: OwnerInput): SummaryPart[]
   const country = countryName(owner.countryCode);
   if (pref.location === "SAME_CITY" && owner.city) clauses.push([b(s.wantSameCity(owner.city))]);
   else if (pref.location === "SAME_COUNTRY" && country) clauses.push([b(s.wantSameCountry(country))]);
-  else if (pref.location === "SAME_REGION" && owner.countryCode && regionByCountry[owner.countryCode]) {
-    clauses.push([b(s.wantSameRegion(regionByCountry[owner.countryCode]!))]);
-  }
+
 
   if (pref.interestsImportance) clauses.push([b(s.wantInterests)]);
 

@@ -10,7 +10,8 @@ src/generated/
 
 # env
 .env
-.env*.local
+.env.*
+!.env.example
 
 # logs
 *.log
@@ -31,3 +32,6 @@ coverage/
 
 # claude code local session state
 .claude/
+
+# lokalni upload slika (LocalStorageProvider)
+public/uploads/

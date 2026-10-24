@@ -1,6 +1,7 @@
 import { NextResponse, after } from "next/server";
 import type { NextRequest } from "next/server";
 import type { z } from "zod";
+import "@/lib/zodErrorMap";
 import { ApiError } from "@/lib/errors";
 import { touchLastActive } from "@/lib/touchLastActive";
 import { guards, type GuardContext, type GuardName } from "@/lib/http/guards";

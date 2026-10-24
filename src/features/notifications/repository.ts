@@ -80,7 +80,7 @@ export const notificationRepository: NotificationRepository = {
 
   async getActorProfiles(actorIds) {
     if (actorIds.length === 0) return new Map();
-    const rows = await db.profile.findMany({ where: { userId: { in: actorIds } } });
+    const rows = await db.profile.findMany({ where: { userId: { in: actorIds }, user: { deactivatedAt: null } } });
     return new Map(rows.map((row) => [row.userId, row]));
   },
 };

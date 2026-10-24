@@ -30,13 +30,16 @@ export function ProfileListCard({
   meta,
   aside,
   children,
+  from,
 }: {
   profile: ProfileCardData;
+  /** Lista iz koje se profil otvara (thinking | declined): profil tada nudi odluke i vodi na sljedeći iz liste. */
+  from?: string;
   meta?: React.ReactNode;
   aside?: React.ReactNode;
   children?: React.ReactNode;
 }) {
-  const href = `/app/profiles/${profile.userId}`;
+  const href = `/app/profiles/${profile.userId}${from ? `?from=${from}` : ""}`;
   const name = [profile.firstName, profile.lastName].filter(Boolean).join(" ") || "—";
   const location = [profile.city, countryName(profile.countryCode)].filter(Boolean).join(", ");
   const summary = plainText(

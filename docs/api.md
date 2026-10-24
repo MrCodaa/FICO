@@ -23,7 +23,7 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 | `verified` | `auth` + potvrđen email | 403 `EMAIL_NOT_VERIFIED` |
 | `onboarded` | `verified` + prihvaćena pravila | 403 `AGREEMENT_REQUIRED` |
 | `approved` | `onboarded` + profil `APPROVED` | 403 `PROFILE_NOT_APPROVED` |
-| `admin` | `auth` + email u `ADMIN_EMAILS` | 403 `FORBIDDEN` |
+| `admin` | validan `fico_admin` token (typ `admin`), `tokenVersion` se poklapa, nalog nije deaktiviran, email u `ADMIN_EMAILS`; `fico_session` se ne gleda | 401 `UNAUTHENTICATED`, 403 `FORBIDDEN` |
 
 ### Kodovi grešaka
 
@@ -38,18 +38,29 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 
 ## Endpointi
 
+### Admin sesija i zaključavanje prijave
+
+- **Odvojene sesije:** običan login postavlja `fico_session` (JWT `typ: session`, 7 dana, SameSite=Lax), a admin login `fico_admin` (JWT `typ: admin`, 2 sata, SameSite=Strict, httpOnly, Secure u produkciji). Isti `JWT_SECRET`, ali verifikacija traži tačan `typ`: korisnički token ne važi kao admin i obrnuto. Nema prelaza admin ↔ aplikacija; svaka sesija se otvara i zatvara zasebno.
+- **Skrivena adresa admin panela:** panel ne živi na `/admin`. Adresa je env varijabla `ADMIN_PATH` (jedan segment, regex `^/[a-z0-9-]{1,59}` plus završetak niza, ne smije zauzeti postojeću rutu, npr. `/upravljanje-k7x2q`). U razvoju bez nje je zadano `/upravljanje`; u produkciji bez ispravne vrijednosti admin je ugašen (sve admin rute 404). `proxy.ts` (logika u `src/lib/admin/route.ts`) prepisuje `ADMIN_PATH/**` na interni folder `src/app/sys-panel`, a `ADMIN_PATH/api/**` na `/api/admin/**`. Direktan pristup `/admin/**`, `/sys-panel/**` i `/api/admin/**` uvijek vraća 404. Bez `fico_admin` kolačića rade samo tačan `ADMIN_PATH` (forma za prijavu) i `ADMIN_PATH/api/login|logout`; sve ostalo je običan 404 bez preusmjeravanja. Odgovori su `no-store` i `noindex`. Putevi `/api/admin/*` u ovom dokumentu su interni; javni oblik je `ADMIN_PATH/api/*`.
+- `POST /api/admin/login` (public, `{ email, password }`): ista provjera lozinke i isto zaključavanje kao obična prijava; ako email nije u `ADMIN_EMAILS`, odgovor je 401 `INVALID_CREDENTIALS` (isti kao pogrešna lozinka) i bez kolačića. Uspjeh: 200 `{ ok: true }` + samo `fico_admin`.
+- `POST /api/admin/logout` (public): 204, briše samo `fico_admin`. `POST /api/auth/logout` briše samo `fico_session`.
+- `tokenVersion` se provjerava i za admin sesiju (reset lozinke je poništava), a deaktiviran nalog ne prolazi.
+- **Zaključavanje:** brojači pogrešnih prijava ne zavise od toga postoji li nalog. Tabela `LoginAttempt` (`key`, `failedCount`, `lockedUntil`, `updatedAt`) vodi ključ `email:<lowercase email>` (i za nepostojeće mejlove) i `ip:<adresa>`; IP je prvi element `x-forwarded-for`, pa `x-real-ip`, inače `unknown` (`src/lib/http/clientIp.ts`; servis dobija `ip` iz rute). 5 pogrešnih po emailu ili 20 po IP adresi postavlja `lockedUntil` na sada + 15 min (konstante u `src/features/auth/lockout.ts`); brojač se povećava atomski (upsert + increment). Dok je bilo koji ključ zaključan, prijava (obična i admin) vraća 429 `TOO_MANY_REQUESTS` ("Greška: previše pokušaja. Pokušaj ponovo za N min.") i ne provjerava lozinku; poruka je ista za postojeći i nepostojeći nalog, a za nepostojeći se radi lažna bcrypt provjera radi sličnog vremena odgovora. Uspješna prijava i reset lozinke brišu email ključ (IP ključ ostaje), istek zaključavanja briše ključ, a redovi stariji od 1 dan brišu se oportunistički pri upisu.
+
 ### Faza 2: Nalog
 
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
-| POST | `/api/auth/register` | public | `{ email, password }` (min 8) | 201 `Me` + cookie; šalje mail za potvrdu |
-| POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie |
-| POST | `/api/auth/logout` | auth | — | 204, briše cookie |
+| POST | `/api/auth/register` | public | `{ firstName, lastName, email, password (min 8), linkedinUrl?, noLinkedin }` (LinkedIn link ili `noLinkedin: true`) | 201 `Me` + cookie; upisuje Profile(DRAFT) sa imenom i LinkedInom, šalje mail za potvrdu; 400 `VALIDATION_ERROR` (`fields.email` = "Greška: ...") ako domen emaila ne postoji |
+| POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie; 429 `TOO_MANY_REQUESTS` dok je nalog zaključan |
+| POST | `/api/auth/logout` | auth | — | 204, briše cookie `fico_session` (ne dira `fico_admin`) |
 | POST | `/api/auth/verify-email` | public | `{ token }` | 204 |
 | POST | `/api/auth/resend-verification` | auth | — | 204; 429 ako je prethodni mail mlađi od 60 s |
 | POST | `/api/auth/forgot-password` | public | `{ email }` | 204 uvijek (ne otkriva da li nalog postoji) |
 | POST | `/api/auth/reset-password` | public | `{ token, password }` | 204; `tokenVersion++` odjavljuje sve sesije |
-| GET | `/api/me` | auth | — | `{ id, email, emailVerified, agreementAccepted, profileStatus, isAdmin }` |
+| GET | `/api/me` | auth | — | `{ id, email, emailVerified, agreementAccepted, profileStatus, isAdmin, emailBlocked }` |
+| POST | `/api/me/email-unblock` | auth | — | 204; briše `User.emailBlockedAt/emailBlockReason` i šalje novi mejl za potvrdu (Kontrolna tabla → Odblokiraj) |
+| POST | `/api/webhooks/resend` | public (Svix potpis) | Resend događaj | 200 `{ blocked }`; 401 bez važećeg potpisa |
 
 ### Faza 3: Pravila platforme
 
@@ -73,9 +84,11 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
-| GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW&cursor=` | `{ items: ProfileView[], nextCursor }` |
-| POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + obavještenje + mail |
-| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason }` | 204 + obavještenje + mail |
+| GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW|APPROVED|REJECTED&cursor=` | `{ items: AdminProfileView[], nextCursor }` |
+| POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + zvonce `PROFILE_APPROVED` + mail (link na aplikaciju); 409 `INVALID_STATUS` ako nije na pregledu |
+| POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason? }` (opcionalan, 0–1000; prazan = bez razloga, čuva se `null`) | 204 + zvonce `PROFILE_REJECTED` + mail (razlog ako postoji + link na ispravku); 409 `INVALID_STATUS` ako nije na pregledu |
+
+`AdminProfileView` je `ProfileView` plus `email` naloga, `hideAge`, `noLinkedin` i `reviewedAt`. Admin uvijek vidi `age` (i kad je `hideAge`). Pending lista ide od najstarije prijave, a odobreni i odbijeni od najnovije obrade. Mailovi idu poslije commita transakcije; dupli klik drugi put dobija 409 (uslovni `updateMany`).
 
 ### Faza 6: Discover i odluke
 
@@ -122,9 +135,10 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | POST | `/api/blocks` | approved | `{ userId }` | 204 |
 | DELETE | `/api/blocks/:userId` | approved | — | 204 |
 | POST | `/api/reports` | approved | `{ reportedId, reason, details? }` | 201 |
-| GET | `/api/admin/reports` | admin | `?status=OPEN&cursor=` | `{ items, nextCursor }` |
-| POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED \| DISMISSED, deactivateUser?: boolean }` | 204 |
-| POST | `/api/admin/users/:userId/deactivate` | admin | — | 204 |
+| GET | `/api/admin/reports` | admin | `?status=OPEN|RESOLVED|DISMISSED&cursor=` | `{ items, nextCursor }`, najnovije prve; stavka: `{ id, reason, details, status, createdAt, reporter: { id, name, email }, reportedId, reportedProfile: ProfileCard, reportedAdminProfile: AdminProfileView, reportedEmail, reportedDeactivated, previousReports }` (`previousReports` = prijave na istog korisnika podnijete prije ove) |
+| GET | `/api/admin/reports/count` | admin | — | `{ open }` (crvena značka u admin navigaciji) |
+| POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED | DISMISSED, deactivateUser?: boolean }` | 204; 404 ako je već obrađena. "Ukloni profil sa aplikacije" = `RESOLVED` + `deactivateUser: true`; "Odbaci prijavu" = `DISMISSED` |
+| POST | `/api/admin/users/:userId/deactivate` | admin | — | 204; postavlja `deactivatedAt` i u istoj transakciji zatvara (`RESOLVED`) sve otvorene prijave na tog korisnika. Deaktivovan nalog ne može da se prijavi, a nestaje iz Discovera, Zahtjeva, Poruka i obavještenja. Poslije commita korisnik dobija kratak neutralan transakcioni mail ("Tvoj FICO nalog je deaktiviran", bez detalja o prijavi ili razlogu, sa linkom na `/pomoc`); ide uvijek (van lifecycle podešavanja), poštuje `emailBlocked`, ne šalje se ako je nalog već bio deaktiviran, a greška slanja ne ruši deaktivaciju. Isto važi kad se deaktivira preko `resolve` sa `deactivateUser: true`. Samostalno brisanje/pauziranje naloga ne šalje ovaj mail |
 
 ### Podešavanja i Kontrolna tabla (ui-spec §4, §6, §10)
 
@@ -134,10 +148,12 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | PATCH | `/api/settings` | auth | `settingsSchema` (sve opciono): `{ active?, emails?, cofounderMatchId?, hideAge? }` | 200 isti oblik kao GET; 400 ako `cofounderMatchId` nije tvoj match |
 | DELETE | `/api/decisions/not-interested` | onboarded | — | 200 `{ deleted }` (briše sve "Ne zanima me" odluke) |
 | DELETE | `/api/me` | auth | `{ email }` (potvrda, mora biti email naloga) | 204, briše nalog kaskadno i cookie; 400 ako se email ne poklapa |
-| GET | `/api/dashboard` | onboarded | — | `{ profileStatus, rejectionReason, queueCount, thinkingCount, newRequests, unreadMessages }` |
+| GET | `/api/dashboard` | onboarded | — | `{ profileStatus, rejectionReason, queueCount, thinkingCount, newRequests, unreadMessages, matchCount }` |
 
 - `active: false` upisuje `User.pausedAt`; pauziran nalog je van `visibleTo` (nevidljiv u Discover-u i na javnom profilu).
 - `hideAge: true` → `age` je `null` u `ProfileView` i `ProfileCard` za druge (admin pregled ga vidi).
+- **Mailovi:** šalju se samo potvrda emaila, reset lozinke i odobren/odbijen profil. Novi zahtjev i match imaju samo zvonce.
+- **Blacklist mejlova:** Resend webhook (`email.bounced` samo `Permanent`, i `email.complained`) upisuje `User.emailBlockedAt/emailBlockReason`; `EmailService` ne šalje ništa blokiranoj adresi. Potpis je Svix (`svix-id`, `svix-timestamp`, `svix-signature`, tajna `RESEND_WEBHOOK_SECRET`), stariji od 5 minuta se odbija.
 - `emails.newMatchingProfile` je `Preference.alertOnNewMatch`. `emails.none` gasi sve lifecycle mailove u `EmailService`; transakcioni (potvrda emaila, reset lozinke, odobren/odbijen profil) idu uvijek.
 
 ## Transakcije (ACID)

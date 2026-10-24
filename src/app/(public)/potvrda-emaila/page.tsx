@@ -31,7 +31,7 @@ function VerifyToken({ token }: { token: string }) {
 
   const continueOn = async () => {
     const me = await queryClient.fetchQuery({ queryKey: ["me"], queryFn: fetchMe });
-    router.push(me ? getNextRoute(me) : "/prijava");
+    router.replace(me ? getNextRoute(me) : "/prijava");
   };
 
   return (

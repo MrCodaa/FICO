@@ -1,10 +1,31 @@
 export const sr = {
+  // Opšte zod poruke (globalni error map u src/lib/zodErrorMap.ts); šeme sa svojom porukom ih zaobilaze.
+  validation: {
+    required: "Greška: ovo polje je obavezno",
+    invalid: "Greška: neispravna vrijednost",
+    email: "Greška: unesi ispravnu email adresu",
+    url: "Greška: unesi ispravan link",
+    stringMin: (n: number) => `Greška: mora imati najmanje ${n} ${n % 10 === 1 && n % 100 !== 11 ? "znak" : "znakova"}`,
+    stringMax: (n: number) => `Greška: može imati najviše ${n} znakova`,
+    stringExact: (n: number) => `Greška: mora imati tačno ${n} znakova`,
+    numberMin: (n: number) => `Greška: vrijednost mora biti najmanje ${n}`,
+    numberMax: (n: number) => `Greška: vrijednost može biti najviše ${n}`,
+    arrayMin: (n: number) => `Greška: izaberi najmanje ${n}`,
+    arrayMax: (n: number) => `Greška: izaberi najviše ${n}`,
+    arrayExact: (n: number) => `Greška: potrebno je tačno ${n} stavki`,
+    notNumber: "Greška: unesi broj",
+    notInteger: "Greška: unesi cijeli broj",
+    option: "Greška: izaberi jednu od ponuđenih opcija",
+    password: "Greška: lozinka mora imati najmanje 8 znakova",
+    noHtml: "Greška: tekst ne smije sadržati HTML ili skripte.",
+  },
   landing: {
     brand: "FICO",
     nav: {
       login: "Prijava",
       register: "Registruj se",
       openApp: "Otvori aplikaciju",
+      logout: "Odjavi se",
     },
     hero: {
       eyebrow: "Find Co-Founder za Balkan",
@@ -60,11 +81,17 @@ export const sr = {
     register: {
       title: "Napravi svoj nalog",
       subtitle: "Za nekoliko minuta do profila koji vide osnivači iz cijele regije.",
+      firstNameLabel: "Ime",
+      lastNameLabel: "Prezime",
+      linkedinLabel: "LinkedIn profil",
+      linkedinPlaceholder: "linkedin.com/in/tvoje-ime",
+      noLinkedinLabel: "Nemam LinkedIn",
       emailLabel: "Email adresa",
       emailPlaceholder: "ime@primjer.com",
       passwordLabel: "Lozinka",
       passwordPlaceholder: "Najmanje 8 karaktera",
       passwordHint: "Najmanje 8 karaktera.",
+      confirmPasswordLabel: "Ponovi lozinku",
       showPassword: "Prikaži",
       hidePassword: "Sakrij",
       submit: "Napravi nalog",
@@ -117,18 +144,19 @@ export const sr = {
       title: "Nova lozinka",
       passwordLabel: "Nova lozinka",
       passwordHint: "Najmanje 8 karaktera.",
+      confirmPasswordLabel: "Ponovi lozinku",
       submit: "Postavi novu lozinku",
       success: "Lozinka je promijenjena. Prijavi se sa novom lozinkom.",
       error: "Link za reset nije validan ili je istekao.",
       loginLink: "Idi na prijavu",
     },
     errors: {
-      validationError: "Provjeri unesene podatke.",
-      emailInvalid: "Unesi ispravnu email adresu.",
-      passwordRequired: "Unesi lozinku.",
-      passwordTooShort: "Lozinka mora imati najmanje 8 karaktera.",
+      passwordMismatch: "Greška: lozinke se ne poklapaju",
+      validationError: "Ispravi označena polja",
       invalidCredentials: "Email ili lozinka nisu tačni.",
+      loginLocked: (minutes: number) => `Greška: previše pokušaja. Pokušaj ponovo za ${minutes} min.`,
       emailTaken: "Nalog sa ovim emailom već postoji.",
+      emailDomainMissing: "Greška: domen ovog emaila ne postoji. Provjeri da li je email ispravno ukucan.",
       tokenInvalid: "Link nije validan ili je istekao.",
       tooManyRequests: "Sačekaj malo prije nego pokušaš ponovo.",
       emailNotVerified: "Prvo moraš potvrditi email (link u mailu koji smo ti poslali).",
@@ -151,14 +179,14 @@ export const sr = {
     title: "Pravila platforme",
     subtitle: "Prije nego nastaviš, potvrdi da prihvataš sljedeća pravila.",
     items: [
-      "Profil koji pravim je moj i podaci u njemu su tačni.",
-      "Neću koristiti platformu za prodaju usluga, oglašavanje ili spam.",
-      "Neću koristiti platformu za oglašavanje posla ili zapošljavanje — FICO je samo za traženje co-foundera.",
-      "Ponašaću se s poštovanjem prema drugim korisnicima i neću ih uznemiravati.",
-      "Imam najmanje 18 godina.",
-      "Razumijem da administratori ručno pregledaju profile i mogu odbiti ili ukloniti nalog koji krši ova pravila.",
+      "Tražim co-foundera, osobu sa kojom bih osnovao/la kompaniju i koja bi imala najmanje 10% vlasničkog udjela (equity).",
+      "Neću koristiti platformu da prodajem usluge ili promovišem proizvod.",
+      "Neću koristiti platformu da tražim zaposlene ili saradnike za plaćeni posao.",
+      "Poštovaću sve ljude sa kojima komuniciram na platformi.",
+      "Neću kontaktirati nikoga van platforme bez njegovog pristanka.",
+      "Neću koristiti platformu ni za šta drugo osim traženja co-foundera.",
     ],
-    submit: "Prihvatam i nastavljam",
+    submit: "Slažem se",
     error: "Moraš potvrditi svih 6 pravila da bi nastavio/la.",
   },
   profile: {
@@ -174,13 +202,49 @@ export const sr = {
       pendingNotice: "Profil je poslat na pregled. Dok ga admin ne pregleda, izmjene nisu moguće.",
       approvedNotice: "Izmjene su odmah vidljive drugim korisnicima.",
       invalidFields: "Provjeri ova polja:",
+      missingPrefix: "Fali:",
+    },
+    // Greške uz polja: kratak banner gore + crveni tekst ispod svakog neispravnog polja.
+    fieldErrors: {
+      banner: "Ispravi označena polja",
+      // Format "Greška: <objašnjenje>", bez imena polja (ime je uz samo polje).
+      invalid: "Greška: pogrešno uneseno polje.",
+      required: "Greška: obavezno polje.",
+      // Konkretne poruke po polju (imaju prednost nad šablonom).
+      byField: {
+        city: "Greška: izaberi grad sa spiska.",
+        countryCode: "Greška: izaberi državu sa spiska.",
+        linkedinUrl: "Greška: unesi pravi LinkedIn link ili označi \"Nemam LinkedIn\".",
+        birthDate: "Greška: unesi ispravan datum.",
+        areas: "Greška: izaberi bar jednu oblast.",
+        interests: "Greška: izaberi bar jedno interesovanje.",
+      } as Record<string, string>,
+      // Dodatna imena polja koja nemaju labelu u koracima.
+      labels: {
+        videoUrl: "Video predstavljanje (link)",
+        schedulingUrl: "Link za zakazivanje poziva",
+        twitterUrl: "X / Twitter profil",
+        instagramUrl: "Instagram profil",
+        heardFrom: "Kako si čuo/la za FICO?",
+        hasCofounder: "Da li već imaš co-foundera?",
+        freeTime: "Slobodno vrijeme",
+        other: "Ostalo",
+        ageMin: "Najmanje godina",
+        ageMax: "Najviše godina",
+        wantedAreas: "Oblasti koje tražiš",
+      } as Record<string, string>,
+    },
+    cityPicker: {
+      placeholder: "Počni kucati grad",
+      selectCountryFirst: "Prvo izaberi državu",
+      noResults: "Nema rezultata. Izaberi grad sa spiska.",
     },
     steps: {
       basic: {
         title: "Osnovno",
         photoChange: "Promijeni sliku",
         email: "Email",
-        linkedinHint: "URL treba da počinje sa https://",
+        linkedinHint: "Npr. https://www.linkedin.com/in/tvoje-ime",
         location: "Lokacija",
         locationHint: "U kojoj si državi i gradu?",
         firstName: "Ime",
@@ -252,7 +316,7 @@ export const sr = {
         technical: "Preferenca oko tehničkog profila",
         technicalOptions: { TECHNICAL: "Tehnička osoba", NON_TECHNICAL: "Netehnička osoba" },
         location: "Lokacija",
-        locationOptions: { SAME_CITY: "Isti grad", SAME_COUNTRY: "Ista država", SAME_REGION: "Isti region" },
+        locationOptions: { SAME_CITY: "Isti grad", SAME_COUNTRY: "Ista država", ANYWHERE: "Bilo gdje" },
         ageRange: "Starosni raspon",
         ageMin: "Od",
         ageMax: "Do",
@@ -268,21 +332,27 @@ export const sr = {
         submit: "Pošalji na pregled",
         incomplete: "Profil nije kompletan. Vrati se i popuni označena polja.",
         rejectedNotice: "Profil je odbijen. Razlog:",
+        rejectedNoReason: "Tvoj profil nije odobren. Ispravi ga i pošalji ponovo.",
       },
     },
     errors: {
       locked: "Profil je zaključan dok je na pregledu.",
       incomplete: "Profil nije kompletan.",
       generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
-      photoTooLarge: "Slika je prevelika (maksimalno 4 MB).",
-      photoInvalidType: "Dozvoljeni formati su JPEG, PNG i WebP.",
+      photoTooLarge: "Greška: slika je prevelika (maksimalno 4 MB).",
+      photoRateLimited: "Greška: previše pokušaja otpremanja slike. Pokušaj ponovo za sat vremena.",
+      photoClientInvalid: "Greška: dozvoljeni su samo JPEG, PNG ili WebP do 4 MB.",
+      photoInvalidType: "Greška: dozvoljeni formati su JPEG, PNG i WebP.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
+      linkedinInvalid: "Greška: ovo nije pravi LinkedIn link. Unesi link oblika linkedin.com/in/tvoje-ime.",
+      videoInvalid: "Greška: ovo nije pravi link na video. Unesi link sa YouTube-a, Vimeo-a, Loom-a ili Google Drive-a.",
+      twitterInvalid: "Greška: ovo nije pravi Twitter/X link. Unesi link oblika x.com/tvoje-ime.",
+      instagramInvalid: "Greška: ovo nije pravi Instagram link. Unesi link oblika instagram.com/tvoje-ime.",
+      schedulingInvalid: "Greška: ovo nije pravi link za zakazivanje. Podržani su Calendly, Cal.com, SavvyCal, TidyCal, Zcal, Google Calendar i HubSpot Meetings.",
+      urlInvalid: "Greška: ovo nije ispravan link. Unesi adresu oblika primjer.com ili https://primjer.com.",
       required: "Obavezno polje",
-      invalidUrl: "Unesi ispravan link (npr. https://primjer.com).",
-      wrongSite: (site: string) => `Link mora voditi na ${site}.`,
-      validationError: "Provjeri unesene podatke — neko polje nije ispravno popunjeno.",
-      // TODO: ukloniti kad se uključi Vercel Blob (slika ponovo obavezna).
-      photoUnavailable: "Upload slike trenutno nije dostupan. Možeš nastaviti bez slike.",
+      validationError: "Ispravi označena polja",
+      photoUnavailable: "Greška: slika nije otpremljena. Pokušaj ponovo ili izaberi drugu sliku.",
     },
   },
   profileView: {
@@ -319,7 +389,6 @@ export const sr = {
       wantTiming: "spreman ",
       wantSameCity: (city: string) => `u mom gradu (${city})`,
       wantSameCountry: (country: string) => `u mojoj zemlji (${country})`,
-      wantSameRegion: (region: string) => `u mom regionu (${region})`,
       wantInterests: "dijeli moje interese",
       wantAreasLead: "Želim co-foundera koji će preuzeti ",
       noPreferences: "Nemaš postavljenih preferenci — prikazujemo ti sve odobrene profile.",
@@ -353,31 +422,64 @@ export const sr = {
     empty: "—",
   },
   admin: {
+    login: {
+      title: "Admin prijava",
+      emailLabel: "Email",
+      passwordLabel: "Lozinka",
+      submit: "Prijavi se",
+      error: "Greška: pogrešan email ili lozinka",
+    },
+    logout: "Odjavi se",
     queue: {
-      title: "Profili na pregledu",
-      empty: "Nema profila na pregledu.",
+      title: "Prijave profila",
+      empty: "Nema prijava u ovoj grupi.",
       approve: "Odobri",
       reject: "Odbij",
-      reasonLabel: "Razlog odbijanja",
-      reasonPlaceholder: "Objasni zašto se profil odbija...",
-      reasonRequired: "Razlog je obavezan.",
+      reasonLabel: "Razlog odbijanja (nije obavezan, vidi ga korisnik)",
+      reasonPlaceholder: "Objasni zašto se profil odbija i šta treba ispraviti...",
+      reasonRequired: "Razlog može imati najviše 1000 znakova.",
+      reasonTooLong: "Razlog može imati najviše 1000 znakova.",
       confirmReject: "Odbij profil",
+      confirmRejectPrompt: "Sigurno odbijaš ovaj profil? Korisnik dobija obavještenje i mail.",
       cancel: "Otkaži",
       forbidden: "Nemaš pristup ovoj stranici.",
       loadMore: "Učitaj još",
       showProfile: "Otvori cijeli profil",
       hideProfile: "Sakrij profil",
+      back: "Nazad na listu",
+      open: "Otvori prijavu",
+      accountEmail: "Email naloga",
+      hideAge: "Sakrio/la godine od drugih",
+      yes: "Da",
+      no: "Ne",
+      submittedAt: "Poslato",
+      reviewedAt: "Pregledano",
+      previousReason: "Razlog odbijanja",
+      alreadyHandled: "Ova prijava je već obrađena.",
+      error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+      statusTabs: {
+        PENDING_REVIEW: "Na pregledu",
+        APPROVED: "Odobreni",
+        REJECTED: "Odbijeni",
+      },
     },
     emails: {
+      deactivated: {
+        subject: "Tvoj FICO nalog je deaktiviran",
+        body: (helpLink: string) =>
+          `Zdravo,\n\nTvoj FICO nalog je deaktiviran jer je prekršio pravila platforme.\n\nAko misliš da je u pitanju greška, obrati nam se preko stranice Pomoć:\n${helpLink}`,
+      },
       approved: {
         subject: "Tvoj FICO profil je odobren",
-        body:
-          "Zdravo,\n\nTvoj profil je odobren i sada je vidljiv drugim korisnicima na FICO platformi. Prijavi se i počni da otkrivaš kandidate.",
+        body: (link: string) =>
+          `Zdravo,\n\nTvoj profil je odobren i sada je vidljiv drugim korisnicima na FICO platformi. Prijavi se i počni da otkrivaš kandidate:\n${link}`,
       },
       rejected: {
         subject: "Tvoj FICO profil treba izmjene",
-        body: (reason: string) =>
-          `Zdravo,\n\nTvoj profil nije odobren iz sljedećeg razloga:\n${reason}\n\nMožeš ga ispraviti i poslati ponovo na pregled.`,
+        body: (reason: string | null, link: string) =>
+          reason
+            ? `Zdravo,\n\nTvoj profil nije odobren iz sljedećeg razloga:\n${reason}\n\nIspravi ga i pošalji ponovo na pregled:\n${link}`
+            : `Zdravo,\n\nTvoj profil nije odobren.\n\nIspravi ga i pošalji ponovo na pregled:\n${link}`,
       },
     },
   },
@@ -409,9 +511,10 @@ export const sr = {
     whyTitle: "Zašto se slažete",
     filtersTitle: "Tvoji filteri",
     edit: "Uredi",
+    safetyTitle: "Pravila platforme",
     safetyNote: "Molimo ne kontaktiraj nikoga van FICO platforme bez njihove saglasnosti.",
     reportLink: "Prijavi profil",
-    reportRest: " ako misliš da prodaje usluge, zapošljava ili radi bilo šta osim traženja co-foundera.",
+    reportHint: "Prijavi profil ako misliš da prodaje usluge, zapošljava ili radi bilo šta osim traženja co-foundera.",
     empty: "Trenutno nema novih profila koji odgovaraju tvojim filterima.",
     editFilters: "Uredi filtere",
     viewThinking: "Pogledaj profile o kojima razmišljaš",
@@ -442,6 +545,7 @@ export const sr = {
     loadMore: "Učitaj još",
     likedOn: (date: string) => `Zahtjev poslat ${date}`,
     decidedOn: (date: string) => `Odluka ${date}`,
+    listDone: "Nema više profila u ovoj listi.",
     error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
   },
   requests: {
@@ -463,16 +567,6 @@ export const sr = {
       PENDING: "Na čekanju",
       MATCHED: "Prihvaćeno",
       NOT_ACCEPTED: "Nije prihvaćeno",
-    },
-    emails: {
-      received: {
-        subject: "Imaš novi zahtjev na FICO-u",
-        body: "Zdravo,\n\nNeko je zainteresovan za tebe kao co-foundera. Prijavi se da vidiš zahtjev.",
-      },
-      matched: {
-        subject: "Imaš novo poklapanje na FICO-u!",
-        body: "Zdravo,\n\nTvoj zahtjev je prihvaćen i sada možete da razgovarate. Prijavi se da nastaviš razgovor.",
-      },
     },
   },
   nav: {
@@ -531,18 +625,37 @@ export const sr = {
       after: [" nepročitanu poruku.", " nepročitane poruke.", " nepročitanih poruka."],
       action: "Otvori poruke",
     },
+    matches: {
+      before: "Imaš ",
+      after: [" match.", " matcha.", " matcheva."],
+      action: "Pogledaj svoje matcheve",
+    },
     howTitle: "Kako funkcioniše",
     howBefore:
-      "Na stranici Otkrij profile vidiš jedan profil odjednom. Ako ti se neko sviđa, pošalji mu kratku poruku — dobiće obavještenje i email sa tvojim profilom. Ako prihvati, spojićemo vas i možete se dopisivati u Porukama. Da bi iskustvo bilo dobro za sve, možeš poslati ",
+      "Na stranici Otkrij profile vidiš jedan profil odjednom. Ako ti se neko sviđa, pošalji mu kratku poruku — dobiće obavještenje sa tvojim profilom. Ako prihvati, spojićemo vas i možete se dopisivati u Porukama. Da bi iskustvo bilo dobro za sve, možeš poslati ",
     howCount: "20",
     howAfter: " zahtjeva sedmično.",
     trust:
       "Povjerenje zajednice nam je jako važno. Ako te neko uznemirava, koristi platformu da prodaje usluge ili radi bilo šta osim traženja co-foundera, ili te kontaktira bez saglasnosti van platforme — prijavi ga.",
-    pending: "Tvoj profil čeka odobrenje.",
+    pending:
+      "Tvoj profil čeka pregled. Obično traje do nekoliko dana. Čim ga odobrimo, dobićeš obavještenje i email. Otkrij profile, Zahtjevi i Poruke postaju dostupni čim tvoj profil bude odobren.",
+    pendingTitle: "Tvoj profil čeka odobrenje",
+    pendingBody:
+      "Pregled profila traje do nedelju dana. Čim ga odobrimo, dobićeš mejl. Otkrij profile, Zahtjevi i Poruke postaju dostupni čim tvoj profil bude odobren.",
+    backToDashboard: "Nazad na Kontrolnu tablu",
     draft: "Tvoj profil još nije poslat na pregled. Završi ga i pošalji da bi otkrivao druge osnivače.",
     rejected: "Tvoj profil nije odobren. Razlog:",
+    rejectedNoReason: "Tvoj profil nije odobren.",
+    rejectedFix: "Ispravi profil i pošalji ga ponovo",
     editProfile: "Uredi profil",
     error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
+    emailBlocked: {
+      title: "Ne primaš mejlove!",
+      body: (email: string) =>
+        `Tvoja adresa (${email}) je dodata na blokadu jer je mejl koji smo ti poslali neispravan ili si ga prijavio/la kao neželjenu poštu. Provjeri da li je adresa tačna. Kad je sve u redu, odblokiraj je i poslaćemo ti novi mejl za potvrdu.`,
+      action: "Odblokiraj",
+      done: "Adresa je odblokirana. Poslali smo ti novi mejl za potvrdu.",
+    },
   },
   settings: {
     eyebrow: "FICO",
@@ -603,6 +716,7 @@ export const sr = {
     noMatches: "Kad neko prihvati tvoj zahtjev, razgovor će se pojaviti ovdje.",
     placeholder: "Napiši poruku...",
     send: "Pošalji",
+    sendError: "Poruka nije poslata. Pokušaj ponovo.",
     loading: "Učitavanje...",
     forbidden: "Nemaš pristup ovom razgovoru.",
     connectionLost: "Veza prekinuta, pokušavam ponovo...",
@@ -633,21 +747,46 @@ export const sr = {
       submit: "Pošalji prijavu",
       cancel: "Otkaži",
       close: "Zatvori",
-      success: "Prijava je poslata. Hvala što pomažeš da FICO ostane siguran.",
+      success: "Prijava je poslata. Hvala.",
       generic: "Nešto je pošlo po zlu. Pokušaj ponovo.",
     },
   },
   adminReports: {
-    title: "Prijave",
+    title: "Prijave profila",
     empty: "Nema otvorenih prijava.",
     resolve: "Riješi",
     dismiss: "Odbaci",
     deactivateUser: "Deaktiviraj korisnika",
+    navLabel: "Admin navigacija",
+    navProfiles: "Profili na pregledu",
+    navReports: "Prijave profila",
+    openCount: (n: number) => `${n} otvorenih prijava`,
+    reportedBy: "Prijavio/la",
+    reportedUser: "Prijavljeni profil",
+    reasonLabel: "Kategorija",
+    messageLabel: "Tekst prijave",
+    noMessage: "Bez dodatnog teksta.",
+    previousReports: (n: number) => (n === 0 ? "Ranije prijave: nema" : `Ranije prijave ovog korisnika: ${n}`),
+    unknownUser: "Nepoznat korisnik",
+    alreadyDeactivated: "Nalog je već uklonjen sa aplikacije.",
+    openProfile: "Pregledaj cijeli profil",
+    hideProfile: "Sakrij profil",
+    remove: "Ukloni profil sa aplikacije",
+    removeConfirm: "Ukloniti ovaj profil sa aplikacije? Nalog se deaktivira, korisnik se više ne može prijaviti niti ga drugi vide. Sve otvorene prijave na njega se zatvaraju.",
+    dismissConfirm: "Odbaciti ovu prijavu? Profil ostaje na aplikaciji.",
+    confirmYes: "Da, potvrdi",
+    cancel: "Otkaži",
+    alreadyHandled: "Ova prijava je već obrađena.",
+    error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
     statusLabel: {
       OPEN: "Otvorena",
       RESOLVED: "Riješena",
       DISMISSED: "Odbačena",
     },
+  },
+  notFoundPage: {
+    title: "Nije pronađeno",
+    body: "Zatraženi URL nije pronađen na ovom serveru.",
   },
   misc: {
     about: {
@@ -660,11 +799,226 @@ export const sr = {
     },
     faq: {
       title: "FAQ",
-      placeholder: "Često postavljana pitanja dolaze uskoro.",
+      intro: "Odgovori na najčešća pitanja o FICO-u.",
+      groups: [
+        {
+          title: "Opšte",
+          items: [
+            {
+              q: "Da li FICO košta?",
+              paragraphs: ["Ne. FICO je potpuno besplatan, i za pravljenje profila i za slanje zahtjeva i dopisivanje."],
+            },
+            {
+              q: "Ko treba da se prijavi?",
+              paragraphs: [
+                "Svako ko ozbiljno traži co-foundera za startup na Balkanu: tehnički i netehnički osnivači, sa idejom ili bez nje, u ranoj fazi ili već u pokretu.",
+              ],
+            },
+            {
+              q: "Kako FICO radi?",
+              paragraphs: [
+                "Napraviš profil, mi ga ručno odobrimo, a zatim pregledaš profile koji se slažu sa tvojim željama i za svaki izabereš Sviđa mi se, Razmisliću ili Ne zanima me. Kad druga strana prihvati tvoj zahtjev, otključava se chat i možete dogovoriti razgovor.",
+              ],
+            },
+            {
+              q: "Imam već ideju, firmu ili tim. Mogu li koristiti FICO?",
+              paragraphs: [
+                "Možeš. U profilu navedeš da imaš ideju, da si posvećen/a postojećem projektu ili da si otvoren/a za ideje, a kriterijumi poklapanja to uzimaju u obzir. Ako već imaš tim, a tražiš dodatnog co-foundera sa određenim vještinama, to također možeš navesti.",
+              ],
+            },
+          ],
+        },
+        {
+          title: "Pronalazak co-foundera",
+          items: [
+            {
+              q: "Ko ima pravo na matching?",
+              paragraphs: [
+                "Svako ko ozbiljno traži co-foundera: sa idejom ili bez, solo ili sa timom. Profil mora biti kompletan i odobren prije nego što ga drugi vide.",
+              ],
+            },
+            {
+              q: "Da li je moj profil javan? Može li me poslodavac pronaći?",
+              paragraphs: [
+                "Ne. Profil nije javan i ne može se naći putem pretraživača. Vide ga samo odobreni članovi FICO-a, a ti možeš blokirati svakoga koga ne želiš da te vidi.",
+              ],
+            },
+            {
+              q: "Mogu li koristiti platformu za prodaju usluga ili zapošljavanje?",
+              paragraphs: [
+                "Ne. FICO služi isključivo za traženje co-foundera. Profili koji prodaju usluge, zapošljavaju ili traže bilo šta drugo bivaju uklonjeni.",
+              ],
+            },
+            {
+              q: "Kako funkcioniše platforma?",
+              ordered: true,
+              list: [
+                "Napravi profil: obrazovanje, iskustvo i šta želiš od co-foundera.",
+                "Profil ručno odobravamo, što može potrajati do nekoliko dana.",
+                "Otkrij profile i za svaki izaberi Sviđa mi se, Razmisliću ili Ne zanima me. Sviđa mi se je zahtjev sa porukom. Možeš poslati najviše 20 zahtjeva u 7 dana, a svaki zahtjev ističe za 14 dana.",
+                "Primalac prihvata ili odbija zahtjev. Odbijanje je tiho, pošiljalac ne dobija obavještenje. Prihvatanje otključava chat u Porukama.",
+                "Kad se matchujete: dogovorite video poziv i probni projekat.",
+              ],
+            },
+            {
+              q: "Kako rade probni projekti?",
+              paragraphs: [
+                "Probni projekat je kratka zajednička saradnja prije nego što se obavežete jedno drugom. Prije početka razgovarajte o sljedećem i zapišite dogovor:",
+              ],
+              list: [
+                "tip projekta,",
+                "koliko sati sedmično svako može uložiti,",
+                "kanali komunikacije i koliko često se čujete,",
+                "trajanje: obično 2 do 4 sedmice.",
+              ],
+            },
+            {
+              q: "Pravila ponašanja",
+              list: [
+                "Koristi FICO samo za traženje co-foundera.",
+                "Ne ignoriši osobu nakon matcha. Ako ne želiš nastaviti, to ljubazno reci.",
+                "Ne kontaktiraj nikoga na drugim platformama bez njihove dozvole.",
+                "Uznemiravanje nije dozvoljeno.",
+              ],
+            },
+            {
+              q: "Matchovao/la sam se, šta sad?",
+              paragraphs: [
+                "Dogovorite video poziv. Evo pitanja koja vrijedi pokriti:",
+              ],
+              list: [
+                "ideja i kako je vidiš,",
+                "šta si do sada napravio/la bez co-foundera,",
+                "kako reaguješ na stres i teške periode,",
+                "šta te motiviše,",
+                "zašto startup,",
+                "kako izgleda tvoja idealna putanja,",
+                "koje vještine se međusobno dopunjuju.",
+              ],
+              after: [
+                "Ako vam ne paše, pitaj osobu zna li nekoga u svojoj mreži ko bi mogao biti pravi za tebe.",
+              ],
+            },
+            {
+              q: "Šta znače Razmisliću i Ne zanima me i kada se profil ponovo pojavi?",
+              paragraphs: [
+                "Razmisliću: profil se ponovo pojavljuje u Otkrij profile za 30 dana, a do tada ga možeš naći u Ponovo pogledaj profile.",
+                "Ne zanima me: profil se ponovo pojavljuje tek za 90 dana. Nijedna od ove dvije odluke ne troši tvoj limit zahtjeva, a druga strana ne dobija nikakvo obavještenje.",
+              ],
+            },
+            {
+              q: "Kako da prijavim ili blokiram nekoga?",
+              paragraphs: [
+                "Na profilu klikni Prijavi profil i opiši problem; prijave pregledava naš tim. Na istom mjestu možeš i blokirati osobu: blokirana osoba te više ne vidi, a ti nju, i svi zahtjevi koji čekaju između vas se odbijaju.",
+              ],
+            },
+            {
+              q: "Kako da obrišem ili deaktiviram nalog?",
+              paragraphs: [
+                "Deaktivaciju možeš zatražiti pisanjem na naš email za podršku. Dok je nalog deaktiviran, tvoj profil se ne prikazuje drugima.",
+              ],
+            },
+          ],
+        },
+      ],
     },
     help: {
       title: "Pomoć",
-      placeholder: "Stranica za pomoć dolazi uskoro.",
+      feedbackTitle: "Pitanja ili povratne informacije?",
+      feedbackBody: "Piši nam na ",
+      feedbackFaq: "Odgovore na najčešća pitanja možeš naći u ",
+      faqLink: "FAQ",
+      abuseTitle: "Prijavi zloupotrebu",
+      abuseBody:
+        "FICO treba da bude mjesto gdje se svi osjećaju sigurno. Uznemiravanje i zloupotrebu shvatamo ozbiljno i svaku prijavu pregledamo.",
+      abuseHow: "Kako prijaviti:",
+      abuseSteps: [
+        "Na profilu klikni dugme Prijavi profil.",
+        "Ili nam pošalji email sa objašnjenjem šta se desilo i o kom profilu je riječ.",
+      ],
+      techTitle: "Tehnički problemi",
+      techBody:
+        "Nešto ne radi kako treba? Pošalji nam email sa kratkim opisom problema, uređajem i preglednikom koji koristiš, i po mogućnosti slikom ekrana.",
+      feedbackSectionTitle: "Povratne informacije",
+      feedbackSectionBody:
+        "Ideje kako da FICO bude bolji su dobrodošle. Pročitamo svaku poruku.",
     },
+    publicBack: "Nazad na početnu",
+  },
+  supportEmail: "podrska@fico.app",
+  about: {
+    title: "O nama",
+    eyebrow: "FICO — Find Co-Founder za Balkan",
+    intro: "Ja sam osnivač FICO-a i ovu platformu pravim jer sam isti problem imao i sam.",
+    sections: [
+      {
+        id: "prica",
+        title: "Moja priča",
+        paragraphs: [
+          "Kad sam počeo da razmišljam o startupu, ideja nije bila najteži dio. Najteže je bilo naći pravu osobu s kojom ću je graditi. Nekoga ko dopunjava ono što ja ne znam, ko je spreman da uloži isto vremena i rizika, i ko gleda na posao onako kako ja gledam.",
+          "Tražio sam po grupama, na događajima, preko poznanika poznanika. Najčešće sam razgovarao sa potpuno nepoznatim ljudima, bez ikakve predstave da li se uopšte slažemo u onome što je bitno: koliko vremena imamo, šta želimo da gradimo, gdje živimo i kad smo spremni da krenemo.",
+          "Za našu regiju nije postojao alat koji to rješava. Postojali su veliki globalni servisi, ali nisu napravljeni za nas, našu stvarnost i naš jezik. Zato sam odlučio da ga napravim.",
+        ],
+      },
+      {
+        id: "misija",
+        title: "Misija",
+        paragraphs: [
+          "Želim da pomognem da se pravi ljudi nađu jedni s drugima. Ne da imaš hiljadu kontakata, nego da upoznaš jednu osobu s kojom se zaista slažeš i sa kojom možeš da napraviš nešto veliko.",
+        ],
+      },
+      {
+        id: "kako-radi",
+        title: "Kako FICO radi",
+        steps: [
+          {
+            title: "Napraviš profil",
+            text: "Odgovoriš na pitanja o sebi, svom iskustvu, onome što tražiš i kad si spreman da počneš.",
+          },
+          {
+            title: "Ručno odobravanje",
+            text: "Svaki profil pregledamo ručno prije nego što postane vidljiv. Tako članovi znaju da su drugi ljudi na platformi stvarni.",
+          },
+          {
+            title: "Otkrivaš profile",
+            text: "Gledaš kandidate jedan po jedan, uz razloge zašto se slažete. Za svakog biraš Sviđa mi se, Razmisliću ili Ne zanima me.",
+          },
+          {
+            title: "Poruka, zahtjev, match i chat",
+            text: "Kad ti se neko svidi, šalješ mu kratku poruku kao zahtjev. Ako ga prihvati, to je match i otključava se chat.",
+          },
+        ],
+      },
+      {
+        id: "vrijednosti",
+        title: "Vrijednosti",
+        values: [
+          {
+            title: "Kvalitet umjesto kvantiteta",
+            text: "Bolje je pet pravih razgovora nego pet stotina praznih kontakata. Zato postoje ručno odobravanje i sedmični limit zahtjeva.",
+          },
+          {
+            title: "Privatnost",
+            text: "Tvoj profil vide samo odobreni članovi, a ne javni internet. Poruke ostaju između tebe i osobe s kojom se povežeš.",
+          },
+          {
+            title: "Poštovanje",
+            text: "Odbijanje je tiho i bez objašnjavanja. Svako ima pravo da kaže ne, a niko ne treba da se zbog toga osjeća loše.",
+          },
+        ],
+      },
+    ],
+    cta: {
+      title: "Spreman da nađeš co-foundera?",
+      subtitle: "Napravi profil i počni da upoznaješ ljude koji žele isto što i ti.",
+      button: "Napravi profil",
+      openApp: "Otvori aplikaciju",
+    },
+  },
+  publicPages: {
+    login: "Prijava",
+    register: "Registruj se",
+    toc: "Sadržaj",
+    backToTop: "Nazad na vrh",
   },
 } as const;

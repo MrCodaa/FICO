@@ -23,10 +23,9 @@ describe("locationCriterion", () => {
     expect(locationCriterion.evaluate(viewer, candidate, now).score).toBe(1);
   });
 
-  it("SAME_REGION: ista regija, druga država daje 1", () => {
+  it("sačuvani SAME_REGION se tretira kao bez preference (Bilo gdje)", () => {
     const viewer = createPerson({ countryCode: "BA" }, { location: "SAME_REGION" });
-    const candidate = createPerson({ countryCode: "RS" });
-    expect(locationCriterion.evaluate(viewer, candidate, now).score).toBe(1);
+    expect(locationCriterion.hasPreference(viewer)).toBe(false);
   });
 
   it("nedostatak podataka daje 0", () => {

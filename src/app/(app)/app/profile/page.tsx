@@ -1,6 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { CheckCircle2, Circle } from "lucide-react";
@@ -26,14 +27,17 @@ import {
   toMorePayload,
   toPreferencePayload,
 } from "./api";
-import { STEP_KEYS, stepCompletion, type StepKey } from "./completion";
+import { STEP_KEYS, missingFields, stepCompletion, type StepKey } from "./completion";
+import { type Draft, isDraftEmpty, makeDraft, mergeDraft, parseDraft } from "./draft";
+import { FieldErrorsContext } from "./fields";
 import { BasicStep } from "./steps/BasicStep";
 import { MoreStep } from "./steps/MoreStep";
 import { PreferenceStep } from "./steps/PreferenceStep";
-import { fieldLabel, ReviewStep } from "./steps/ReviewStep";
-import { emptyFormValues, type ProfileFormValues } from "./types";
+import { ReviewStep } from "./steps/ReviewStep";
+import { BASIC_FIELDS, emptyFormValues, MORE_FIELDS, PREFERENCE_FIELDS, type ProfileFormValues } from "./types";
 
 const w = sr.profile.wizard;
+const NO_FIELD_ERRORS: Record<string, string> = {};
 const DRAFT_KEY = "fico:profile-draft";
 
 const STEP_TITLES: Record<StepKey, string> = {
@@ -43,21 +47,16 @@ const STEP_TITLES: Record<StepKey, string> = {
   preview: sr.profile.steps.review.title,
 };
 
-interface Draft {
-  userId: string;
-  stepIndex: number;
-  values: ProfileFormValues;
-}
-
 // Draft je vezan za userId da se na dijeljenom/testnom browseru ne bi
 // nacrt jednog korisnika tiho primijenio na nalog drugog (localStorage je
-// po porijeklu, ne po sesiji).
+// po porijeklu, ne po sesiji). Nacrt bez verzije/vremena se ignoriše.
 function readDraft(userId: string): Draft | null {
   try {
     const raw = localStorage.getItem(DRAFT_KEY);
     if (!raw) return null;
-    const draft = JSON.parse(raw) as Draft;
-    return draft.userId === userId ? draft : null;
+    const draft = parseDraft(JSON.parse(raw), userId);
+    if (!draft) clearDraft();
+    return draft;
   } catch {
     return null;
   }
@@ -77,6 +76,39 @@ function clearDraft() {
   } catch {
     // ignoriši
   }
+}
+
+const fe = sr.profile.fieldErrors;
+// Zod (engleske) poruke bez našeg teksta: zamijeni šablonom sa nazivom polja.
+const ZOD_GENERIC = /^(Invalid|Too (small|big)|Expected|Required|String must|Number must)/;
+
+/** Server vraća ključeve polja forme; city i countryCode dijele isto polje "Lokacija". */
+function errorTarget(key: string): string {
+  const base = key.split(".")[0] ?? key;
+  if (base === "city" || base === "countryCode") return "location";
+  if (base === "ageMax") return "ageMin";
+  return base;
+}
+
+function isEmptyValue(value: unknown): boolean {
+  if (Array.isArray(value)) return value.length === 0;
+  return value === null || value === undefined || (typeof value === "string" && value.trim() === "");
+}
+
+function buildFieldErrors(fields: Record<string, unknown>, values: ProfileFormValues): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, raw] of Object.entries(fields)) {
+    const base = key.split(".")[0] ?? key;
+    const target = errorTarget(key);
+    if (target in result) continue;
+    const serverMessage = typeof raw === "string" ? raw : "";
+    const value = (values as unknown as Record<string, unknown>)[base];
+    if (fe.byField[base]) result[target] = fe.byField[base];
+    else if (isEmptyValue(value) || serverMessage === sr.profile.errors.required) result[target] = fe.required;
+    else if (serverMessage && !ZOD_GENERIC.test(serverMessage)) result[target] = serverMessage;
+    else result[target] = fe.invalid;
+  }
+  return result;
 }
 
 function errorMessage(code: string): string {
@@ -132,21 +164,25 @@ function ProfileEditor() {
 
 function ProfileForm({ data }: { data: GetProfileResponse }) {
   const searchParams = useSearchParams();
-  const queryClient = useQueryClient();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const viewerId = data.profile.userId ?? "";
 
   const [initial] = useState(() => {
+    const server = mapServerToForm(data);
     const draft = readDraft(viewerId);
     // ?step=preference (link "Uredi" iz "Tvoji filteri") ima prednost nad nacrtom.
     const fromUrl = STEP_KEYS.indexOf(searchParams.get("step") as StepKey);
     return {
-      values: { ...mapServerToForm(data), ...draft?.values },
+      server,
+      values: mergeDraft(server, draft),
       stepIndex: fromUrl >= 0 ? fromUrl : (draft?.stepIndex ?? 0),
     };
   });
+  // Server snapshot na koji se nacrt odnosi; pomjera se poslije svakog uspješnog čuvanja.
+  const baseRef = useRef<ProfileFormValues>(initial.server);
   const [stepIndex, setStepIndex] = useState(initial.stepIndex);
-  const [saveError, setSaveError] = useState<{ message: string; fields: string[] } | null>(null);
+  const [saveError, setSaveError] = useState<{ message: string; fields: Record<string, string> } | null>(null);
   const [savedStep, setSavedStep] = useState<StepKey | null>(null);
   const [submitError, setSubmitError] = useState<{ code: string; fields?: Record<string, unknown> } | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
@@ -159,13 +195,54 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   const locked = status === "PENDING_REVIEW";
   const step = STEP_KEYS[stepIndex] ?? "basic";
 
+  // Nacrt se upisuje samo dok se razlikuje od servera; kad je isti, nestaje.
+  const persistDraft = useCallback(
+    (index: number, current: ProfileFormValues) => {
+      if (!viewerId) return;
+      if (isDraftEmpty(baseRef.current, current)) clearDraft();
+      else writeDraft(makeDraft(viewerId, index, baseRef.current, current, Date.now()));
+    },
+    [viewerId],
+  );
+
   useEffect(() => {
-    if (!viewerId) return;
     return form.subscribe({
       formState: { values: true },
-      callback: ({ values }) => writeDraft({ userId: viewerId, stepIndex, values }),
+      callback: ({ values }) => persistDraft(stepIndex, values as ProfileFormValues),
     });
-  }, [form, viewerId, stepIndex]);
+  }, [form, persistDraft, stepIndex]);
+
+  const fieldErrors = saveError?.fields ?? NO_FIELD_ERRORS;
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
+
+  // Greška nestaje čim korisnik izmijeni to polje.
+  useEffect(() => {
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ name }) => {
+        if (!name) return;
+        const target = errorTarget(name);
+        setSaveError((prev) => {
+          if (!prev || !(target in prev.fields)) return prev;
+          const rest = { ...prev.fields };
+          delete rest[target];
+          return { ...prev, fields: rest };
+        });
+      },
+    });
+  }, [form]);
+
+  // Pri neuspjelom slanju: skrol do prvog neispravnog polja i fokus na njega.
+  useEffect(() => {
+    if (!saveError || Object.keys(saveError.fields).length === 0) return;
+    const first = document.querySelector<HTMLElement>("[data-field-error]");
+    if (!first) return;
+    first.scrollIntoView({ behavior: "smooth", block: "center" });
+    first
+      .querySelector<HTMLElement>("input:not([type=hidden]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled)")
+      ?.focus({ preventScroll: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [saveError?.message, saveError && Object.keys(saveError.fields).join("|")]);
 
   const saveMutation = useMutation({
     mutationFn: async (key: StepKey) => {
@@ -175,34 +252,39 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
       else if (key === "preference") await patchPreference(toPreferencePayload(values));
     },
     onSuccess: (_data, key) => {
+      // Sačuvani koraka je sada na serveru: pomjeri snapshot i obriši nacrt tog dijela.
+      const saved = form.getValues();
+      const fields = (key === "basic" ? BASIC_FIELDS : key === "more" ? MORE_FIELDS : PREFERENCE_FIELDS) as readonly string[];
+      const nextBase = { ...baseRef.current } as unknown as Record<string, unknown>;
+      for (const f of fields) nextBase[f] = (saved as unknown as Record<string, unknown>)[f];
+      baseRef.current = nextBase as unknown as ProfileFormValues;
+      persistDraft(stepIndex, saved);
       setSavedStep(key);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
       queryClient.invalidateQueries({ queryKey: ["discover"] });
       goTo(Math.min(stepIndex + 1, STEP_KEYS.length - 1));
     },
     onError: (err) => {
+      const fields = err instanceof ApiError && err.fields ? buildFieldErrors(err.fields, form.getValues()) : {};
       setSaveError({
         message: err instanceof ApiError ? errorMessage(err.code) : sr.profile.errors.generic,
-        fields: err instanceof ApiError && err.fields ? Object.keys(err.fields) : [],
+        fields,
       });
     },
   });
 
   const submitMutation = useMutation({
     mutationFn: submitProfile,
-    onSuccess: async (res) => {
+    onSuccess: async () => {
       setSubmitError(null);
       clearDraft();
-      // Otvoren ulaz (lib/devAccess.ts): profil je odmah odobren, pa ide pravo u aplikaciju.
-      if (res.status === "APPROVED") {
-        await queryClient.invalidateQueries({ queryKey: ["me"] });
-        queryClient.invalidateQueries({ queryKey: ["profile"] });
-        router.push("/app");
-        return;
-      }
       setSubmitSuccess(true);
       queryClient.invalidateQueries({ queryKey: ["profile"] });
-      queryClient.invalidateQueries({ queryKey: ["me"] });
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["me"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard"] }),
+      ]);
+      router.replace("/app");
     },
     onError: (err) => {
       setSubmitError(err instanceof ApiError ? { code: err.code, fields: err.fields } : { code: "GENERIC" });
@@ -212,12 +294,13 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   function goTo(index: number) {
     setSaveError(null);
     setStepIndex(index);
-    if (viewerId) writeDraft({ userId: viewerId, stepIndex: index, values: form.getValues() });
+    persistDraft(index, form.getValues());
     window.scrollTo({ top: 0 });
   }
 
   const values = { ...emptyFormValues, ...watched } as ProfileFormValues;
-  const completion = stepCompletion(values, status);
+  const completion = stepCompletion(values);
+  const missing = missingFields(values, step);
 
   return (
     <>
@@ -258,12 +341,34 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
             <SectionCard title={STEP_TITLES[step]}>
               {locked && (
-                <p className="bg-beige border-beige-border rounded-md border px-4 py-3 font-medium">{w.pendingNotice}</p>
+                <p className="bg-beige border-beige-border flex flex-col gap-2 rounded-md border px-4 py-3 font-medium">
+                  {w.pendingNotice}
+                  <Link href="/app" className="text-primary underline-offset-4 hover:underline">
+                    {sr.dashboard.backToDashboard}
+                  </Link>
+                </p>
               )}
 
-              {step === "basic" && <BasicStep form={form} email={meQuery.data?.email ?? ""} disabled={locked} />}
-              {step === "more" && <MoreStep form={form} disabled={locked} />}
-              {step === "preference" && <PreferenceStep form={form} disabled={locked} />}
+              {missing.length > 0 && (
+                <p className="text-destructive text-sm font-medium" data-testid="missing-fields">
+                  {w.missingPrefix} {missing.join(", ")}
+                </p>
+              )}
+
+              {step !== "preview" && hasFieldErrors && (
+                <p
+                  role="alert"
+                  className="border-destructive/50 bg-destructive/5 text-destructive rounded-md border px-4 py-3 font-medium"
+                >
+                  {fe.banner}
+                </p>
+              )}
+
+              <FieldErrorsContext.Provider value={fieldErrors}>
+                {step === "basic" && <BasicStep form={form} email={meQuery.data?.email ?? ""} disabled={locked} />}
+                {step === "more" && <MoreStep form={form} disabled={locked} />}
+                {step === "preference" && <PreferenceStep form={form} disabled={locked} />}
+              </FieldErrorsContext.Provider>
               {step === "preview" && (
                 <ReviewStep
                   values={values}
@@ -278,16 +383,7 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
 
               {step !== "preview" && (
                 <div className="flex flex-col gap-3 border-t pt-6">
-                  {saveError && (
-                    <div className="text-destructive flex flex-col gap-1">
-                      <p>{saveError.message}</p>
-                      {saveError.fields.length > 0 && (
-                        <p className="text-sm">
-                          {w.invalidFields} {saveError.fields.map(fieldLabel).join(", ")}
-                        </p>
-                      )}
-                    </div>
-                  )}
+                  {saveError && !hasFieldErrors && <p className="text-destructive">{saveError.message}</p>}
                   <div className="flex flex-wrap items-center gap-4">
                     <Button
                       type="button"
@@ -296,6 +392,17 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
                       disabled={locked || saveMutation.isPending}
                       onClick={() => {
                         setSaveError(null);
+                        // LinkedIn: ili pravi link, ili označeno "Nemam LinkedIn" — prazno polje ne prolazi dalje.
+                        if (step === "basic") {
+                          const v = form.getValues();
+                          if (!v.noLinkedin && !v.linkedinUrl.trim()) {
+                            setSaveError({
+                              message: sr.profile.errors.validationError,
+                              fields: { linkedinUrl: fe.byField.linkedinUrl ?? fe.required },
+                            });
+                            return;
+                          }
+                        }
                         saveMutation.mutate(step);
                       }}
                     >

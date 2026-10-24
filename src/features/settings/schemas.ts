@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 
 // Podešavanja (docs/ui-spec.md §6). Ista šema za formu i PATCH /api/settings.
 export const emailSettingsSchema = z.object({

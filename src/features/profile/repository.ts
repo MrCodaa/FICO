@@ -65,7 +65,7 @@ export interface PreferenceRecord {
 
 // Admin pregled prikazuje i "Šta tražim u co-founderu" (Preference), pa ga
 // lista na pregledu dodaje uz profil.
-export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null };
+export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null; email: string };
 
 export interface ProfileRepository {
   getProfileAndPreference(
@@ -74,6 +74,10 @@ export interface ProfileRepository {
   updateProfileDraft(userId: string, data: Record<string, unknown>): Promise<ProfileRecord>;
   updatePreferenceDraft(userId: string, data: Record<string, unknown>): Promise<PreferenceRecord>;
   updateProfilePhoto(userId: string, photoUrl: string): Promise<{ oldPhotoUrl: string | null }>;
+  /** Fajlovi vezani za nalog (za brisanje iz storage-a poslije brisanja naloga). */
+  getFileUrls(userId: string): Promise<string[]>;
+  /** Troši jedno mjesto iz limita otpremanja (fiksni prozor). false = limit je potrošen. */
+  consumeUploadSlot(userId: string, now: Date, limit: number, windowMs: number): Promise<boolean>;
   submitProfile(userId: string, now: Date): Promise<boolean>;
   listProfilesByStatus(
     status: ProfileStatus,
@@ -83,7 +87,7 @@ export interface ProfileRepository {
   approveProfile(userId: string, now: Date): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
   rejectProfile(
     userId: string,
-    reason: string,
+    reason: string | null,
     now: Date,
   ): Promise<"NOT_FOUND" | "INVALID_STATUS" | { email: string }>;
 }
@@ -122,6 +126,35 @@ export const profileRepository: ProfileRepository = {
     return { oldPhotoUrl: existing?.photoUrl ?? null };
   },
 
+  async getFileUrls(userId) {
+    const p = await db.profile.findUnique({ where: { userId }, select: { photoUrl: true } });
+    return [p?.photoUrl].filter((u): u is string => Boolean(u));
+  },
+
+  // Koristi postojeću tabelu LoginAttempt (bez migracije): key "upload:<userId>",
+  // failedCount = broj otpremanja u prozoru, lockedUntil = kraj prozora.
+  async consumeUploadSlot(userId, now, limit, windowMs) {
+    const key = `upload:${userId}`;
+    const inWindow = await db.loginAttempt.updateMany({
+      where: { key, lockedUntil: { gt: now }, failedCount: { lt: limit } },
+      data: { failedCount: { increment: 1 } },
+    });
+    if (inWindow.count === 1) return true;
+    const lockedUntil = new Date(now.getTime() + windowMs);
+    const expired = await db.loginAttempt.updateMany({
+      where: { key, OR: [{ lockedUntil: null }, { lockedUntil: { lte: now } }] },
+      data: { failedCount: 1, lockedUntil },
+    });
+    if (expired.count === 1) return true;
+    try {
+      await db.loginAttempt.create({ data: { key, failedCount: 1, lockedUntil } });
+      return true;
+    } catch (err) {
+      if ((err as { code?: string }).code === "P2002") return false; // red postoji, limit potrošen
+      throw err;
+    }
+  },
+
   async submitProfile(userId, now) {
     const result = await db.profile.updateMany({
       where: { userId, status: { in: ["DRAFT", "REJECTED"] } },
@@ -133,7 +166,11 @@ export const profileRepository: ProfileRepository = {
   async listProfilesByStatus(status, cursor, limit) {
     const items = await db.profile.findMany({
       where: { status },
-      orderBy: { submittedAt: "asc" },
+      // Na pregledu: najstarija prijava prva; obrađene: najnovije prve.
+      orderBy:
+        status === "PENDING_REVIEW"
+          ? [{ submittedAt: "asc" }, { userId: "asc" }]
+          : [{ reviewedAt: { sort: "desc", nulls: "last" } }, { userId: "asc" }],
       take: limit + 1,
       ...(cursor ? { cursor: { userId: cursor }, skip: 1 } : {}),
     });
@@ -143,8 +180,16 @@ export const profileRepository: ProfileRepository = {
       ? await db.preference.findMany({ where: { userId: { in: page.map((p) => p.userId) } } })
       : [];
     const preferenceByUserId = new Map(preferences.map((p) => [p.userId, p]));
+    const users = page.length
+      ? await db.user.findMany({ where: { id: { in: page.map((p) => p.userId) } }, select: { id: true, email: true } })
+      : [];
+    const emailByUserId = new Map(users.map((u) => [u.id, u.email]));
     return {
-      items: page.map((p) => ({ ...p, preference: preferenceByUserId.get(p.userId) ?? null })),
+      items: page.map((p) => ({
+        ...p,
+        preference: preferenceByUserId.get(p.userId) ?? null,
+        email: emailByUserId.get(p.userId) ?? "",
+      })),
       nextCursor: hasMore ? (page[page.length - 1]?.userId ?? null) : null,
     };
   },

@@ -1,6 +1,5 @@
 import type { ProfileStatus } from "@/generated/prisma/client";
 import { isEmailVerified } from "@/lib/auth/emailVerification";
-import { OPEN_ACCESS } from "@/lib/devAccess";
 
 export interface Me {
   id: string;
@@ -9,6 +8,8 @@ export interface Me {
   agreementAccepted: boolean;
   profileStatus: ProfileStatus;
   isAdmin: boolean;
+  // Resend bounce/complaint: adresa je na blacklisti, mailovi joj ne idu (Kontrolna tabla → Odblokiraj).
+  emailBlocked: boolean;
 }
 
 export function toMe(
@@ -17,6 +18,7 @@ export function toMe(
     email: string;
     emailVerifiedAt: Date | null;
     agreementAcceptedAt: Date | null;
+    emailBlockedAt?: Date | null;
     profileStatus: ProfileStatus;
   },
   isAdmin: boolean,
@@ -25,8 +27,9 @@ export function toMe(
     id: user.id,
     email: user.email,
     emailVerified: isEmailVerified(user.emailVerifiedAt),
-    agreementAccepted: OPEN_ACCESS || user.agreementAcceptedAt !== null,
+    agreementAccepted: user.agreementAcceptedAt !== null,
     profileStatus: user.profileStatus,
     isAdmin,
+    emailBlocked: user.emailBlockedAt != null,
   };
 }

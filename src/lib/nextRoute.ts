@@ -12,5 +12,7 @@ export function getNextRoute(me: MeState): string {
   if (!me.emailVerified) return "/potvrda-emaila";
   if (!me.agreementAccepted) return "/pravila";
   if (me.profileStatus === "APPROVED") return "/app";
-  return "/app/profile";
+  // Nacrt ide na profil; poslat ili odbijen profil na Kontrolnu tablu (status pregleda).
+  if (me.profileStatus === "DRAFT") return "/app/profile";
+  return "/app";
 }

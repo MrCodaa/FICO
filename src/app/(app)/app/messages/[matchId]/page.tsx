@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { sendErrorMessage } from "@/features/chat/sendError";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 import { ReportBlockModal } from "@/features/safety/components/ReportBlockModal";
 import { ApiClientError, apiFetch, fetchMe } from "@/lib/http/apiClient";
@@ -214,6 +215,11 @@ export default function ConversationPage() {
         <div ref={bottomRef} />
       </div>
 
+      {sendMutation.isError && (
+        <p role="alert" className="text-destructive border-t px-5 pt-3 text-sm">
+          {sendErrorMessage(sendMutation.error)}
+        </p>
+      )}
       <div className="flex items-end gap-3 border-t px-5 py-4">
         <Textarea
           className="max-h-40 min-h-12 flex-1"

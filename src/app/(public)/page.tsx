@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { PublicAuthNav } from "./_components/PublicAuthNav";
 import { sr } from "@/content/sr";
 import { fetchMe } from "@/lib/http/apiClient";
 import { getNextRoute } from "@/lib/nextRoute";
@@ -94,20 +95,12 @@ export default function HomePage() {
             <BrandMark brand={brand} />
           </Link>
           <nav className="flex items-center gap-2" aria-busy={meQuery.isLoading}>
-            {meQuery.isLoading ? null : appHref ? (
-              <Button asChild>
-                <Link href={appHref}>{nav.openApp}</Link>
-              </Button>
-            ) : (
-              <>
-                <Button asChild variant="ghost">
-                  <Link href="/prijava">{nav.login}</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/registracija">{nav.register}</Link>
-                </Button>
-              </>
-            )}
+            <PublicAuthNav
+              appHref={appHref}
+              loading={meQuery.isLoading}
+              loginLabel={nav.login}
+              registerLabel={nav.register}
+            />
           </nav>
         </div>
       </header>

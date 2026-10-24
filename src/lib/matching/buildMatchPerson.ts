@@ -1,3 +1,4 @@
+import { normalizeCountryCode } from "@/content/catalog";
 import type { ProfileRecord } from "@/features/profile/repository";
 import type { MatchPerson, MatchPreference } from "./types";
 
@@ -45,7 +46,8 @@ export function toMatchPreference(preference: PreferenceLike | null | undefined)
     idea: preference.idea,
     ideaImportance: preference.ideaImportance,
     timingImportance: preference.timingImportance,
-    location: preference.location,
+    // SAME_REGION ostaje u bazi, ali se ne nudi: tretira se kao "Bilo gdje".
+    location: preference.location === "SAME_REGION" ? null : preference.location,
     locationImportance: preference.locationImportance,
     ageMin: preference.ageMin,
     ageMax: preference.ageMax,
@@ -69,7 +71,7 @@ export function buildMatchPerson(
       areas: profile.areas,
       ideaStatus: profile.ideaStatus,
       timing: profile.timing,
-      countryCode: profile.countryCode,
+      countryCode: normalizeCountryCode(profile.countryCode),
       city: profile.city,
       interests: profile.interests,
       birthDate: profile.birthDate,

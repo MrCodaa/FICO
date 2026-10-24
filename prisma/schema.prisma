@@ -91,6 +91,7 @@ enum RequestStatus {
   ACCEPTED
   DECLINED
   EXPIRED
+  WITHDRAWN // NE KORISTI SE: funkcija opoziva uklonjena; vrijednost ostaje jer je migracija već primijenjena
 }
 
 enum NotificationType {
@@ -129,6 +130,8 @@ model User {
   lastActiveAt        DateTime  @default(now())
   deactivatedAt       DateTime?
   pausedAt            DateTime? // Podešavanja: pauziran nalog = isključen iz Discover-a (kao nevidljiv)
+  emailBlockedAt      DateTime? // Resend webhook: mejl se vratio (bounce/complaint) — ne šaljemo mu više mailove
+  emailBlockReason    String? // "bounced" | "complained"
   cofounderMatchId    String? // Podešavanja: "Sa kim si postao/la co-founder?"
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
@@ -151,6 +154,14 @@ model User {
   blockedBy     Block[]        @relation("Blocked")
   reportsMade   Report[]       @relation("Reporter")
   reportsAbout  Report[]       @relation("Reported")
+}
+
+// Brojači pogrešnih prijava; ključ "email:<lowercase>" ili "ip:<adresa>". Ne zavisi od postojanja naloga.
+model LoginAttempt {
+  key         String    @id
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
 }
 
 model AuthToken {

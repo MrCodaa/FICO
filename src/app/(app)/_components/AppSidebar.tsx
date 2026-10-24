@@ -173,7 +173,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <nav className="text-sidebar-foreground flex flex-col gap-1 px-2 py-4">
-      <Link href={unlocked ? "/app" : "/app/profile"} onClick={onNavigate} className="mb-2 flex items-center px-5 py-3">
+      <Link href="/app" onClick={onNavigate} className="mb-2 flex items-center px-5 py-3">
         <FicoLogo className="text-base" />
       </Link>
 
@@ -217,7 +217,7 @@ export function AppNav({ onNavigate }: { onNavigate?: () => void }) {
         </>
       ) : (
         <>
-          <LockedItem label={sr.nav.dashboard} icon={LayoutDashboard} />
+          <NavLink href="/app" exact label={sr.nav.dashboard} icon={LayoutDashboard} pathname={pathname} onNavigate={onNavigate} />
           <LockedItem label={sr.nav.discover} icon={Search} />
           <LockedItem label={sr.nav.revisit} icon={Star} />
           <LockedItem label={sr.nav.requests} icon={Mail} />

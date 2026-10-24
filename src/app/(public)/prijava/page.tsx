@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import "@/lib/zodErrorMap";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -15,8 +16,8 @@ import { sr } from "@/content/sr";
 import { getNextRoute, type MeState } from "@/lib/nextRoute";
 
 const loginSchema = z.object({
-  email: z.string().trim().toLowerCase().email({ error: sr.auth.errors.emailInvalid }),
-  password: z.string().min(1, { error: sr.auth.errors.passwordRequired }),
+  email: z.string().trim().toLowerCase().email(),
+  password: z.string().min(1),
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
@@ -65,7 +66,7 @@ export default function LoginPage() {
     onSuccess: (me) => {
       // Svjež Me u keš: inače /app vidi stari "odjavljen" (null) iz keša i vrati na prijavu.
       queryClient.setQueryData(["me"], me);
-      router.push(getNextRoute(me));
+      router.replace(getNextRoute(me));
     },
   });
 
@@ -88,15 +89,7 @@ export default function LoginPage() {
           </div>
 
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">{passwordLabel}</Label>
-              <Link
-                href="/zaboravljena-lozinka"
-                className="text-muted-foreground text-xs underline-offset-4 hover:underline"
-              >
-                {forgotLink}
-              </Link>
-            </div>
+            <Label htmlFor="password">{passwordLabel}</Label>
             <PasswordInput id="password" autoComplete="current-password" {...form.register("password")} />
             {form.formState.errors.password && (
               <p className="text-destructive text-sm">
@@ -114,6 +107,13 @@ export default function LoginPage() {
           <Button type="submit" disabled={mutation.isPending} className="mt-2">
             {submit}
           </Button>
+
+          <Link
+            href="/zaboravljena-lozinka"
+            className="text-muted-foreground text-center text-sm underline-offset-4 hover:underline"
+          >
+            {forgotLink}
+          </Link>
         </form>
 
         <p className="text-muted-foreground text-center text-sm">

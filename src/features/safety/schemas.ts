@@ -1,4 +1,6 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
+import { safeText } from "@/lib/sanitize";
 
 export const createBlockSchema = z.object({
   userId: z.string().min(1),
@@ -7,7 +9,7 @@ export const createBlockSchema = z.object({
 export const createReportSchema = z.object({
   reportedId: z.string().min(1),
   reason: z.enum(["SPAM", "SELLING_SERVICES", "HIRING", "HARASSMENT", "FAKE_PROFILE", "OTHER"]),
-  details: z.string().trim().max(1000).optional(),
+  details: safeText(0, 1000, { multiline: true }).optional(),
 });
 
 export const resolveReportSchema = z.object({

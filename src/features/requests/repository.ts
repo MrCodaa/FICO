@@ -59,8 +59,6 @@ export interface RequestRepository {
 
   expireRequests(now: Date): Promise<number>;
 
-  getUserEmail(userId: string): Promise<string | null>;
-
   getLikesRemaining(senderId: string, now: Date): Promise<number>;
   getViewerMatchPerson(userId: string): Promise<MatchPerson | null>;
   getMatchPersonForProfile(profile: ProfileRecord): Promise<MatchPerson>;
@@ -68,7 +66,8 @@ export interface RequestRepository {
 
 async function fetchProfilesByUserId(userIds: string[]): Promise<Map<string, ProfileRecord>> {
   if (userIds.length === 0) return new Map();
-  const rows = await db.profile.findMany({ where: { userId: { in: userIds } } });
+  // Deaktivovani nalozi se ne vide nigdje.
+  const rows = await db.profile.findMany({ where: { userId: { in: userIds }, user: { deactivatedAt: null } } });
   return new Map(rows.map((row) => [row.userId, row]));
 }
 
@@ -261,11 +260,6 @@ export const requestRepository: RequestRepository = {
       data: { status: "EXPIRED" },
     });
     return result.count;
-  },
-
-  async getUserEmail(userId) {
-    const user = await db.user.findUnique({ where: { id: userId }, select: { email: true } });
-    return user?.email ?? null;
   },
 
   async getLikesRemaining(senderId, now) {

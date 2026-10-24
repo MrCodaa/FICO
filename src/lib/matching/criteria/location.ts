@@ -1,11 +1,11 @@
-import { regionByCountry } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import type { Criterion } from "./types";
 
 export const locationCriterion: Criterion = {
   key: "location",
   weight: 2,
-  hasPreference: (viewer) => viewer.preference.location !== null,
+  hasPreference: (viewer) =>
+    viewer.preference.location === "SAME_CITY" || viewer.preference.location === "SAME_COUNTRY",
   importance: (viewer) => viewer.preference.locationImportance,
   evaluate: (viewer, candidate) => {
     const scope = viewer.preference.location;
@@ -28,14 +28,6 @@ export const locationCriterion: Criterion = {
     } else if (scope === "SAME_COUNTRY") {
       if (viewerCountry !== null && candidateCountry !== null && viewerCountry === candidateCountry) {
         score = 1;
-      }
-    } else if (scope === "SAME_REGION") {
-      if (viewerCountry !== null && candidateCountry !== null) {
-        const viewerRegion = regionByCountry[viewerCountry];
-        const candidateRegion = regionByCountry[candidateCountry];
-        if (viewerRegion !== undefined && viewerRegion === candidateRegion) {
-          score = 1;
-        }
       }
     }
 

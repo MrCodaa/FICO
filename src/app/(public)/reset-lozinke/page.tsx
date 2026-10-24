@@ -5,29 +5,27 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import "@/lib/zodErrorMap";
 import { useMutation } from "@tanstack/react-query";
-import { z } from "zod";
+import type { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { sr } from "@/content/sr";
+import { resetPasswordFormSchema } from "@/features/auth/passwordConfirm";
 
-const resetPasswordSchema = z.object({
-  password: z.string().min(8, { error: sr.auth.errors.passwordTooShort }),
-});
-
-type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
+type ResetPasswordForm = z.infer<typeof resetPasswordFormSchema>;
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token") ?? "";
-  const { title, passwordLabel, passwordHint, submit, success, error, loginLink } =
+  const { title, passwordLabel, passwordHint, confirmPasswordLabel, submit, success, error, loginLink } =
     sr.auth.resetPassword;
 
   const form = useForm<ResetPasswordForm>({
-    resolver: zodResolver(resetPasswordSchema),
-    defaultValues: { password: "" },
+    resolver: zodResolver(resetPasswordFormSchema),
+    defaultValues: { password: "", confirmPassword: "" },
   });
 
   const mutation = useMutation({
@@ -70,6 +68,14 @@ function ResetPasswordContent() {
                 <p className="text-destructive text-sm">
                   {form.formState.errors.password.message}
                 </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="confirmPassword">{confirmPasswordLabel}</Label>
+              <PasswordInput id="confirmPassword" autoComplete="new-password" {...form.register("confirmPassword")} />
+              {form.formState.errors.confirmPassword && (
+                <p className="text-destructive text-sm">{form.formState.errors.confirmPassword.message}</p>
               )}
             </div>
 

@@ -4,100 +4,104 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * Tema "Ponoć + tirkiz": raspored ostaje YC (docs/ui-spec.md), boje su FICO-ve.
- * Tamni lijevi meni (--sidebar*), tirkizno primarno dugme, škriljac kao
- * sekundarno, ledeno plave trake i zaglavlja sekcija (--beige* — ime tokena
- * ostalo iz YC verzije: "traka/zaglavlje"). Sve boje su tokeni za shadcn.
+ * Tema "Indigo": jedna paleta za javne stranice i aplikaciju. Raspored ostaje
+ * YC (docs/ui-spec.md). Tamni lijevi meni (--sidebar*), indigo primarno dugme,
+ * lavandin sekundarni tonovi i trake/zaglavlja sekcija (--beige* — ime tokena
+ * ostalo iz YC verzije: "traka/zaglavlje"; vrijednost je indigo chip ton).
+ * Sve boje su tokeni za shadcn.
  */
 :root {
   --radius: 0.5rem;
   --background: #ffffff;
-  --foreground: #0f1c2b;
+  --foreground: #16162a;
   --card: #ffffff;
-  --card-foreground: #0f1c2b;
+  --card-foreground: #16162a;
   --popover: #ffffff;
-  --popover-foreground: #0f1c2b;
-  --primary: #0e9f9a;
+  --popover-foreground: #16162a;
+  --primary: #4f46e5;
   --primary-foreground: #ffffff;
-  --primary-hover: #0b8580;
-  --neutral: #475569;
+  --primary-hover: #4338ca;
+  --neutral: #5d5d7a;
   --neutral-foreground: #ffffff;
-  --neutral-hover: #334155;
-  --brand: #0e9f9a;
+  --neutral-hover: #484862;
+  --brand: #4f46e5;
   --brand-foreground: #ffffff;
-  --brand-hover: #0b8580;
-  --link: #0b7285;
-  --info: #1d6fa5;
+  --brand-hover: #4338ca;
+  --link: #4338ca;
+  --info: #4338ca;
   --info-foreground: #ffffff;
-  --info-hover: #175a87;
-  --beige: #e6f1f5;
-  --beige-border: #cfe0e8;
-  --secondary: #eef3f6;
-  --secondary-foreground: #0f1c2b;
-  --muted: #eef3f6;
-  --muted-foreground: #5b6b7c;
-  --accent: #eef3f6;
-  --accent-foreground: #0f1c2b;
+  --info-hover: #3730a3;
+  --beige: #ebebff;
+  --beige-border: #d9d9f5;
+  --secondary: #f1f1f8;
+  --secondary-foreground: #16162a;
+  --muted: #f1f1f8;
+  --muted-foreground: #5d5d7a;
+  --accent: #f1f1f8;
+  --accent-foreground: #16162a;
   --destructive: #d92d20;
   --destructive-foreground: #ffffff;
-  --success: #0e9f9a;
-  --border: #dce5ec;
-  --input: #c9d6e0;
-  --ring: #0e9f9a;
-  --surface: #f5f8fa;
-  --step-active: #0b7285;
-  --sidebar: #0b1f33;
+  --success: #15803d;
+  --border: #e2e2f0;
+  --input: #cfcfe4;
+  --ring: #4f46e5;
+  --surface: #f5f5fb;
+  --step-active: #4338ca;
+  --chip: #ebebff;
+  --chip-foreground: #3730a3;
+  --sidebar: #1b1a3a;
   --sidebar-foreground: #ffffff;
-  --sidebar-muted: #9fb3c8;
-  --sidebar-hover: #15304a;
-  --sidebar-border: #0b1f33;
+  --sidebar-muted: #b4b4d6;
+  --sidebar-hover: #3b3a8f;
+  --sidebar-border: #1b1a3a;
 }
 
 .dark {
-  --background: #0b1622;
-  --foreground: #e8eef3;
-  --card: #10202f;
-  --card-foreground: #e8eef3;
-  --popover: #10202f;
-  --popover-foreground: #e8eef3;
-  --primary: #2cc2bc;
-  --primary-foreground: #04201f;
-  --primary-hover: #4fd1cb;
-  --neutral: #64748b;
+  --background: #0f0f1f;
+  --foreground: #ececf8;
+  --card: #17172b;
+  --card-foreground: #ececf8;
+  --popover: #17172b;
+  --popover-foreground: #ececf8;
+  --primary: #818cf8;
+  --primary-foreground: #0f0f1f;
+  --primary-hover: #a5b4fc;
+  --neutral: #64648a;
   --neutral-foreground: #ffffff;
-  --neutral-hover: #7b8ba1;
-  --brand: #2cc2bc;
-  --brand-foreground: #04201f;
-  --brand-hover: #4fd1cb;
-  --link: #5cc6d6;
-  --info: #4f9ed6;
-  --info-foreground: #06131f;
-  --info-hover: #6fb2e0;
-  --beige: #132a3b;
-  --beige-border: #1d3a50;
-  --secondary: #16293a;
-  --secondary-foreground: #e8eef3;
-  --muted: #16293a;
-  --muted-foreground: #93a5b8;
-  --accent: #16293a;
-  --accent-foreground: #e8eef3;
+  --neutral-hover: #7a7aa0;
+  --brand: #818cf8;
+  --brand-foreground: #0f0f1f;
+  --brand-hover: #a5b4fc;
+  --link: #a5b4fc;
+  --info: #818cf8;
+  --info-foreground: #0f0f1f;
+  --info-hover: #a5b4fc;
+  --beige: #25254a;
+  --beige-border: #2a2a48;
+  --secondary: #1f1f38;
+  --secondary-foreground: #ececf8;
+  --muted: #1f1f38;
+  --muted-foreground: #a5a5c4;
+  --accent: #1f1f38;
+  --accent-foreground: #ececf8;
   --destructive: #f2685c;
   --destructive-foreground: #141414;
-  --success: #2cc2bc;
-  --border: #203649;
-  --input: #2a4359;
-  --ring: #2cc2bc;
-  --surface: #0d1a27;
-  --step-active: #1d6f80;
-  --sidebar: #071420;
-  --sidebar-foreground: #ffffff;
-  --sidebar-muted: #8ea3b8;
-  --sidebar-hover: #12283c;
-  --sidebar-border: #12283c;
+  --success: #4ade80;
+  --border: #2a2a48;
+  --input: #35355a;
+  --ring: #818cf8;
+  --surface: #17172b;
+  --step-active: #4f46e5;
+  --chip: #25254a;
+  --chip-foreground: #c7c9ff;
+  --sidebar: #0a0a1a;
+  --sidebar-foreground: #ececf8;
+  --sidebar-muted: #a5a5c4;
+  --sidebar-hover: #2a2a5c;
+  --sidebar-border: #1f1f38;
 }
 
-/* Javne stranice (landing, prijava, registracija…) koriste --brand kao
-   primarnu boju (ista tirkizna kao aplikacija). */
+/* Javne stranice (.theme-brand) koriste istu indigo temu kao aplikacija. */
 .theme-brand {
   --primary: var(--brand);
   --primary-foreground: var(--brand-foreground);
@@ -147,6 +151,8 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-surface: var(--surface);
+  --color-chip: var(--chip);
+  --color-chip-foreground: var(--chip-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

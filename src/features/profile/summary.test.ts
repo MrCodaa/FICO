@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   activeLabel,
   areasSummary,
+  countryName,
   idealSummary,
   plainText,
   selfSummary,
@@ -84,5 +85,14 @@ describe("activeLabel", () => {
     expect(activeLabel(new Date("2026-10-16T08:00:00Z"), now, "MALE")).toBe("Aktivan danas");
     expect(activeLabel(new Date("2026-10-15T08:00:00Z"), now, "FEMALE")).toBe("Aktivna prije 1 dan");
     expect(activeLabel("2026-09-27T12:00:00Z", now, null)).toBe("Aktivan/na prije 19 dana");
+  });
+});
+
+describe("countryName", () => {
+  it("poznat kod daje naziv, nepoznat (npr. uklonjena Albanija) i prazan daju null bez izuzetka", () => {
+    expect(countryName("HR")).toBe("Hrvatska");
+    expect(countryName("AL")).toBeNull();
+    expect(countryName("XK")).toBe("Srbija");
+    expect(countryName(null)).toBeNull();
   });
 });

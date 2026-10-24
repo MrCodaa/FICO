@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/ui/card";
 import { interests as interestCatalog } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
+import { EXTERNAL_LINK_REL, safeExternalHref } from "../urlSchemas";
 
 import { activeLabel, areasSummary, countryName, idealSummary, selfSummary } from "../summary";
 import { ProfileAvatar } from "./ProfileAvatar";
@@ -53,6 +54,9 @@ export interface ProfileFullViewData {
   videoUrl?: string | null;
   heardFrom?: string | null;
   submittedAt?: string | null;
+  /** Samo admin prijava: email naloga i da li korisnik krije godine od drugih. */
+  email?: string;
+  hideAge?: boolean;
 }
 
 interface ProfileFullViewProps {
@@ -219,9 +223,9 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
 
       {profile.linkedinUrl && (
         <a
-          href={profile.linkedinUrl}
+          href={safeExternalHref(profile.linkedinUrl)}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={EXTERNAL_LINK_REL}
           className="text-link self-start text-xl italic hover:underline"
         >
           {v.linkedin}
@@ -231,6 +235,12 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
       {admin && (
         <SectionCard title={sec.adminDetails}>
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 sm:grid-cols-2">
+            {profile.email && (
+              <div className="flex flex-col">
+                <dt className="text-muted-foreground text-sm">{sr.admin.queue.accountEmail}</dt>
+                <dd className="break-all">{profile.email}</dd>
+              </div>
+            )}
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.gender}</dt>
               <dd>
@@ -241,7 +251,10 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
             </div>
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.age}</dt>
-              <dd>{profile.age ?? v.empty}</dd>
+              <dd>
+                {profile.age ?? v.empty}
+                {profile.hideAge && <span className="text-muted-foreground"> ({sr.admin.queue.hideAge})</span>}
+              </dd>
             </div>
             <div className="flex flex-col">
               <dt className="text-muted-foreground text-sm">{sec.heardFrom}</dt>
@@ -255,7 +268,7 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
               <dt className="text-muted-foreground text-sm">{sec.video}</dt>
               <dd className="break-all">
                 {profile.videoUrl ? (
-                  <a href={profile.videoUrl} target="_blank" rel="noopener noreferrer" className="text-link hover:underline">
+                  <a href={safeExternalHref(profile.videoUrl)} target="_blank" rel={EXTERNAL_LINK_REL} className="text-link hover:underline">
                     {profile.videoUrl}
                   </a>
                 ) : (

@@ -1,16 +1,19 @@
 "use client";
 
-import { useRef, useState, type ChangeEvent } from "react";
+import { useContext, useRef, useState, type ChangeEvent } from "react";
 import type { UseFormReturn } from "react-hook-form";
 
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { countries, citiesByCountry } from "@/content/catalog";
+import { countries } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
+import { isAcceptablePhoto } from "@/features/profile/photoCheck";
+import { isValidInstagramUrl, isValidLinkedinUrl, isValidSchedulingUrl, isValidTwitterUrl, isValidVideoUrl } from "@/features/profile/urlSchemas";
 
 import { ApiError, uploadPhoto } from "../api";
-import { Checkbox, Field, RadioGroup } from "../fields";
+import { CityCombobox } from "../CityCombobox";
+import { Checkbox, Field, FieldErrorsContext, RadioGroup } from "../fields";
 import { resizeImageToBlob } from "../resizeImage";
 import type { ProfileFormValues } from "../types";
 import { selectClass } from "../ui";
@@ -32,22 +35,31 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
   const photoUrl = watch("photoUrl");
   const noLinkedin = watch("noLinkedin");
   const countryCode = watch("countryCode");
-  const cityOptions = countryCode ? (citiesByCountry[countryCode] ?? []) : [];
+  const fieldErrors = useContext(FieldErrorsContext);
+  // Živa provjera linka; kad Field već prikazuje grešku za isto polje (poslije slanja), ne dupliraj je.
+  const urlError = (name: "linkedinUrl" | "videoUrl" | "schedulingUrl" | "twitterUrl" | "instagramUrl", check: (v: string) => boolean, message: string) => {
+    if (fieldErrors[name]) return null;
+    const value = (watch(name) ?? "").trim();
+    return value && !check(value) ? <p className="text-destructive text-sm">{message}</p> : null;
+  };
+  const countryField = register("countryCode");
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    setUploading(true);
     setPhotoError(null);
+    if (!isAcceptablePhoto(file)) {
+      setPhotoError(errors.photoClientInvalid);
+      return;
+    }
+    setUploading(true);
     try {
       const blob = await resizeImageToBlob(file, 800);
       const { photoUrl: uploadedUrl } = await uploadPhoto(blob, file.name);
       setValue("photoUrl", uploadedUrl, { shouldDirty: true });
     } catch (err) {
-      // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. Do tada upload
-      // pada (nema BLOB_READ_WRITE_TOKEN) — poruka kaže da se može nastaviti bez slike.
       if (err instanceof ApiError && err.code === "VALIDATION_ERROR") {
         const fileError = err.fields?.file;
         setPhotoError(typeof fileError === "string" ? fileError : errors.photoInvalidType);
@@ -61,7 +73,6 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
 
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-8">
-      {/* TODO: vratiti obaveznu sliku kad se uključi Vercel Blob. */}
       <div className="flex flex-col items-center gap-2">
         <ProfileAvatar
           photoUrl={photoUrl}
@@ -76,6 +87,7 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
           className="text-link cursor-pointer text-lg hover:underline disabled:opacity-50"
         >
           {t.photoChange}
+          <span className="text-destructive"> *</span>
         </button>
         <input
           ref={fileInputRef}
@@ -102,7 +114,8 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
       </Field>
 
       <Field label={t.linkedinUrl} htmlFor="linkedinUrl" required={!noLinkedin} hint={t.linkedinHint}>
-        <Input id="linkedinUrl" type="url" disabled={noLinkedin} {...register("linkedinUrl")} />
+        <Input id="linkedinUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} disabled={noLinkedin} {...register("linkedinUrl")} />
+        {urlError("linkedinUrl", isValidLinkedinUrl, errors.linkedinInvalid)}
         <div className="pt-2">
           <Checkbox
             checked={noLinkedin}
@@ -113,9 +126,18 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
         </div>
       </Field>
 
-      <Field label={t.location} required hint={t.locationHint}>
+      <Field label={t.location} name="location" htmlFor="city" required hint={t.locationHint}>
         <div className="grid gap-3 sm:grid-cols-2">
-          <select aria-label={t.country} className={selectClass} {...register("countryCode")}>
+          <select
+            aria-label={t.country}
+            className={selectClass}
+            {...countryField}
+            onChange={(e) => {
+              countryField.onChange(e);
+              // Promjena države resetuje grad.
+              setValue("city", "", { shouldDirty: true });
+            }}
+          >
             <option value="">{t.country}</option>
             {countries.map((c) => (
               <option key={c.code} value={c.code}>
@@ -123,14 +145,15 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
               </option>
             ))}
           </select>
-          <select aria-label={t.city} className={selectClass} disabled={!countryCode} {...register("city")}>
-            <option value="">{t.city}</option>
-            {cityOptions.map((city) => (
-              <option key={city} value={city}>
-                {city}
-              </option>
-            ))}
-          </select>
+          <CityCombobox
+            id="city"
+            countryCode={countryCode}
+            value={watch("city")}
+            disabled={disabled}
+            invalid={Boolean(fieldErrors.location)}
+            describedBy={fieldErrors.location ? "location-error" : undefined}
+            onChange={(city) => setValue("city", city, { shouldDirty: true })}
+          />
         </div>
       </Field>
 
@@ -139,7 +162,8 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
       </Field>
 
       <Field label={t.videoUrl} htmlFor="videoUrl">
-        <Input id="videoUrl" type="url" {...register("videoUrl")} />
+        <Input id="videoUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("videoUrl")} />
+        {urlError("videoUrl", isValidVideoUrl, errors.videoInvalid)}
       </Field>
 
       <Field label={t.accomplishment} htmlFor="accomplishment" required>
@@ -154,7 +178,7 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
         <Textarea id="employment" maxLength={800} {...register("employment")} />
       </Field>
 
-      <Field label={t.isTechnical} required>
+      <Field label={t.isTechnical} name="isTechnical" required>
         <RadioGroup
           name="isTechnical"
           inline
@@ -168,7 +192,7 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
         />
       </Field>
 
-      <Field label={t.gender} required>
+      <Field label={t.gender} name="gender" required>
         <RadioGroup
           name="gender"
           inline
@@ -188,15 +212,18 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
       </Field>
 
       <Field label={t.schedulingUrl} htmlFor="schedulingUrl">
-        <Input id="schedulingUrl" type="url" {...register("schedulingUrl")} />
+        <Input id="schedulingUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("schedulingUrl")} />
+        {urlError("schedulingUrl", isValidSchedulingUrl, errors.schedulingInvalid)}
       </Field>
 
       <Field label={t.twitterUrl} htmlFor="twitterUrl">
-        <Input id="twitterUrl" type="url" {...register("twitterUrl")} />
+        <Input id="twitterUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("twitterUrl")} />
+        {urlError("twitterUrl", isValidTwitterUrl, errors.twitterInvalid)}
       </Field>
 
       <Field label={t.instagramUrl} htmlFor="instagramUrl">
-        <Input id="instagramUrl" type="url" {...register("instagramUrl")} />
+        <Input id="instagramUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("instagramUrl")} />
+        {urlError("instagramUrl", isValidInstagramUrl, errors.instagramInvalid)}
       </Field>
 
       <Field label={t.heardFrom} htmlFor="heardFrom">

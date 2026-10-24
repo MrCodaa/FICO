@@ -3,10 +3,9 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
-import { getSessionPayload } from "@/lib/auth/session";
-import { isAdminEmail } from "@/lib/auth/isAdminEmail";
+import { getAdminPayload, getSessionPayload } from "@/lib/auth/session";
+import { checkAdminSession } from "@/lib/auth/adminAccess";
 import { isEmailVerified } from "@/lib/auth/emailVerification";
-import { OPEN_ACCESS } from "@/lib/devAccess";
 
 export type GuardName = "public" | "auth" | "verified" | "onboarded" | "approved" | "admin";
 
@@ -57,21 +56,22 @@ export const guards: Record<GuardName, Guard> = {
   onboarded: async (req) => {
     const { userId, emailVerifiedAt, agreementAcceptedAt } = await requireSessionUser(req);
     if (!isEmailVerified(emailVerifiedAt)) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
-    if (!agreementAcceptedAt && !OPEN_ACCESS) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
     return { userId };
   },
   approved: async (req) => {
     const { userId, emailVerifiedAt, agreementAcceptedAt, profileStatus } = await requireSessionUser(req);
     if (!isEmailVerified(emailVerifiedAt)) throw new ApiError("EMAIL_NOT_VERIFIED", "Email nije potvrđen.");
-    if (!agreementAcceptedAt && !OPEN_ACCESS) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
-    if (profileStatus !== "APPROVED" && !OPEN_ACCESS) {
+    if (!agreementAcceptedAt) throw new ApiError("AGREEMENT_REQUIRED", "Prihvati pravila platforme.");
+    if (profileStatus !== "APPROVED") {
       throw new ApiError("PROFILE_NOT_APPROVED", "Profil nije odobren.");
     }
     return { userId };
   },
   admin: async (req) => {
-    const { userId, email } = await requireSessionUser(req);
-    if (!isAdminEmail(email)) throw new ApiError("FORBIDDEN", "Nemaš pristup.");
-    return { userId };
+    const result = await checkAdminSession(await getAdminPayload(req));
+    if (result.status === "no-session") throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
+    if (result.status === "forbidden") throw new ApiError("FORBIDDEN", "Nemaš pristup.");
+    return { userId: result.userId };
   },
 };

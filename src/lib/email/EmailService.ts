@@ -53,9 +53,12 @@ export interface EmailService {
 export function createEmailService(deps: {
   provider: EmailProvider;
   getPreferences: (userId: string) => Promise<EmailPreferences | null>;
+  /** Blacklist (Resend bounce/complaint): blokiranoj adresi se ništa ne šalje. */
+  isBlocked?: (email: string) => Promise<boolean>;
 }): EmailService {
   return {
     async send(message, lifecycle) {
+      if (deps.isBlocked && (await deps.isBlocked(message.to))) return;
       if (lifecycle) {
         const prefs = await deps.getPreferences(lifecycle.userId);
         if (!allowsLifecycleEmail(prefs, lifecycle.category)) return;

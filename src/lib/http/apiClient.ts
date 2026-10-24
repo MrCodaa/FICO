@@ -39,6 +39,7 @@ export interface Me {
   agreementAccepted: boolean;
   profileStatus: string;
   isAdmin: boolean;
+  emailBlocked?: boolean;
 }
 
 /** null = nije prijavljen (401). Ključ upita je uvijek ["me"]. */

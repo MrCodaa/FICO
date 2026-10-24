@@ -1,12 +1,15 @@
 import type { Clock } from "@/lib/clock";
-import { OPEN_ACCESS } from "@/lib/devAccess";
 import { ApiError } from "@/lib/errors";
 import type { EmailProvider } from "@/lib/email";
-import type { StorageProvider } from "@/lib/storage";
+import {
+  detectImageType,
+  stripImageMetadata,
+  type StorageProvider,
+} from "@/lib/storage";
 import type { ProfileStatus } from "@/generated/prisma/client";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";
-import { toProfileDraft, toPreferenceDraft, toProfileView } from "./mappers";
+import { toProfileDraft, toPreferenceDraft, toAdminProfileView } from "./mappers";
 import { profileSubmitSchema } from "./schemas";
 import type { ProfileDraftInput, PreferenceDraftInput } from "./schemas";
 
@@ -18,7 +21,11 @@ export interface ProfileServiceDeps {
 }
 
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
+export const MAX_PHOTO_SIZE = 4 * 1024 * 1024;
+export const PHOTO_UPLOADS_PER_HOUR = 10;
+const HOUR_MS = 60 * 60 * 1000;
+
+const appUrl = () => (process.env.APP_URL ?? "").replace(/[/]$/, "");
 
 export function createProfileService(deps: ProfileServiceDeps) {
   const { repo, storage, clock, email } = deps;
@@ -54,19 +61,27 @@ export function createProfileService(deps: ProfileServiceDeps) {
     },
 
     async uploadPhoto(userId: string, file: { buffer: Buffer; contentType: string; size: number }) {
-      if (!ALLOWED_PHOTO_TYPES.includes(file.contentType)) {
+      // Tip određujemo po magic bytes; Content-Type zaglavlju se ne vjeruje.
+      const detected = detectImageType(file.buffer);
+      if (!detected || !ALLOWED_PHOTO_TYPES.includes(detected)) {
         throw new ApiError("VALIDATION_ERROR", sr.profile.errors.photoInvalidType, {
           file: sr.profile.errors.photoInvalidType,
         });
       }
-      if (file.size > MAX_PHOTO_SIZE) {
+      if (Math.max(file.size, file.buffer.length) > MAX_PHOTO_SIZE) {
         throw new ApiError("VALIDATION_ERROR", sr.profile.errors.photoTooLarge, {
           file: sr.profile.errors.photoTooLarge,
         });
       }
-      const ext = file.contentType === "image/png" ? "png" : file.contentType === "image/webp" ? "webp" : "jpg";
-      const key = `profiles/${userId}/${crypto.randomUUID()}.${ext}`;
-      const { url } = await storage.put({ key, data: file.buffer, contentType: file.contentType });
+      const ext = detected === "image/png" ? "png" : detected === "image/webp" ? "webp" : "jpg";
+      const allowed = await repo.consumeUploadSlot(userId, clock.now(), PHOTO_UPLOADS_PER_HOUR, HOUR_MS);
+      if (!allowed) {
+        throw new ApiError("TOO_MANY_REQUESTS", sr.profile.errors.photoRateLimited);
+      }
+      // Ime fajla je nasumično (UUID v4) i ne sadrži ni userId ni email.
+      const key = `profiles/${crypto.randomUUID()}.${ext}`;
+      const data = stripImageMetadata(file.buffer, detected);
+      const { url } = await storage.put({ key, data, contentType: detected });
       const { oldPhotoUrl } = await repo.updateProfilePhoto(userId, url);
       if (oldPhotoUrl) {
         await storage.remove(oldPhotoUrl).catch(() => {});
@@ -77,13 +92,9 @@ export function createProfileService(deps: ProfileServiceDeps) {
     async submitProfile(userId: string) {
       const { profile, preference } = await repo.getProfileAndPreference(userId);
       if (!profile) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
-      // TODO: vratiti obaveznu sliku kad se uključi Vercel Blob.
-      // PRIVREMENO isključeno dok Vercel Blob (BLOB_READ_WRITE_TOKEN) nije
-      // povezan pa upload slike ne radi lokalno — VRATI prije finalnog testa/deploya.
-      // Zajedno sa ovim vrati i "*" kod slike u BasicStep.tsx i it.skip u service.test.ts.
-      // if (!profile.photoUrl) {
-      //   throw new ApiError("PROFILE_INCOMPLETE", sr.profile.errors.incomplete, { photoUrl: "Obavezno polje" });
-      // }
+      if (!profile.photoUrl) {
+        throw new ApiError("PROFILE_INCOMPLETE", sr.profile.errors.incomplete, { photoUrl: "Obavezno polje" });
+      }
       const parsed = profileSubmitSchema.safeParse({ ...profile, lookingFor: preference?.lookingFor ?? null });
       if (!parsed.success) {
         const fields: Record<string, string> = {};
@@ -95,18 +106,13 @@ export function createProfileService(deps: ProfileServiceDeps) {
       }
       const ok = await repo.submitProfile(userId, clock.now());
       if (!ok) throw new ApiError("INVALID_STATUS", "Profil nije u stanju koje dozvoljava slanje.");
-      // Otvoren ulaz (lib/devAccess.ts): bez admin pregleda, profil je odmah odobren.
-      if (OPEN_ACCESS) {
-        await repo.approveProfile(userId, clock.now());
-        return "APPROVED" as const;
-      }
       return "PENDING_REVIEW" as const;
     },
 
     async listPendingProfiles(status: ProfileStatus = "PENDING_REVIEW", cursor?: string, limit = 20) {
       const { items, nextCursor } = await repo.listProfilesByStatus(status, cursor, limit);
       return {
-        items: items.map((p) => toProfileView(p, clock.now(), { preference: p.preference ?? null, revealAge: true })),
+        items: items.map((p) => toAdminProfileView(p, clock.now(), { preference: p.preference ?? null, email: p.email })),
         nextCursor,
       };
     },
@@ -118,18 +124,23 @@ export function createProfileService(deps: ProfileServiceDeps) {
       await trySendEmail({
         to: result.email,
         subject: sr.admin.emails.approved.subject,
-        text: sr.admin.emails.approved.body,
+        text: sr.admin.emails.approved.body(`${appUrl()}/app`),
       });
     },
 
-    async rejectProfile(userId: string, reason: string) {
+    async rejectProfile(userId: string, rawReason?: string | null) {
+      // Razlog je opcionalan: prazan se čuva kao null.
+      const reason = rawReason?.trim() || null;
+      if (reason !== null && reason.length > 1000) {
+        throw new ApiError("VALIDATION_ERROR", sr.admin.queue.reasonRequired, { reason: sr.admin.queue.reasonRequired });
+      }
       const result = await repo.rejectProfile(userId, reason, clock.now());
       if (result === "NOT_FOUND") throw new ApiError("NOT_FOUND", "Profil ne postoji.");
       if (result === "INVALID_STATUS") throw new ApiError("INVALID_STATUS", "Profil nije na pregledu.");
       await trySendEmail({
         to: result.email,
         subject: sr.admin.emails.rejected.subject,
-        text: sr.admin.emails.rejected.body(reason),
+        text: sr.admin.emails.rejected.body(reason, `${appUrl()}/app/profile`),
       });
     },
   };
