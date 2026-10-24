@@ -12,7 +12,9 @@ export const areasCriterion: Criterion = {
     const candidateAreas = new Set(candidate.profile.areas);
     const shared = wanted.filter((area) => candidateAreas.has(area));
     const score = shared.length / wanted.length;
-    return score > 0 ? { score, reason: sr.matching.reasons.areas(shared.join(", ")) } : { score };
+    if (score <= 0) return { score };
+    const options: Record<string, string> = sr.profile.steps.more.areaOptions;
+    return { score, reason: sr.matching.reasons.areas(shared.map((a) => options[a] ?? a).join(", ")) };
   },
   isRequiredSatisfied: (evaluation) => evaluation.score > 0,
 };

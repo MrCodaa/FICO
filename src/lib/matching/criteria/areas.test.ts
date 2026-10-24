@@ -10,7 +10,8 @@ describe("areasCriterion", () => {
     const candidate = createPerson({ areas: ["ENGINEERING", "SALES_MARKETING"] });
     const evaluation = areasCriterion.evaluate(viewer, candidate, now);
     expect(evaluation.score).toBe(0.5);
-    expect(evaluation.reason).toContain("ENGINEERING");
+    expect(evaluation.reason).toContain("Engineering");
+    expect(evaluation.reason).not.toContain("ENGINEERING");
   });
 
   it("vraća 0 kad nema preklapanja", () => {

@@ -25,6 +25,8 @@ export interface AuthServiceDeps {
   clock: Clock;
   /** Provjera da domen emaila postoji (u testovima se zamjenjuje fake-om). */
   emailDomainExists?: EmailDomainChecker;
+  /** Slika se briše iz storage-a poslije brisanja naloga (opciono; testovi ga izostavljaju). */
+  accountFiles?: { getFileUrls(userId: string): Promise<string[]>; remove(url: string): Promise<void> };
 }
 
 const VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000; // 24h — nije navedeno u api.md, pretpostavka
@@ -206,7 +208,10 @@ export function createAuthService(deps: AuthServiceDeps) {
       if (user.email !== confirmEmail.trim().toLowerCase()) {
         throw new ApiError("VALIDATION_ERROR", "Email se ne poklapa.", { email: "Email se ne poklapa." });
       }
+      const fileUrls = (await deps.accountFiles?.getFileUrls(userId)) ?? [];
       await repo.deleteUser(userId);
+      // Poslije commita: fajlovi sa ličnim podacima (slika) ne smiju ostati bez naloga.
+      for (const url of fileUrls) await deps.accountFiles?.remove(url).catch(() => {});
     },
   };
 }

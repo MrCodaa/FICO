@@ -66,7 +66,8 @@ export function normalizeUrlInput(value: string): string {
 /** Parsira (normalizovan) https URL sa pravim domenom; vraća null ako nije prihvatljiv. */
 export function parseHttpsUrl(value: string): URL | null {
   const raw = normalizeUrlInput(value);
-  if (!raw || /\s/.test(raw)) return null;
+  // Razmaci, kontrolni znakovi i obrnuta kosa crta (URL parser je tiho pretvara u "/") nisu dozvoljeni.
+  if (!raw || /[\s\\\x00-\x1f\x7f]/.test(raw)) return null;
   let url: URL;
   try {
     url = new URL(raw);
@@ -106,15 +107,75 @@ export function isValidVideoUrl(value: string): boolean {
   return hostMatches(url.hostname.toLowerCase(), VIDEO_HOSTS);
 }
 
+export const TWITTER_HOSTS = ["twitter.com", "x.com"] as const;
+export const INSTAGRAM_HOSTS = ["instagram.com"] as const;
+export const SCHEDULING_HOSTS = [
+  "calendly.com",
+  "cal.com",
+  "savvycal.com",
+  "tidycal.com",
+  "zcal.co",
+  "calendar.app.google",
+  "meetings.hubspot.com",
+] as const;
+
+/** Link do 300 znakova; host je tačno dozvoljen ili pravi poddomen (tačka ispred). */
+const STRICT_URL_MAX = 300;
+const TWITTER_RESERVED = new Set(["home", "i", "intent", "share", "search", "login", "explore", "settings", "messages", "notifications", "hashtag"]);
+
+function strictUrl(value: string, hosts: readonly string[]): URL | null {
+  if (value.length > STRICT_URL_MAX + 20) return null;
+  const url = parseHttpsUrl(value);
+  if (!url || !hostMatches(url.hostname.toLowerCase(), hosts)) return null;
+  if (normalizeUrlInput(value).length > STRICT_URL_MAX) return null;
+  return url;
+}
+
+export function isValidTwitterUrl(value: string): boolean {
+  const url = strictUrl(value, TWITTER_HOSTS);
+  if (!url) return false;
+  const m = /^\/@?([A-Za-z0-9_]{1,15})(?:\/|\/status\/\d{1,25}\/?)?$/.exec(url.pathname);
+  return !!m && !TWITTER_RESERVED.has((m[1] ?? "").toLowerCase());
+}
+
+export function isValidInstagramUrl(value: string): boolean {
+  const url = strictUrl(value, INSTAGRAM_HOSTS);
+  if (!url) return false;
+  const m = /^\/([A-Za-z0-9._]{1,30})\/?$/.exec(url.pathname);
+  return !!m && !["p", "reel", "reels", "explore", "accounts", "stories", "direct"].includes((m[1] ?? "").toLowerCase());
+}
+
+export function isValidSchedulingUrl(value: string): boolean {
+  const url = strictUrl(value, SCHEDULING_HOSTS);
+  if (!url) return false;
+  return /^\/[A-Za-z0-9._~%@+-]+(?:\/[A-Za-z0-9._~%@+-]+)*\/?$/.test(url.pathname);
+}
+
 /** Prazan unos postaje null; ostalo ide kroz provjeru. */
 const blankToNull = (v: unknown) => (typeof v === "string" && v.trim() === "" ? null : v);
 
-function urlField(check: (v: string) => boolean, message: () => string) {
+/** Maksimalna dužina linka na video. */
+export const VIDEO_URL_MAX = 300;
+
+/**
+ * Link za href: vraća samo prihvatljiv https URL (pravi domen, bez userinfo-a), inače undefined.
+ * Koristi se pri renderovanju, da stari/neispravni zapisi iz baze nikad ne postanu javascript: link.
+ */
+export function safeExternalHref(value: string | null | undefined): string | undefined {
+  if (!value) return undefined;
+  const url = parseHttpsUrl(value);
+  return url ? url.href : undefined;
+}
+
+/** rel za sve linkove koje je unio korisnik. */
+export const EXTERNAL_LINK_REL = "noopener noreferrer nofollow ugc";
+
+function urlField(check: (v: string) => boolean, message: () => string, max = 2000) {
   return z.preprocess(
     blankToNull,
     z
       .string()
-      .max(2000)
+      .max(max)
       .transform(normalizeUrlInput)
       .refine(check, { error: message })
       .optional()
@@ -124,4 +185,7 @@ function urlField(check: (v: string) => boolean, message: () => string) {
 
 export const webUrlSchema = urlField(isValidWebUrl, () => sr.profile.errors.urlInvalid);
 export const linkedinUrlSchema = urlField(isValidLinkedinUrl, () => sr.profile.errors.linkedinInvalid);
-export const videoUrlSchema = urlField(isValidVideoUrl, () => sr.profile.errors.videoInvalid);
+export const twitterUrlSchema = urlField(isValidTwitterUrl, () => sr.profile.errors.twitterInvalid, STRICT_URL_MAX);
+export const instagramUrlSchema = urlField(isValidInstagramUrl, () => sr.profile.errors.instagramInvalid, STRICT_URL_MAX);
+export const schedulingUrlSchema = urlField(isValidSchedulingUrl, () => sr.profile.errors.schedulingInvalid, STRICT_URL_MAX);
+export const videoUrlSchema =urlField(isValidVideoUrl, () => sr.profile.errors.videoInvalid, VIDEO_URL_MAX);

@@ -5,6 +5,7 @@ import { SectionCard } from "@/components/ui/card";
 import { interests as interestCatalog } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import { cn } from "@/lib/utils";
+import { EXTERNAL_LINK_REL, safeExternalHref } from "../urlSchemas";
 
 import { activeLabel, areasSummary, countryName, idealSummary, selfSummary } from "../summary";
 import { ProfileAvatar } from "./ProfileAvatar";
@@ -222,9 +223,9 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
 
       {profile.linkedinUrl && (
         <a
-          href={profile.linkedinUrl}
+          href={safeExternalHref(profile.linkedinUrl)}
           target="_blank"
-          rel="noopener noreferrer"
+          rel={EXTERNAL_LINK_REL}
           className="text-link self-start text-xl italic hover:underline"
         >
           {v.linkedin}
@@ -267,7 +268,7 @@ export function ProfileFullView({ profile, viewerInterests, admin = false, class
               <dt className="text-muted-foreground text-sm">{sec.video}</dt>
               <dd className="break-all">
                 {profile.videoUrl ? (
-                  <a href={profile.videoUrl} target="_blank" rel="noopener noreferrer" className="text-link hover:underline">
+                  <a href={safeExternalHref(profile.videoUrl)} target="_blank" rel={EXTERNAL_LINK_REL} className="text-link hover:underline">
                     {profile.videoUrl}
                   </a>
                 ) : (

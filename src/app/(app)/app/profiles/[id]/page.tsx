@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { BackLink } from "@/components/ui/back-link";
@@ -11,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { sr } from "@/content/sr";
 import { DecisionPanel } from "@/features/discover/components/DecisionPanel";
 import { SafetyNote, WhyCard } from "@/features/discover/components/SideCards";
+import { parseReviewList, useListNext } from "@/features/discover/useListNext";
 import { ProfileFullView, type ProfileFullViewData } from "@/features/profile/components/ProfileFullView";
 import { formatDate } from "@/features/profile/components/ProfileListCard";
 import { byGender } from "@/features/profile/summary";
@@ -97,15 +99,30 @@ const decisionLabel = { THINKING: sr.discover.think, NOT_INTERESTED: sr.discover
 
 /** Javni profil (docs/ui-spec.md §3): sredina kao Discover, desna kolona po odnosu. */
 export default function PublicProfilePage() {
+  return (
+    <Suspense>
+      <PublicProfileContent />
+    </Suspense>
+  );
+}
+
+function PublicProfileContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const queryClient = useQueryClient();
   const viewer = useViewer();
+  // ?from=thinking|declined: otvoreno iz taba "Ponovo pogledaj profile".
+  const from = parseReviewList(useSearchParams().get("from"));
+  const goNext = useListNext(from, id);
   const query = useQuery({
     queryKey: ["profiles", id],
     queryFn: () => apiFetch<ProfileResponse>(`/api/profiles/${id}`),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["profiles", id] });
+  const afterDecision = from ? goNext : refresh;
+  // Prijava/blokiranje: iz liste na sljedeći profil iz liste, inače na Otkrij profile.
+  const afterReport = from ? goNext : () => router.push("/app/discover");
+  const afterBlock = from ? goNext : () => router.push("/app");
 
   if (query.isLoading) {
     return (
@@ -158,7 +175,12 @@ export default function PublicProfilePage() {
           {relation.decision && (
             <p className="text-muted-foreground text-center">{t.currentDecision(decisionLabel[relation.decision])}</p>
           )}
-          <DecisionPanel targetId={profile.userId} likesRemaining={likesRemaining} onDecided={refresh} />
+          <DecisionPanel
+            targetId={profile.userId}
+            likesRemaining={likesRemaining}
+            onDecided={afterDecision}
+            hide={relation.decision}
+          />
         </div>
       );
   }
@@ -175,7 +197,7 @@ export default function PublicProfilePage() {
         <>
           {panel}
           <WhyCard reasons={match.reasons} />
-          <SafetyNote userId={profile.userId} onBlocked={() => router.push("/app")} />
+          <SafetyNote userId={profile.userId} onBlocked={afterBlock} onReported={afterReport} />
         </>
       }
     />

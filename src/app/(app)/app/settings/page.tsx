@@ -11,6 +11,7 @@ import { PageBand, PageContainer } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { sr } from "@/content/sr";
 import type { SettingsView } from "@/features/settings/mappers";
+import { disableAllEmails, restoreEmails } from "@/features/settings/emailToggle";
 import type { EmailSettings, SettingsInput } from "@/features/settings/schemas";
 import { ApiClientError, apiFetch } from "@/lib/http/apiClient";
 
@@ -88,6 +89,17 @@ function SettingsForm({ view }: { view: SettingsView }) {
   });
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  // Vrijednosti prije uključivanja "Bez ikakvih…", da ih odčekiranje vrati.
+  const [previousEmails, setPreviousEmails] = useState<EmailSettings | null>(null);
+  const toggleEmail = (key: keyof EmailSettings, checked: boolean) => {
+    if (key !== "none") return set("emails", { ...form.emails, [key]: checked });
+    if (checked) {
+      setPreviousEmails(form.emails);
+      set("emails", disableAllEmails());
+    } else {
+      set("emails", restoreEmails(previousEmails));
+    }
+  };
 
   return (
     <div className="flex max-w-[90rem] flex-col gap-10">
@@ -110,7 +122,8 @@ function SettingsForm({ view }: { view: SettingsView }) {
               key={key}
               label={t.emails[key]}
               checked={form.emails[key]}
-              onChange={(checked) => set("emails", { ...form.emails, [key]: checked })}
+              disabled={key !== "none" && form.emails.none}
+              onChange={(checked) => toggleEmail(key, checked)}
             />
           ))}
         </div>

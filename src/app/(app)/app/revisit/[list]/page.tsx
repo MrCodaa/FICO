@@ -1,6 +1,7 @@
 "use client";
 
-import { notFound, useParams } from "next/navigation";
+import { Suspense } from "react";
+import { notFound, useParams, useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
@@ -62,7 +63,17 @@ async function fetchPage(list: ListKey, cursor: string | null): Promise<Page> {
 
 /** Ponovo pogledaj profile (docs/ui-spec.md §7): kartice od najnovijeg, klik → javni profil. */
 export default function RevisitPage() {
+  return (
+    <Suspense>
+      <RevisitContent />
+    </Suspense>
+  );
+}
+
+function RevisitContent() {
   const params = useParams<{ list: string }>();
+  // ?done=1: stigli smo s posljednjeg profila iz liste (odluka → nema sljedećeg).
+  const done = useSearchParams().get("done") === "1";
   const list = (params.list in LISTS ? params.list : null) as ListKey | null;
 
   const query = useInfiniteQuery({
@@ -81,6 +92,11 @@ export default function RevisitPage() {
     <>
       <PageBand eyebrow={sr.nav.revisit} title={LISTS[list].title} />
       <PageContainer>
+        {done && (
+          <p role="status" className="bg-surface mb-4 max-w-5xl rounded-md border px-5 py-3 text-lg font-medium">
+            {t.listDone}
+          </p>
+        )}
         {query.isLoading ? (
           <ListSkeleton rows={3} />
         ) : query.isError ? (
@@ -95,6 +111,7 @@ export default function RevisitPage() {
               <ProfileListCard
                 key={row.key}
                 profile={row.profile}
+                from={list === "liked" ? undefined : list}
                 meta={list === "liked" ? t.likedOn(formatDate(row.date)) : t.decidedOn(formatDate(row.date))}
                 aside={row.status ? <StatusBadge status={row.status} /> : undefined}
               />

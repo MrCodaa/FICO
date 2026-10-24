@@ -66,7 +66,8 @@ export interface RequestRepository {
 
 async function fetchProfilesByUserId(userIds: string[]): Promise<Map<string, ProfileRecord>> {
   if (userIds.length === 0) return new Map();
-  const rows = await db.profile.findMany({ where: { userId: { in: userIds } } });
+  // Deaktivovani nalozi se ne vide nigdje.
+  const rows = await db.profile.findMany({ where: { userId: { in: userIds }, user: { deactivatedAt: null } } });
   return new Map(rows.map((row) => [row.userId, row]));
 }
 

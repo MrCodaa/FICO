@@ -102,6 +102,7 @@ function createFakeRepo(overrides: Partial<ProfileRepository> = {}): ProfileRepo
     updateProfileDraft: vi.fn().mockResolvedValue(completeProfile()),
     updatePreferenceDraft: vi.fn().mockResolvedValue(createFakePreference()),
     updateProfilePhoto: vi.fn().mockResolvedValue({ oldPhotoUrl: null }),
+    getFileUrls: vi.fn().mockResolvedValue([]),
     consumeUploadSlot: vi.fn().mockResolvedValue(true),
     submitProfile: vi.fn().mockResolvedValue(true),
     listProfilesByStatus: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
@@ -119,6 +120,21 @@ describe("createProfileService.uploadPhoto", () => {
 
     await expect(
       service.uploadPhoto("user-1", { buffer: Buffer.from("GIF89a-nije-slika"), contentType: "image/png", size: 10 }),
+    ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
+    expect(storage.put).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["SVG", "<svg xmlns=\"http://www.w3.org/2000/svg\"><script>alert(1)</script></svg>"],
+    ["HTML preimenovan u .jpg", "<html><script>alert(1)</script></html>"],
+    ["GIF", "GIF89a-x"],
+    ["PDF", "%PDF-1.4"],
+  ])("odbija %s čak i sa lažnim image/jpeg Content-Type", async (_n, content) => {
+    const repo = createFakeRepo();
+    const storage = createFakeStorage();
+    const service = createProfileService({ repo, storage, clock: createFakeClock(), email: createFakeEmail() });
+    await expect(
+      service.uploadPhoto("user-1", { buffer: Buffer.from(content), contentType: "image/jpeg", size: content.length }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(storage.put).not.toHaveBeenCalled();
   });

@@ -1,9 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   isValidLinkedinUrl,
+  EXTERNAL_LINK_REL,
+  VIDEO_URL_MAX,
   normalizeUrlInput,
+  safeExternalHref,
   isValidVideoUrl,
   isValidWebUrl,
+  isValidTwitterUrl,
+  isValidInstagramUrl,
+  isValidSchedulingUrl,
+  twitterUrlSchema,
+  instagramUrlSchema,
+  schedulingUrlSchema,
   linkedinUrlSchema,
   videoUrlSchema,
   webUrlSchema,
@@ -124,4 +133,110 @@ describe("zod sheme", () => {
   it.each(["javascript:alert(1)", "https://asdf", "abc", "http://localhost"])("web sema odbija %s", (u) =>
     expect(webUrlSchema.safeParse(u).success).toBe(false),
   );
+});
+
+describe("napadacki URL-ovi", () => {
+  const attacks = [
+    "https://youtube.com@evil.com/watch",
+    "https://youtube.com:pw@evil.com/",
+    "youtube.com@evil.com",
+    "https://youtube.com\@evil.com",
+    "https://youtube.com.evil.com/watch",
+    "https://evil.com/youtube.com",
+    "https://youtu.be.evil.com/x",
+    "https://notyoutube.com/x",
+    "javascript:alert(1)",
+    "JaVaScRiPt:alert(1)",
+    "java\tscript:alert(1)",
+    "data:text/html,<script>alert(1)</script>",
+    "vbscript:msgbox(1)",
+    "file:///etc/passwd",
+    "ftp://youtube.com/x",
+    "https://youtube.com:8443/x",
+    "https://127.0.0.1/x",
+    "https://youtube.com/x y",
+  ];
+  it.each(attacks)("video odbija %j", (u) => expect(isValidVideoUrl(u)).toBe(false));
+  it.each(["https://youtube.com@evil.com/x", "javascript:alert(1)", "data:text/html,x", "https://a.com\@b.com"])(
+    "web odbija %j",
+    (u) => expect(isValidWebUrl(u)).toBe(false),
+  );
+  it("normalizuje http u https", () => {
+    expect(videoUrlSchema.parse("http://youtu.be/abc")).toBe("https://youtu.be/abc");
+  });
+  it("video link duži od maksimuma se odbija", () => {
+    const long = "https://www.youtube.com/watch?v=" + "a".repeat(VIDEO_URL_MAX);
+    expect(videoUrlSchema.safeParse(long).success).toBe(false);
+  });
+  it("linkedin ostaje strog", () => {
+    for (const u of ["https://linkedin.com@evil.com/in/x", "https://evil.com/in/x", "https://linkedin.com.evil.com/in/x", "javascript:alert(1)"]) {
+      expect(isValidLinkedinUrl(u)).toBe(false);
+    }
+  });
+  it("safeExternalHref propušta samo https", () => {
+    expect(safeExternalHref("javascript:alert(1)")).toBeUndefined();
+    expect(safeExternalHref("data:text/html,x")).toBeUndefined();
+    expect(safeExternalHref(null)).toBeUndefined();
+    expect(safeExternalHref("https://youtu.be/abc")).toBe("https://youtu.be/abc");
+    expect(EXTERNAL_LINK_REL).toContain("nofollow");
+  });
+});
+
+describe("strogi linkovi (Twitter/X, Instagram, zakazivanje)", () => {
+  it.each(["x.com/jack", "https://twitter.com/jack", "http://www.twitter.com/jack/", "https://x.com/jack/status/123"])("Twitter prihvata %s", (u) =>
+    expect(isValidTwitterUrl(u)).toBe(true),
+  );
+  it.each([
+    "https://evil.com/x",
+    "https://twitter.com.evil.com/jack",
+    "https://eviltwitter.com/jack",
+    "https://evil.com/twitter.com/jack",
+    "https://twitter.com@evil.com/jack",
+    "https://twitter.com:8080/jack",
+    "javascript:alert(1)",
+    "https://twitter.com/ja ck",
+    "https://twitter.com",
+    "https://twitter.com/predugackokorisnickoime",
+    "https://instagram.com/jack",
+  ])("Twitter odbija %s", (u) => expect(isValidTwitterUrl(u)).toBe(false));
+
+  it.each(["instagram.com/instagram", "https://www.instagram.com/some.user_1/"])("Instagram prihvata %s", (u) =>
+    expect(isValidInstagramUrl(u)).toBe(true),
+  );
+  it.each([
+    "https://evil.com/instagram.com/x",
+    "https://instagram.com.evil.com/x",
+    "https://instagram.com@evil.com/x",
+    "https://instagram.com:81/x",
+    "https://instagram.com/",
+    "https://x.com/jack",
+    "javascript:alert(1)",
+    "https://instagram.com/a b",
+  ])("Instagram odbija %s", (u) => expect(isValidInstagramUrl(u)).toBe(false));
+
+  it.each(["calendly.com/neko/30min", "https://cal.com/neko", "https://calendar.app.google/abc123", "https://meetings.hubspot.com/neko"])(
+    "zakazivanje prihvata %s",
+    (u) => expect(isValidSchedulingUrl(u)).toBe(true),
+  );
+  it.each([
+    "https://evil.com/calendly.com/neko",
+    "https://calendly.com.evil.com/neko",
+    "https://evilcal.com/neko",
+    "https://calendly.com@evil.com/neko",
+    "https://calendly.com:444/neko",
+    "https://calendly.com",
+    "https://tally.so/r/abc",
+    "javascript:alert(1)",
+    "https://calendly.com/ne ko",
+  ])("zakazivanje odbija %s", (u) => expect(isValidSchedulingUrl(u)).toBe(false));
+
+  it("odbija linkove duže od 300 znakova", () => {
+    expect(isValidSchedulingUrl(`https://cal.com/${"a".repeat(300)}`)).toBe(false);
+  });
+  it("šeme: http se normalizuje, strani domen pada", () => {
+    expect(twitterUrlSchema.safeParse("http://x.com/jack").data).toBe("https://x.com/jack");
+    expect(twitterUrlSchema.safeParse("https://evil.com/x").success).toBe(false);
+    expect(instagramUrlSchema.safeParse("").data).toBeNull();
+    expect(schedulingUrlSchema.safeParse("https://evil.com/x").success).toBe(false);
+  });
 });

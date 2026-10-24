@@ -91,6 +91,7 @@ enum RequestStatus {
   ACCEPTED
   DECLINED
   EXPIRED
+  WITHDRAWN // NE KORISTI SE: funkcija opoziva uklonjena; vrijednost ostaje jer je migracija već primijenjena
 }
 
 enum NotificationType {

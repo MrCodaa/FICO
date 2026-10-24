@@ -3,7 +3,11 @@ import "@/lib/zodErrorMap";
 import { countryCodes, interestCodes } from "@/content/catalog";
 import { findCatalogCity } from "@/content/cities-search";
 import { sr } from "@/content/sr";
-import { linkedinUrlSchema, videoUrlSchema, webUrlSchema } from "./urlSchemas";
+import { optionalSafeText, safeText } from "@/lib/sanitize";
+import { instagramUrlSchema, linkedinUrlSchema, schedulingUrlSchema, twitterUrlSchema, videoUrlSchema } from "./urlSchemas";
+
+/** Višerednja polja (dozvoljeni novi redovi). */
+const ML = { multiline: true } as const;
 
 const AREA_VALUES = ["PRODUCT", "ENGINEERING", "DESIGN", "SALES_MARKETING", "OPERATIONS"] as const;
 
@@ -27,38 +31,38 @@ function cityMatchesCountry(data: { city?: string; countryCode?: string }, ctx: 
 }
 
 const profileBaseSchema = z.object({
-  firstName: z.string().trim().min(1).max(100),
-  lastName: z.string().trim().min(1).max(100),
+  firstName: safeText(1, 100),
+  lastName: safeText(1, 100),
   linkedinUrl: linkedinUrlSchema,
   noLinkedin: z.boolean(),
   countryCode: z.enum(countryCodes),
   city: citySchema,
-  intro: z.string().trim().min(1).max(1000),
+  intro: safeText(1, 1000, ML),
   videoUrl: videoUrlSchema,
-  accomplishment: z.string().trim().min(1).max(1000),
-  education: z.string().trim().min(1).max(800),
-  employment: z.string().trim().min(1).max(800),
+  accomplishment: safeText(1, 1000, ML),
+  education: safeText(1, 800, ML),
+  employment: safeText(1, 800, ML),
   isTechnical: z.boolean(),
   gender: z.enum(["MALE", "FEMALE", "OTHER"]),
   // .nullable() ovdje (ne preprocess-odbaci-null) jer nacrt (profileDraftSchema)
   // legitimno čuva birthDate: null dok korisnik još nije stigao do tog polja —
   // strogo odbijanje null-a ide samo u profileSubmitSchema ispod (.extend()).
   birthDate: z.coerce.date().nullable(),
-  schedulingUrl: webUrlSchema,
-  twitterUrl: webUrlSchema,
-  instagramUrl: webUrlSchema,
-  heardFrom: z.string().trim().max(200).optional().nullable(),
+  schedulingUrl: schedulingUrlSchema,
+  twitterUrl: twitterUrlSchema,
+  instagramUrl: instagramUrlSchema,
+  heardFrom: optionalSafeText(200),
 
   ideaStatus: z.enum(["COMMITTED", "EXPLORING", "OPEN"]),
-  ideas: z.string().trim().max(1000).optional().nullable(),
+  ideas: optionalSafeText(1000, ML),
   hasCofounder: z.boolean().optional().nullable(),
   timing: z.enum(["ALREADY_FULL_TIME", "READY_ON_MATCH", "WITHIN_YEAR", "NO_PLANS"]),
   areas: z.array(z.enum(AREA_VALUES)).min(1),
   interests: z.array(z.enum(interestCodes)).min(1),
-  equityExpectations: z.string().trim().max(250).optional().nullable(),
-  freeTime: z.string().trim().max(500).optional().nullable(),
-  lifePath: z.string().trim().max(500).optional().nullable(),
-  other: z.string().trim().max(500).optional().nullable(),
+  equityExpectations: optionalSafeText(250, ML),
+  freeTime: optionalSafeText(500, ML),
+  lifePath: optionalSafeText(500, ML),
+  other: optionalSafeText(500, ML),
 });
 
 export const profileDraftSchema = profileBaseSchema.partial().superRefine(cityMatchesCountry);
@@ -69,7 +73,7 @@ export const profileSubmitSchema = profileBaseSchema
     // PRIJE coerce-a da z.coerce.date() ne pretvori tiho null u 1.1.1970.
     birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
     // Preference.lookingFor ("Idealan co-founder") — servis ga dodaje iz Preference.
-    lookingFor: z.string().trim().max(1000).optional().nullable(),
+    lookingFor: optionalSafeText(1000, ML),
   })
   .superRefine((data, ctx) => {
     cityMatchesCountry(data, ctx);
@@ -93,7 +97,7 @@ export const profileSubmitSchema = profileBaseSchema
   });
 
 export const preferenceDraftSchema = z.object({
-  lookingFor: z.string().trim().max(1000).optional().nullable(),
+  lookingFor: optionalSafeText(1000, ML),
   idea: z.enum(["HAS_IDEA", "OPEN_TO_IDEAS"]).optional().nullable(),
   ideaImportance: z.enum(["REQUIRED", "PREFERRED"]).optional().nullable(),
   technical: z.enum(["TECHNICAL", "NON_TECHNICAL"]).optional().nullable(),

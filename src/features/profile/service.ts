@@ -1,7 +1,11 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
 import type { EmailProvider } from "@/lib/email";
-import { detectImageType, stripImageMetadata, type StorageProvider } from "@/lib/storage";
+import {
+  detectImageType,
+  stripImageMetadata,
+  type StorageProvider,
+} from "@/lib/storage";
 import type { ProfileStatus } from "@/generated/prisma/client";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";

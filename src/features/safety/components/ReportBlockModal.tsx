@@ -25,11 +25,13 @@ export function ReportBlockModal({
   open,
   onClose,
   onBlocked,
+  onReported,
 }: {
   userId: string;
   open: boolean;
   onClose: () => void;
   onBlocked?: () => void;
+  onReported?: () => void;
 }) {
   const [reason, setReason] = useState<ReportReason>("SPAM");
   const [details, setDetails] = useState("");
@@ -41,8 +43,17 @@ export function ReportBlockModal({
         method: "POST",
         json: { reportedId: userId, reason, details: details.trim() || undefined },
       }),
-    onSuccess: () => setReported(true),
+    onSuccess: () => {
+      setReported(true);
+      // Prijateljska potvrda, pa zatvaranje i (ako ga ima) prelazak na sljedeći profil.
+      if (onReported) setTimeout(() => closeAfterReport(), 1400);
+    },
   });
+
+  const closeAfterReport = () => {
+    close();
+    onReported?.();
+  };
 
   const blockMutation = useMutation({
     mutationFn: () => apiFetch<void>("/api/blocks", { method: "POST", json: { userId } }),
@@ -62,7 +73,9 @@ export function ReportBlockModal({
   return (
     <Modal open={open} onClose={close} title={t.report.title} closeLabel={t.report.close}>
       {reported ? (
-        <p className="text-base">{t.report.success}</p>
+        <p role="status" className="text-base font-semibold">
+          {t.report.success}
+        </p>
       ) : (
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">

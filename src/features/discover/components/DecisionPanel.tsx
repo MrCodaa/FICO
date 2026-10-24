@@ -7,20 +7,13 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
-import { ApiClientError, apiFetch } from "@/lib/http/apiClient";
+import { apiFetch } from "@/lib/http/apiClient";
+import { likeErrorMessage } from "../likeError";
 
 const t = sr.discover;
 const MAX_MESSAGE = 500;
 
 export type Decision = "LIKE" | "THINKING" | "NOT_INTERESTED";
-
-function likeErrorMessage(error: unknown): string {
-  if (error instanceof ApiClientError) {
-    if (error.code === "LIKE_LIMIT_REACHED") return sr.requests.like.limitReached;
-    if (error.code === "REQUEST_EXISTS") return sr.requests.like.alreadyExists;
-  }
-  return sr.requests.like.generic;
-}
 
 /**
  * Tri odluke (mjesto YC Invite/Skip/Save, docs/ui-spec.md §2): kartica
@@ -31,10 +24,13 @@ export function DecisionPanel({
   targetId,
   likesRemaining,
   onDecided,
+  hide,
 }: {
   targetId: string;
   likesRemaining: number | null;
   onDecided: (decision: Decision) => void;
+  /** Odluka koja je već na snazi (profil otvoren iz tog taba): njeno dugme se ne nudi. */
+  hide?: "THINKING" | "NOT_INTERESTED" | null;
 }) {
   const queryClient = useQueryClient();
   const [message, setMessage] = useState("");
@@ -97,20 +93,24 @@ export function DecisionPanel({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() => decisionMutation.mutate("THINKING")}
-          className="text-brand hover:text-brand"
-        >
-          <Star className="size-4" />
-          {t.think}
-        </Button>
-        <Button type="button" variant="neutral" disabled={busy} onClick={() => decisionMutation.mutate("NOT_INTERESTED")}>
-          {t.notInterested}
-        </Button>
+      <div className={hide ? "grid grid-cols-1 gap-3" : "grid grid-cols-2 gap-3"}>
+        {hide !== "THINKING" && (
+          <Button
+            type="button"
+            variant="outline"
+            disabled={busy}
+            onClick={() => decisionMutation.mutate("THINKING")}
+            className="text-brand hover:text-brand"
+          >
+            <Star className="size-4" />
+            {t.think}
+          </Button>
+        )}
+        {hide !== "NOT_INTERESTED" && (
+          <Button type="button" variant="neutral" disabled={busy} onClick={() => decisionMutation.mutate("NOT_INTERESTED")}>
+            {t.notInterested}
+          </Button>
+        )}
       </div>
       {decisionMutation.isError && <p className="text-destructive text-sm">{t.error}</p>}
     </div>

@@ -1,12 +1,13 @@
 import { z } from "zod";
 import "@/lib/zodErrorMap";
 import { sr } from "@/content/sr";
+import { safeText } from "@/lib/sanitize";
 import { linkedinUrlSchema } from "@/features/profile/urlSchemas";
 
 export const registerSchema = z
   .object({
-    firstName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
-    lastName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
+    firstName: safeText(1, 100),
+    lastName: safeText(1, 100),
     email: z.string().trim().toLowerCase().email(),
     password: z.string().min(8, { error: () => sr.validation.password }),
     linkedinUrl: linkedinUrlSchema,

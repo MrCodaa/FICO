@@ -135,9 +135,10 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | POST | `/api/blocks` | approved | `{ userId }` | 204 |
 | DELETE | `/api/blocks/:userId` | approved | — | 204 |
 | POST | `/api/reports` | approved | `{ reportedId, reason, details? }` | 201 |
-| GET | `/api/admin/reports` | admin | `?status=OPEN&cursor=` | `{ items, nextCursor }` |
-| POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED \| DISMISSED, deactivateUser?: boolean }` | 204 |
-| POST | `/api/admin/users/:userId/deactivate` | admin | — | 204 |
+| GET | `/api/admin/reports` | admin | `?status=OPEN|RESOLVED|DISMISSED&cursor=` | `{ items, nextCursor }`, najnovije prve; stavka: `{ id, reason, details, status, createdAt, reporter: { id, name, email }, reportedId, reportedProfile: ProfileCard, reportedAdminProfile: AdminProfileView, reportedEmail, reportedDeactivated, previousReports }` (`previousReports` = prijave na istog korisnika podnijete prije ove) |
+| GET | `/api/admin/reports/count` | admin | — | `{ open }` (crvena značka u admin navigaciji) |
+| POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED | DISMISSED, deactivateUser?: boolean }` | 204; 404 ako je već obrađena. "Ukloni profil sa aplikacije" = `RESOLVED` + `deactivateUser: true`; "Odbaci prijavu" = `DISMISSED` |
+| POST | `/api/admin/users/:userId/deactivate` | admin | — | 204; postavlja `deactivatedAt` i u istoj transakciji zatvara (`RESOLVED`) sve otvorene prijave na tog korisnika. Deaktivovan nalog ne može da se prijavi, a nestaje iz Discovera, Zahtjeva, Poruka i obavještenja. Poslije commita korisnik dobija kratak neutralan transakcioni mail ("Tvoj FICO nalog je deaktiviran", bez detalja o prijavi ili razlogu, sa linkom na `/pomoc`); ide uvijek (van lifecycle podešavanja), poštuje `emailBlocked`, ne šalje se ako je nalog već bio deaktiviran, a greška slanja ne ruši deaktivaciju. Isto važi kad se deaktivira preko `resolve` sa `deactivateUser: true`. Samostalno brisanje/pauziranje naloga ne šalje ovaj mail |
 
 ### Podešavanja i Kontrolna tabla (ui-spec §4, §6, §10)
 

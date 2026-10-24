@@ -74,7 +74,9 @@ export interface ProfileRepository {
   updateProfileDraft(userId: string, data: Record<string, unknown>): Promise<ProfileRecord>;
   updatePreferenceDraft(userId: string, data: Record<string, unknown>): Promise<PreferenceRecord>;
   updateProfilePhoto(userId: string, photoUrl: string): Promise<{ oldPhotoUrl: string | null }>;
-  /** Troši jedno mjesto iz limita otpremanja slika (fiksni prozor). false = limit je potrošen. */
+  /** Fajlovi vezani za nalog (za brisanje iz storage-a poslije brisanja naloga). */
+  getFileUrls(userId: string): Promise<string[]>;
+  /** Troši jedno mjesto iz limita otpremanja (fiksni prozor). false = limit je potrošen. */
   consumeUploadSlot(userId: string, now: Date, limit: number, windowMs: number): Promise<boolean>;
   submitProfile(userId: string, now: Date): Promise<boolean>;
   listProfilesByStatus(
@@ -122,6 +124,11 @@ export const profileRepository: ProfileRepository = {
     const existing = await db.profile.findUnique({ where: { userId }, select: { photoUrl: true } });
     await db.profile.update({ where: { userId }, data: { photoUrl } });
     return { oldPhotoUrl: existing?.photoUrl ?? null };
+  },
+
+  async getFileUrls(userId) {
+    const p = await db.profile.findUnique({ where: { userId }, select: { photoUrl: true } });
+    return [p?.photoUrl].filter((u): u is string => Boolean(u));
   },
 
   // Koristi postojeću tabelu LoginAttempt (bez migracije): key "upload:<userId>",

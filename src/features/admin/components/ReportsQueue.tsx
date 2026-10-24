@@ -6,36 +6,26 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
 import { useAdminUrls } from "@/features/admin/AdminPathContext";
+import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
+import { ProfileFullView, type ProfileFullViewData } from "@/features/profile/components/ProfileFullView";
+import { ApiClientError, apiFetch } from "@/lib/http/apiClient";
 
 const t = sr.adminReports;
 const reasonLabels = sr.safety.report.reasons;
 
-class AdminApiError extends Error {
-  status: number;
-
-  constructor(status: number, message?: string) {
-    super(message ?? "ADMIN_API_ERROR");
-    this.status = status;
-  }
-}
-
-interface ProfileCardData {
-  userId: string;
-  firstName: string | null;
-  lastName: string | null;
-  photoUrl: string | null;
-  countryCode: string | null;
-  city: string | null;
-  age: number | null;
-}
-
 type ReportReason = keyof typeof reasonLabels;
 type ResolveStatus = "RESOLVED" | "DISMISSED";
+type Api = (sub?: string) => string;
 
 interface ReportItem {
   id: string;
   reportedId: string;
-  reportedProfile: ProfileCardData | null;
+  reportedProfile: { firstName: string | null; lastName: string | null; photoUrl: string | null } | null;
+  reportedAdminProfile: (ProfileFullViewData & { userId: string }) | null;
+  reportedEmail: string;
+  reportedDeactivated: boolean;
+  reporter: { id: string; name: string | null; email: string };
+  previousReports: number;
   reason: ReportReason;
   details: string | null;
   status: "OPEN" | ResolveStatus;
@@ -47,34 +37,18 @@ interface ReportsResponse {
   nextCursor: string | null;
 }
 
-async function fetchReports(api: (sub?: string) => string, cursor: string | null): Promise<ReportsResponse> {
+const fetchReports = (api: Api, cursor: string | null) => {
   const params = new URLSearchParams({ status: "OPEN" });
   if (cursor) params.set("cursor", cursor);
-  const res = await fetch(api(`/reports?${params.toString()}`), { credentials: "include" });
-  if (res.status === 403) {
-    throw new AdminApiError(403, "FORBIDDEN");
-  }
-  const body = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new AdminApiError(res.status, body?.error?.message);
-  }
-  return body as ReportsResponse;
-}
+  return apiFetch<ReportsResponse>(api(`/reports?${params.toString()}`));
+};
 
-async function resolveReport(api: (sub?: string) => string, id: string, status: ResolveStatus, deactivateUser: boolean): Promise<void> {
-  const res = await fetch(api(`/reports/${id}/resolve`), {
+// "Ukloni profil sa aplikacije" = RESOLVED + deaktivacija naloga; "Odbaci prijavu" = DISMISSED.
+const resolveReport = (api: Api, id: string, status: ResolveStatus) =>
+  apiFetch<void>(api(`/reports/${id}/resolve`), {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-    body: JSON.stringify(
-      status === "RESOLVED" ? { status, deactivateUser } : { status },
-    ),
+    json: status === "RESOLVED" ? { status, deactivateUser: true } : { status },
   });
-  if (!res.ok && res.status !== 204) {
-    const body = await res.json().catch(() => ({}));
-    throw new AdminApiError(res.status, body?.error?.message);
-  }
-}
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleString("sr-Latn", {
@@ -86,85 +60,105 @@ function formatDate(dateStr: string): string {
   });
 }
 
-function ReportCard({ report, onRemove }: { report: ReportItem; onRemove: (id: string) => void }) {
+function ReportCard({ report, onHandled }: { report: ReportItem; onHandled: () => void }) {
   const { api } = useAdminUrls();
-  const [deactivateUser, setDeactivateUser] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [confirm, setConfirm] = useState<ResolveStatus | null>(null);
+  const [conflict, setConflict] = useState(false);
 
-  const resolveMutation = useMutation({
-    mutationFn: () => resolveReport(api, report.id, "RESOLVED", deactivateUser),
-    onSuccess: () => onRemove(report.id),
+  const mutation = useMutation({
+    mutationFn: (status: ResolveStatus) => resolveReport(api, report.id, status),
+    onSuccess: onHandled,
+    onError: (error) => {
+      if (error instanceof ApiClientError && (error.status === 404 || error.status === 409)) setConflict(true);
+    },
   });
-
-  const dismissMutation = useMutation({
-    mutationFn: () => resolveReport(api, report.id, "DISMISSED", false),
-    onSuccess: () => onRemove(report.id),
-  });
-
-  const isPending = resolveMutation.isPending || dismissMutation.isPending;
 
   const profile = report.reportedProfile;
-  const fullName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
-  const location = profile ? [profile.city, profile.countryCode].filter(Boolean).join(", ") : "";
+  const reportedName = profile ? [profile.firstName, profile.lastName].filter(Boolean).join(" ") : "";
+  const busy = mutation.isPending;
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border p-4">
-      <div className="flex items-start gap-3">
-        {profile ? (
+    <div className="flex flex-col gap-4 rounded-md border p-4">
+      <div className="text-muted-foreground flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span>{formatDate(report.createdAt)}</span>
+        <span className={report.previousReports > 0 ? "font-semibold text-red-600" : undefined}>
+          {t.previousReports(report.previousReports)}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-1 text-sm">
+        <span className="text-muted-foreground text-xs font-medium uppercase">{t.reportedBy}</span>
+        <span className="font-semibold">{report.reporter.name ?? t.unknownUser}</span>
+        <span className="text-muted-foreground text-xs break-all">{report.reporter.email}</span>
+      </div>
+
+      <div className="flex items-start gap-3 border-t pt-3">
+        <ProfileAvatar
+          photoUrl={profile?.photoUrl ?? null}
+          firstName={profile?.firstName ?? null}
+          lastName={profile?.lastName ?? null}
+          className="h-16 w-16 shrink-0 text-lg"
+        />
+        <div className="flex min-w-0 flex-col gap-0.5 text-sm">
+          <span className="text-muted-foreground text-xs font-medium uppercase">{t.reportedUser}</span>
+          <span className="font-semibold">{reportedName || t.unknownUser}</span>
+          <span className="text-muted-foreground text-xs break-all">{report.reportedEmail}</span>
+          {report.reportedDeactivated && (
+            <span className="text-xs font-semibold text-red-600">{t.alreadyDeactivated}</span>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-1 border-t pt-3 text-sm">
+        <span>
+          <span className="font-medium">{t.reasonLabel}:</span> {reasonLabels[report.reason] ?? report.reason}
+        </span>
+        <span className="font-medium">{t.messageLabel}:</span>
+        <p className="bg-muted/40 rounded-md border px-3 py-2 whitespace-pre-line">{report.details ?? t.noMessage}</p>
+      </div>
+
+      {report.reportedAdminProfile && (
+        <div className="flex flex-col gap-3 border-t pt-3">
+          <Button type="button" variant="outline" size="sm" className="self-start" onClick={() => setShowProfile((v) => !v)}>
+            {showProfile ? t.hideProfile : t.openProfile}
+          </Button>
+          {showProfile && (
+            <ProfileFullView profile={report.reportedAdminProfile} admin />
+          )}
+        </div>
+      )}
+
+      {conflict && <p className="text-destructive text-sm">{t.alreadyHandled}</p>}
+      {mutation.isError && !conflict && <p className="text-destructive text-sm">{t.error}</p>}
+
+      <div className="flex flex-col gap-3 border-t pt-3">
+        {confirm ? (
           <>
-            {profile.photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={profile.photoUrl}
-                alt={fullName || "—"}
-                className="h-16 w-16 shrink-0 rounded-full object-cover"
-              />
-            ) : (
-              <div className="bg-muted h-16 w-16 shrink-0 rounded-full" />
-            )}
-            <div className="flex flex-col gap-1">
-              <span className="text-sm font-semibold">{fullName || "—"}</span>
-              {location && <span className="text-muted-foreground text-xs">{location}</span>}
+            <p className="text-sm font-medium">{confirm === "RESOLVED" ? t.removeConfirm : t.dismissConfirm}</p>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" disabled={busy || conflict} onClick={() => mutation.mutate(confirm)}>
+                {t.confirmYes}
+              </Button>
+              <Button type="button" variant="outline" disabled={busy} onClick={() => setConfirm(null)}>
+                {t.cancel}
+              </Button>
             </div>
           </>
         ) : (
-          <div className="flex flex-col gap-1">
-            <span className="text-sm font-semibold">{report.reportedId}</span>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              disabled={busy || conflict || report.reportedDeactivated}
+              onClick={() => setConfirm("RESOLVED")}
+            >
+              {t.remove}
+            </Button>
+            <Button type="button" variant="outline" disabled={busy || conflict} onClick={() => setConfirm("DISMISSED")}>
+              {t.dismiss}
+            </Button>
           </div>
         )}
-      </div>
-
-      <div className="flex flex-col gap-1 border-t pt-2 text-sm">
-        <span>
-          <span className="font-medium">{sr.safety.report.reasonLabel}:</span>{" "}
-          {reasonLabels[report.reason] ?? report.reason}
-        </span>
-        {report.details && <p className="text-muted-foreground text-sm">{report.details}</p>}
-        <span className="text-muted-foreground text-xs">{formatDate(report.createdAt)}</span>
-      </div>
-
-      <div className="flex flex-col gap-2 border-t pt-3">
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={deactivateUser}
-            onChange={(e) => setDeactivateUser(e.target.checked)}
-            disabled={isPending}
-          />
-          {t.deactivateUser}
-        </label>
-        <div className="flex gap-2">
-          <Button type="button" disabled={isPending} onClick={() => resolveMutation.mutate()}>
-            {t.resolve}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isPending}
-            onClick={() => dismissMutation.mutate()}
-          >
-            {t.dismiss}
-          </Button>
-        </div>
       </div>
     </div>
   );
@@ -182,25 +176,22 @@ export function ReportsQueue() {
     })),
   });
 
-  const removeItem = (id: string) => {
-    queryClient.setQueriesData<ReportsResponse>(
-      { queryKey: ["admin", "reports", "OPEN"] },
-      (old) => (old ? { ...old, items: old.items.filter((r) => r.id !== id) } : old),
-    );
+  // Obrađena prijava (pri uklanjanju i sve ostale na istog korisnika) nestaje iz liste; brojač se osvježava.
+  const handled = () => {
+    void queryClient.invalidateQueries({ queryKey: ["admin", "reports"] });
   };
 
   const isForbidden = pageQueries.some(
-    (q) => q.isError && q.error instanceof AdminApiError && q.error.status === 403,
+    (q) => q.isError && q.error instanceof ApiClientError && q.error.status === 403,
   );
   const isLoading = pageQueries.some((q) => q.isLoading);
   const items = pageQueries.flatMap((q) => q.data?.items ?? []);
-  const lastPage = pageQueries[pageQueries.length - 1];
-  const nextCursor = lastPage?.data?.nextCursor ?? null;
+  const nextCursor = pageQueries[pageQueries.length - 1]?.data?.nextCursor ?? null;
   const isFetchingMore = pageQueries.some((q) => q.isFetching);
 
   return (
-    <div className="flex min-h-screen flex-col items-center px-6 py-16">
-      <div className="flex w-full max-w-lg flex-col gap-6">
+    <div className="flex min-h-screen flex-col items-center px-4 py-12 sm:px-6">
+      <div className="flex w-full max-w-3xl flex-col gap-6">
         <h1 className="text-center text-2xl font-bold tracking-tight">{t.title}</h1>
 
         {isForbidden ? (
@@ -212,7 +203,7 @@ export function ReportsQueue() {
             ) : (
               <div className="flex flex-col gap-4">
                 {items.map((report) => (
-                  <ReportCard key={report.id} report={report} onRemove={removeItem} />
+                  <ReportCard key={report.id} report={report} onHandled={handled} />
                 ))}
               </div>
             )}

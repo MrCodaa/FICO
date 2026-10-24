@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { countries } from "@/content/catalog";
 import { sr } from "@/content/sr";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
-import { isValidLinkedinUrl, isValidVideoUrl, isValidWebUrl } from "@/features/profile/urlSchemas";
+import { isAcceptablePhoto } from "@/features/profile/photoCheck";
+import { isValidInstagramUrl, isValidLinkedinUrl, isValidSchedulingUrl, isValidTwitterUrl, isValidVideoUrl } from "@/features/profile/urlSchemas";
 
 import { ApiError, uploadPhoto } from "../api";
 import { CityCombobox } from "../CityCombobox";
@@ -34,20 +35,26 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
   const photoUrl = watch("photoUrl");
   const noLinkedin = watch("noLinkedin");
   const countryCode = watch("countryCode");
+  const fieldErrors = useContext(FieldErrorsContext);
+  // Živa provjera linka; kad Field već prikazuje grešku za isto polje (poslije slanja), ne dupliraj je.
   const urlError = (name: "linkedinUrl" | "videoUrl" | "schedulingUrl" | "twitterUrl" | "instagramUrl", check: (v: string) => boolean, message: string) => {
+    if (fieldErrors[name]) return null;
     const value = (watch(name) ?? "").trim();
     return value && !check(value) ? <p className="text-destructive text-sm">{message}</p> : null;
   };
   const countryField = register("countryCode");
-  const fieldErrors = useContext(FieldErrorsContext);
 
   const handleFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
 
-    setUploading(true);
     setPhotoError(null);
+    if (!isAcceptablePhoto(file)) {
+      setPhotoError(errors.photoClientInvalid);
+      return;
+    }
+    setUploading(true);
     try {
       const blob = await resizeImageToBlob(file, 800);
       const { photoUrl: uploadedUrl } = await uploadPhoto(blob, file.name);
@@ -206,17 +213,17 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
 
       <Field label={t.schedulingUrl} htmlFor="schedulingUrl">
         <Input id="schedulingUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("schedulingUrl")} />
-        {urlError("schedulingUrl", isValidWebUrl, errors.urlInvalid)}
+        {urlError("schedulingUrl", isValidSchedulingUrl, errors.schedulingInvalid)}
       </Field>
 
       <Field label={t.twitterUrl} htmlFor="twitterUrl">
         <Input id="twitterUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("twitterUrl")} />
-        {urlError("twitterUrl", isValidWebUrl, errors.urlInvalid)}
+        {urlError("twitterUrl", isValidTwitterUrl, errors.twitterInvalid)}
       </Field>
 
       <Field label={t.instagramUrl} htmlFor="instagramUrl">
         <Input id="instagramUrl" type="text" inputMode="url" autoCapitalize="none" spellCheck={false} {...register("instagramUrl")} />
-        {urlError("instagramUrl", isValidWebUrl, errors.urlInvalid)}
+        {urlError("instagramUrl", isValidInstagramUrl, errors.instagramInvalid)}
       </Field>
 
       <Field label={t.heardFrom} htmlFor="heardFrom">
