@@ -108,7 +108,19 @@ export function submitRules(
   }
 }
 
-export const profileDraftSchema = profileBaseSchema.partial().superRefine(cityMatchesCountry);
+// Nacrt čuva null za sve što korisnik još nije popunio (kolone su nullable),
+// osim polja koja u bazi nisu nullable (noLinkedin, areas, interests).
+const { noLinkedin, areas, interests, ...nullableDraftFields } = profileBaseSchema.shape;
+type NullableShape<T extends z.ZodRawShape> = { [K in keyof T]: z.ZodNullable<T[K]> };
+const nullableDraftShape = Object.fromEntries(
+  Object.entries(nullableDraftFields).map(([key, field]) => [key, field.nullable()]),
+) as NullableShape<typeof nullableDraftFields>;
+export const profileDraftSchema = z
+  .object({ ...nullableDraftShape, noLinkedin, areas, interests })
+  .partial()
+  .superRefine((data, ctx) =>
+    cityMatchesCountry({ city: data.city ?? undefined, countryCode: data.countryCode ?? undefined }, ctx),
+  );
 
 export const profileSubmitSchema = profileBaseSchema
   .extend({
