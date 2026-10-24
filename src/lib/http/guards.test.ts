@@ -5,7 +5,8 @@ const findUnique = vi.fn();
 const getSessionPayload = vi.fn();
 
 vi.mock("@/lib/db", () => ({ db: { user: { findUnique } } }));
-vi.mock("@/lib/auth/session", () => ({ getSessionPayload }));
+const getAdminPayload = vi.fn();
+vi.mock("@/lib/auth/session", () => ({ getSessionPayload, getAdminPayload }));
 
 const { guards } = await import("./guards");
 
@@ -71,5 +72,18 @@ describe("guards", () => {
 
   it("approved: odobren profil prolazi", async () => {
     await expect(guards.approved(req)).resolves.toEqual({ userId: "user-1" });
+  });
+});
+
+describe("guards.admin", () => {
+  it("čita samo admin sesiju, ne korisničku", async () => {
+    const getAdminPayload = (await import("@/lib/auth/session")).getAdminPayload as unknown as ReturnType<typeof vi.fn>;
+    getAdminPayload.mockResolvedValue(null);
+    getSessionPayload.mockResolvedValue({ sub: "user-1", tv: 0 });
+    process.env.ADMIN_EMAILS = "a@b.com";
+    await expect(guards.admin(req)).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+
+    getAdminPayload.mockResolvedValue({ sub: "user-1", tv: 0 });
+    await expect(guards.admin(req)).resolves.toEqual({ userId: "user-1" });
   });
 });

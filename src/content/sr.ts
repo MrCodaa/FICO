@@ -1,4 +1,23 @@
 export const sr = {
+  // Opšte zod poruke (globalni error map u src/lib/zodErrorMap.ts); šeme sa svojom porukom ih zaobilaze.
+  validation: {
+    required: "Greška: ovo polje je obavezno",
+    invalid: "Greška: neispravna vrijednost",
+    email: "Greška: unesi ispravnu email adresu",
+    url: "Greška: unesi ispravan link",
+    stringMin: (n: number) => `Greška: mora imati najmanje ${n} ${n % 10 === 1 && n % 100 !== 11 ? "znak" : "znakova"}`,
+    stringMax: (n: number) => `Greška: može imati najviše ${n} znakova`,
+    stringExact: (n: number) => `Greška: mora imati tačno ${n} znakova`,
+    numberMin: (n: number) => `Greška: vrijednost mora biti najmanje ${n}`,
+    numberMax: (n: number) => `Greška: vrijednost može biti najviše ${n}`,
+    arrayMin: (n: number) => `Greška: izaberi najmanje ${n}`,
+    arrayMax: (n: number) => `Greška: izaberi najviše ${n}`,
+    arrayExact: (n: number) => `Greška: potrebno je tačno ${n} stavki`,
+    notNumber: "Greška: unesi broj",
+    notInteger: "Greška: unesi cijeli broj",
+    option: "Greška: izaberi jednu od ponuđenih opcija",
+    password: "Greška: lozinka mora imati najmanje 8 znakova",
+  },
   landing: {
     brand: "FICO",
     nav: {
@@ -133,6 +152,7 @@ export const sr = {
       passwordMismatch: "Greška: lozinke se ne poklapaju",
       validationError: "Ispravi označena polja",
       invalidCredentials: "Email ili lozinka nisu tačni.",
+      loginLocked: (minutes: number) => `Greška: previše pokušaja. Pokušaj ponovo za ${minutes} min.`,
       emailTaken: "Nalog sa ovim emailom već postoji.",
       emailDomainMissing: "Greška: domen ovog emaila ne postoji. Provjeri da li je email ispravno ukucan.",
       tokenInvalid: "Link nije validan ili je istekao.",
@@ -600,10 +620,10 @@ export const sr = {
     trust:
       "Povjerenje zajednice nam je jako važno. Ako te neko uznemirava, koristi platformu da prodaje usluge ili radi bilo šta osim traženja co-foundera, ili te kontaktira bez saglasnosti van platforme — prijavi ga.",
     pending:
-      "Tvoj profil čeka pregled. Obično traje do nekoliko dana. Čim ga odobrimo, dobićeš obavještenje i email, a ostale funkcije (Otkrij profile, Zahtjevi, Poruke) će se otključati.",
+      "Tvoj profil čeka pregled. Obično traje do nekoliko dana. Čim ga odobrimo, dobićeš obavještenje i email. Otkrij profile, Zahtjevi i Poruke postaju dostupni čim tvoj profil bude odobren.",
     pendingTitle: "Tvoj profil čeka odobrenje",
     pendingBody:
-      "Pregled profila traje do nedelju dana. Čim ga odobrimo, dobićeš mejl, a Otkrij profile, Zahtjevi i Poruke će se otključati. Do tada možeš pregledati Kontrolnu tablu i uređivati nalog.",
+      "Pregled profila traje do nedelju dana. Čim ga odobrimo, dobićeš mejl. Otkrij profile, Zahtjevi i Poruke postaju dostupni čim tvoj profil bude odobren.",
     backToDashboard: "Nazad na Kontrolnu tablu",
     draft: "Tvoj profil još nije poslat na pregled. Završi ga i pošalji da bi otkrivao druge osnivače.",
     rejected: "Tvoj profil nije odobren. Razlog:",

@@ -4,12 +4,14 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
+import { useAdminUrls } from "@/features/admin/AdminPathContext";
 
 export function AdminLogoutButton() {
   const router = useRouter();
+  const { api, href } = useAdminUrls();
   const logout = async () => {
-    await fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => undefined);
-    router.replace("/admin/prijava");
+    await fetch(api("/logout"), { method: "POST", credentials: "include" }).catch(() => undefined);
+    router.replace(href());
     router.refresh();
   };
   return (

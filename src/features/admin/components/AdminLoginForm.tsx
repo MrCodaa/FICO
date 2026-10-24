@@ -8,35 +8,38 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PasswordInput } from "@/components/ui/password-input";
 import { sr } from "@/content/sr";
+import { useAdminUrls } from "@/features/admin/AdminPathContext";
 
 const t = sr.admin.login;
 
 export function AdminLoginForm() {
   const router = useRouter();
+  const { api, href } = useAdminUrls();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setPending(true);
-    setError(false);
+    setError(null);
     try {
-      const res = await fetch("/api/admin/login", {
+      const res = await fetch(api("/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ email, password }),
       });
       if (!res.ok) {
-        setError(true);
+        const data = (await res.json().catch(() => null)) as { error?: { code?: string; message?: string } } | null;
+        setError(data?.error?.code === "TOO_MANY_REQUESTS" && data.error.message ? data.error.message : t.error);
         return;
       }
-      router.replace("/admin");
+      router.replace(href());
       router.refresh();
     } catch {
-      setError(true);
+      setError(t.error);
     } finally {
       setPending(false);
     }
@@ -66,7 +69,7 @@ export function AdminLoginForm() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
-          {error && <p className="text-destructive text-sm">{t.error}</p>}
+          {error && <p className="text-destructive text-sm">{error}</p>}
           <Button type="submit" disabled={pending} className="mt-2">
             {t.submit}
           </Button>

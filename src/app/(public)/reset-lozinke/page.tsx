@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import "@/lib/zodErrorMap";
 import { useMutation } from "@tanstack/react-query";
 import type { z } from "zod";
 

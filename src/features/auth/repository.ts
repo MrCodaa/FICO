@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { ATTEMPT_RETENTION_MS, emailAttemptKey } from "./lockout";
 import type { ProfileStatus, TokenType } from "@/generated/prisma/client";
 
 export interface AuthUserRecord {
@@ -7,6 +8,12 @@ export interface AuthUserRecord {
   passwordHash: string;
   tokenVersion: number;
   deactivatedAt: Date | null;
+}
+
+export interface LoginAttemptRecord {
+  key: string;
+  failedCount: number;
+  lockedUntil: Date | null;
 }
 
 export interface AuthMeRecord {
@@ -42,13 +49,23 @@ export interface AuthRepository {
   acceptAgreement(userId: string, now: Date): Promise<void>;
   deleteUser(userId: string): Promise<void>;
   clearEmailBlock(userId: string): Promise<void>;
+  findLoginAttempts(keys: string[]): Promise<LoginAttemptRecord[]>;
+  /** Atomski ++ brojača (upsert); kad dosegne `max`, upisuje lockedUntil. Vraća novi brojač. */
+  registerFailedAttempt(key: string, max: number, lockedUntil: Date, now: Date): Promise<number>;
+  clearLoginAttempt(key: string): Promise<void>;
 }
 
 export const authRepository: AuthRepository = {
   async findUserByEmail(email) {
     return db.user.findUnique({
       where: { email },
-      select: { id: true, email: true, passwordHash: true, tokenVersion: true, deactivatedAt: true },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        tokenVersion: true,
+        deactivatedAt: true,
+      },
     });
   },
 
@@ -116,10 +133,12 @@ export const authRepository: AuthRepository = {
     return db.$transaction(async (tx) => {
       const result = await tx.authToken.updateMany({ where: { id: tokenId, usedAt: null }, data: { usedAt: now } });
       if (result.count === 0) return false;
-      await tx.user.update({
+      const { email } = await tx.user.update({
         where: { id: userId },
         data: { passwordHash, tokenVersion: { increment: 1 } },
+        select: { email: true },
       });
+      await tx.loginAttempt.deleteMany({ where: { key: emailAttemptKey(email) } });
       return true;
     });
   },
@@ -130,6 +149,33 @@ export const authRepository: AuthRepository = {
 
   async clearEmailBlock(userId) {
     await db.user.update({ where: { id: userId }, data: { emailBlockedAt: null, emailBlockReason: null } });
+  },
+
+  async findLoginAttempts(keys) {
+    return db.loginAttempt.findMany({
+      where: { key: { in: keys } },
+      select: { key: true, failedCount: true, lockedUntil: true },
+    });
+  },
+
+  async registerFailedAttempt(key, max, lockedUntil, now) {
+    // Increment je atomski u bazi (upsert, bez čitaj-pa-piši); zaključavanje je idempotentno.
+    const { failedCount } = await db.loginAttempt.upsert({
+      where: { key },
+      create: { key, failedCount: 1 },
+      update: { failedCount: { increment: 1 } },
+      select: { failedCount: true },
+    });
+    if (failedCount >= max) {
+      await db.loginAttempt.update({ where: { key }, data: { lockedUntil } });
+    }
+    // Oportunistično čišćenje starih redova (bez crona).
+    await db.loginAttempt.deleteMany({ where: { updatedAt: { lt: new Date(now.getTime() - ATTEMPT_RETENTION_MS) } } });
+    return failedCount;
+  },
+
+  async clearLoginAttempt(key) {
+    await db.loginAttempt.deleteMany({ where: { key } });
   },
 
   async deleteUser(userId) {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 import { countryCodes, interestCodes } from "@/content/catalog";
 import { findCatalogCity } from "@/content/cities-search";
 import { sr } from "@/content/sr";

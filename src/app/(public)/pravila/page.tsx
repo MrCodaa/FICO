@@ -6,6 +6,8 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
+import { getNextRoute } from "@/lib/nextRoute";
+import { refreshMe } from "@/lib/refreshMe";
 
 function errorMessage(code: string): string {
   switch (code) {
@@ -39,12 +41,11 @@ export default function AgreementPage() {
         throw new Error(body?.error?.code ?? "GENERIC");
       }
     },
-    onSuccess: () => {
-      // Pravila su korak neposredno prije kreiranja profila — normalan tok
-      // nakon prihvatanja je uvijek popunjavanje profila.
-      // agreementAccepted se promijenio — bez ovoga /app vidi stari Me i vrati na pravila.
-      queryClient.invalidateQueries({ queryKey: ["me"] });
-      router.push("/app/profile");
+    onSuccess: async () => {
+      // agreementAccepted se promijenio: keš ["me"] mora biti svjež prije navigacije,
+      // inače (app) layout vidi stari Me i vrati korisnika na pravila (drugi krug).
+      const me = await refreshMe(queryClient);
+      router.push(me ? getNextRoute(me) : "/prijava");
     },
   });
 

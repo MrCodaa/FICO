@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 import { sr } from "@/content/sr";
 
 /** Domeni na kojima smije biti video predstavljanje (uključuju i sve poddomene). */

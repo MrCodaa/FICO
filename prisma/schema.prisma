@@ -155,6 +155,14 @@ model User {
   reportsAbout  Report[]       @relation("Reported")
 }
 
+// Brojači pogrešnih prijava; ključ "email:<lowercase>" ili "ip:<adresa>". Ne zavisi od postojanja naloga.
+model LoginAttempt {
+  key         String    @id
+  failedCount Int       @default(0)
+  lockedUntil DateTime?
+  updatedAt   DateTime  @updatedAt
+}
+
 model AuthToken {
   id        String    @id @default(cuid())
   userId    String

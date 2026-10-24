@@ -9,6 +9,7 @@ import { sr } from "@/content/sr";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 import { ProfileFullView } from "@/features/profile/components/ProfileFullView";
 import { ApiClientError, apiFetch } from "@/lib/http/apiClient";
+import { useAdminUrls } from "@/features/admin/AdminPathContext";
 import { cn } from "@/lib/utils";
 
 const t = sr.admin.queue;
@@ -67,17 +68,17 @@ interface ProfilesResponse {
   nextCursor: string | null;
 }
 
-const fetchProfiles = (status: ReviewStatus, cursor: string | null) => {
+const fetchProfiles = (api: (sub?: string) => string, status: ReviewStatus, cursor: string | null) => {
   const params = new URLSearchParams({ status });
   if (cursor) params.set("cursor", cursor);
-  return apiFetch<ProfilesResponse>(`/api/admin/profiles?${params.toString()}`);
+  return apiFetch<ProfilesResponse>(api(`/profiles?${params.toString()}`));
 };
 
-const approveProfile = (userId: string) =>
-  apiFetch<void>(`/api/admin/profiles/${userId}/approve`, { method: "POST" });
+const approveProfile = (api: (sub?: string) => string, userId: string) =>
+  apiFetch<void>(api(`/profiles/${userId}/approve`), { method: "POST" });
 
-const rejectProfile = (userId: string, reason: string) =>
-  apiFetch<void>(`/api/admin/profiles/${userId}/reject`, { method: "POST", json: { reason } });
+const rejectProfile = (api: (sub?: string) => string, userId: string, reason: string) =>
+  apiFetch<void>(api(`/profiles/${userId}/reject`), { method: "POST", json: { reason } });
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString("sr-Latn") : "—";
@@ -96,6 +97,7 @@ function ReviewDetail({
   onBack: () => void;
   onHandled: (userId: string) => void;
 }) {
+  const { api } = useAdminUrls();
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState("");
   const [showReasonError, setShowReasonError] = useState(false);
@@ -110,7 +112,7 @@ function ReviewDetail({
   };
 
   const approveMutation = useMutation({
-    mutationFn: () => approveProfile(profile.userId),
+    mutationFn: () => approveProfile(api, profile.userId),
     onSuccess: () => {
       onHandled(profile.userId);
       onBack();
@@ -119,7 +121,7 @@ function ReviewDetail({
   });
 
   const rejectMutation = useMutation({
-    mutationFn: () => rejectProfile(profile.userId, reason.trim()),
+    mutationFn: () => rejectProfile(api, profile.userId, reason.trim()),
     onSuccess: () => {
       onHandled(profile.userId);
       onBack();
@@ -253,7 +255,8 @@ function ReviewRow({ profile, onOpen }: { profile: AdminProfile; onOpen: () => v
   );
 }
 
-export default function AdminPage() {
+export function ReviewQueue() {
+  const { api } = useAdminUrls();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState<ReviewStatus>("PENDING_REVIEW");
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
@@ -262,7 +265,7 @@ export default function AdminPage() {
   const pageQueries = useQueries({
     queries: cursors.map((cursor) => ({
       queryKey: ["admin", "profiles", status, cursor],
-      queryFn: () => fetchProfiles(status, cursor),
+      queryFn: () => fetchProfiles(api, status, cursor),
     })),
   });
 

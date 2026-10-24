@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 import { withRoute } from "@/lib/http/withRoute";
 import { container } from "@/lib/container";
 

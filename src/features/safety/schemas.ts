@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 
 export const createBlockSchema = z.object({
   userId: z.string().min(1),

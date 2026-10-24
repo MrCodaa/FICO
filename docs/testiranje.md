@@ -41,7 +41,8 @@ incognito prozoru.
    - `JWT_SECRET` = bilo koji nasumičan niz od 32+ znakova
    - `APP_URL=http://localhost:3000`
    - `EMAIL_PROVIDER=console` (mejlovi se ispisuju u terminal, bez Resenda)
-   - `ADMIN_EMAILS` = mejl admina (za `/admin`)
+   - `ADMIN_EMAILS` = mejl admina
+   - `ADMIN_PATH` ostavi prazno u razvoju: admin panel je tada na `http://localhost:3000/upravljanje`
 4. `npm run db:generate`, `npm run db:migrate`, `npm run db:seed`.
 5. `npm run dev`, pa `http://localhost:3000/dev/login`.
 
@@ -55,7 +56,7 @@ To je normalno (seed je idempotentan).
    "Ako nisi ti napravio/la nalog").
 2. Prijava, pa pravila platforme (6 potvrda), pa profil u 4 koraka sa slikom, pa
    "Pošalji na pregled". Dok admin ne odobri, aplikacija je zaključana.
-3. Admin: `/admin/prijava` sa nalogom čiji je mejl u `ADMIN_EMAILS`. Tu vidiš cijelu prijavu i
+3. Admin: `/upravljanje` (u razvoju; u produkciji je to vrijednost `ADMIN_PATH`) sa nalogom čiji je mejl u `ADMIN_EMAILS`. Tu vidiš cijelu prijavu i
    biraš Odobri ili Odbij (razlog je obavezan, korisnik ga dobija mejlom i u zvoncu).
    Da test nalog bude admin, dodaj ga u `ADMIN_EMAILS`, npr. `test1@fico.test`, pa restartuj server.
 4. Zaboravljena lozinka: link na stranici prijave; link za reset se takođe ispiše u terminalu.

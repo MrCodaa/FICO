@@ -1,4 +1,5 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 import { sr } from "@/content/sr";
 import { linkedinUrlSchema } from "@/features/profile/urlSchemas";
 
@@ -7,7 +8,7 @@ export const registerSchema = z
     firstName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
     lastName: z.string().trim().min(1, { error: () => sr.profile.errors.required }).max(100),
     email: z.string().trim().toLowerCase().email(),
-    password: z.string().min(8),
+    password: z.string().min(8, { error: () => sr.validation.password }),
     linkedinUrl: linkedinUrlSchema,
     noLinkedin: z.boolean().default(false),
   })
@@ -35,7 +36,7 @@ export const forgotPasswordSchema = z.object({
 
 export const resetPasswordSchema = z.object({
   token: z.string().min(1),
-  password: z.string().min(8),
+  password: z.string().min(8, { error: () => sr.validation.password }),
 });
 
 export const agreementSchema = z.object({

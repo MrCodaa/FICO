@@ -23,7 +23,7 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 | `verified` | `auth` + potvrđen email | 403 `EMAIL_NOT_VERIFIED` |
 | `onboarded` | `verified` + prihvaćena pravila | 403 `AGREEMENT_REQUIRED` |
 | `approved` | `onboarded` + profil `APPROVED` | 403 `PROFILE_NOT_APPROVED` |
-| `admin` | `auth` + email u `ADMIN_EMAILS` | 403 `FORBIDDEN` |
+| `admin` | validan `fico_admin` token (typ `admin`), `tokenVersion` se poklapa, nalog nije deaktiviran, email u `ADMIN_EMAILS`; `fico_session` se ne gleda | 401 `UNAUTHENTICATED`, 403 `FORBIDDEN` |
 
 ### Kodovi grešaka
 
@@ -38,13 +38,22 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 
 ## Endpointi
 
+### Admin sesija i zaključavanje prijave
+
+- **Odvojene sesije:** običan login postavlja `fico_session` (JWT `typ: session`, 7 dana, SameSite=Lax), a admin login `fico_admin` (JWT `typ: admin`, 2 sata, SameSite=Strict, httpOnly, Secure u produkciji). Isti `JWT_SECRET`, ali verifikacija traži tačan `typ`: korisnički token ne važi kao admin i obrnuto. Nema prelaza admin ↔ aplikacija; svaka sesija se otvara i zatvara zasebno.
+- **Skrivena adresa admin panela:** panel ne živi na `/admin`. Adresa je env varijabla `ADMIN_PATH` (jedan segment, regex `^/[a-z0-9-]{1,59}` plus završetak niza, ne smije zauzeti postojeću rutu, npr. `/upravljanje-k7x2q`). U razvoju bez nje je zadano `/upravljanje`; u produkciji bez ispravne vrijednosti admin je ugašen (sve admin rute 404). `proxy.ts` (logika u `src/lib/admin/route.ts`) prepisuje `ADMIN_PATH/**` na interni folder `src/app/sys-panel`, a `ADMIN_PATH/api/**` na `/api/admin/**`. Direktan pristup `/admin/**`, `/sys-panel/**` i `/api/admin/**` uvijek vraća 404. Bez `fico_admin` kolačića rade samo tačan `ADMIN_PATH` (forma za prijavu) i `ADMIN_PATH/api/login|logout`; sve ostalo je običan 404 bez preusmjeravanja. Odgovori su `no-store` i `noindex`. Putevi `/api/admin/*` u ovom dokumentu su interni; javni oblik je `ADMIN_PATH/api/*`.
+- `POST /api/admin/login` (public, `{ email, password }`): ista provjera lozinke i isto zaključavanje kao obična prijava; ako email nije u `ADMIN_EMAILS`, odgovor je 401 `INVALID_CREDENTIALS` (isti kao pogrešna lozinka) i bez kolačića. Uspjeh: 200 `{ ok: true }` + samo `fico_admin`.
+- `POST /api/admin/logout` (public): 204, briše samo `fico_admin`. `POST /api/auth/logout` briše samo `fico_session`.
+- `tokenVersion` se provjerava i za admin sesiju (reset lozinke je poništava), a deaktiviran nalog ne prolazi.
+- **Zaključavanje:** brojači pogrešnih prijava ne zavise od toga postoji li nalog. Tabela `LoginAttempt` (`key`, `failedCount`, `lockedUntil`, `updatedAt`) vodi ključ `email:<lowercase email>` (i za nepostojeće mejlove) i `ip:<adresa>`; IP je prvi element `x-forwarded-for`, pa `x-real-ip`, inače `unknown` (`src/lib/http/clientIp.ts`; servis dobija `ip` iz rute). 5 pogrešnih po emailu ili 20 po IP adresi postavlja `lockedUntil` na sada + 15 min (konstante u `src/features/auth/lockout.ts`); brojač se povećava atomski (upsert + increment). Dok je bilo koji ključ zaključan, prijava (obična i admin) vraća 429 `TOO_MANY_REQUESTS` ("Greška: previše pokušaja. Pokušaj ponovo za N min.") i ne provjerava lozinku; poruka je ista za postojeći i nepostojeći nalog, a za nepostojeći se radi lažna bcrypt provjera radi sličnog vremena odgovora. Uspješna prijava i reset lozinke brišu email ključ (IP ključ ostaje), istek zaključavanja briše ključ, a redovi stariji od 1 dan brišu se oportunistički pri upisu.
+
 ### Faza 2: Nalog
 
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
 | POST | `/api/auth/register` | public | `{ firstName, lastName, email, password (min 8), linkedinUrl?, noLinkedin }` (LinkedIn link ili `noLinkedin: true`) | 201 `Me` + cookie; upisuje Profile(DRAFT) sa imenom i LinkedInom, šalje mail za potvrdu; 400 `VALIDATION_ERROR` (`fields.email` = "Greška: ...") ako domen emaila ne postoji |
-| POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie |
-| POST | `/api/auth/logout` | auth | — | 204, briše cookie |
+| POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie; 429 `TOO_MANY_REQUESTS` dok je nalog zaključan |
+| POST | `/api/auth/logout` | auth | — | 204, briše cookie `fico_session` (ne dira `fico_admin`) |
 | POST | `/api/auth/verify-email` | public | `{ token }` | 204 |
 | POST | `/api/auth/resend-verification` | auth | — | 204; 429 ako je prethodni mail mlađi od 60 s |
 | POST | `/api/auth/forgot-password` | public | `{ email }` | 204 uvijek (ne otkriva da li nalog postoji) |

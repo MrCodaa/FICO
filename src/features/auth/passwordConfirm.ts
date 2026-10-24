@@ -1,10 +1,11 @@
 import { z } from "zod";
+import "@/lib/zodErrorMap";
 
 import { sr } from "@/content/sr";
 
 /** Polja forme: lozinka + ponovljena lozinka. API ugovor se ne mijenja (confirmPassword se ne šalje). */
 export const passwordWithConfirmShape = {
-  password: z.string().min(8),
+  password: z.string().min(8, { error: () => sr.validation.password }),
   confirmPassword: z.string(),
 };
 

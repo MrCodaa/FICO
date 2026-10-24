@@ -5,6 +5,7 @@ import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
+import { useAdminUrls } from "@/features/admin/AdminPathContext";
 
 const t = sr.adminReports;
 const reasonLabels = sr.safety.report.reasons;
@@ -46,10 +47,10 @@ interface ReportsResponse {
   nextCursor: string | null;
 }
 
-async function fetchReports(cursor: string | null): Promise<ReportsResponse> {
+async function fetchReports(api: (sub?: string) => string, cursor: string | null): Promise<ReportsResponse> {
   const params = new URLSearchParams({ status: "OPEN" });
   if (cursor) params.set("cursor", cursor);
-  const res = await fetch(`/api/admin/reports?${params.toString()}`, { credentials: "include" });
+  const res = await fetch(api(`/reports?${params.toString()}`), { credentials: "include" });
   if (res.status === 403) {
     throw new AdminApiError(403, "FORBIDDEN");
   }
@@ -60,8 +61,8 @@ async function fetchReports(cursor: string | null): Promise<ReportsResponse> {
   return body as ReportsResponse;
 }
 
-async function resolveReport(id: string, status: ResolveStatus, deactivateUser: boolean): Promise<void> {
-  const res = await fetch(`/api/admin/reports/${id}/resolve`, {
+async function resolveReport(api: (sub?: string) => string, id: string, status: ResolveStatus, deactivateUser: boolean): Promise<void> {
+  const res = await fetch(api(`/reports/${id}/resolve`), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     credentials: "include",
@@ -86,15 +87,16 @@ function formatDate(dateStr: string): string {
 }
 
 function ReportCard({ report, onRemove }: { report: ReportItem; onRemove: (id: string) => void }) {
+  const { api } = useAdminUrls();
   const [deactivateUser, setDeactivateUser] = useState(false);
 
   const resolveMutation = useMutation({
-    mutationFn: () => resolveReport(report.id, "RESOLVED", deactivateUser),
+    mutationFn: () => resolveReport(api, report.id, "RESOLVED", deactivateUser),
     onSuccess: () => onRemove(report.id),
   });
 
   const dismissMutation = useMutation({
-    mutationFn: () => resolveReport(report.id, "DISMISSED", false),
+    mutationFn: () => resolveReport(api, report.id, "DISMISSED", false),
     onSuccess: () => onRemove(report.id),
   });
 
@@ -168,14 +170,15 @@ function ReportCard({ report, onRemove }: { report: ReportItem; onRemove: (id: s
   );
 }
 
-export default function AdminReportsPage() {
+export function ReportsQueue() {
+  const { api } = useAdminUrls();
   const queryClient = useQueryClient();
   const [cursors, setCursors] = useState<(string | null)[]>([null]);
 
   const pageQueries = useQueries({
     queries: cursors.map((cursor) => ({
       queryKey: ["admin", "reports", "OPEN", cursor],
-      queryFn: () => fetchReports(cursor),
+      queryFn: () => fetchReports(api, cursor),
     })),
   });
 

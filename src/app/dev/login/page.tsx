@@ -1,8 +1,9 @@
 // Razvojna prijava jednim klikom za test naloge (test1…test10@fico.test iz seed fajla).
 // Radi SAMO uz NODE_ENV === "development"; svugdje drugdje je 404. Prijava ide kroz isti
 // login servis kao obična prijava (tačna lozinka naloga), pa u produkciji nema zaobilaženja.
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
+import { getClientIp } from "@/lib/http/clientIp";
 import { container } from "@/lib/container";
 import { SESSION_COOKIE_NAME, sessionCookieOptions } from "@/lib/auth/session";
 import { getNextRoute } from "@/lib/nextRoute";
@@ -15,10 +16,10 @@ async function loginAs(formData: FormData) {
   if (process.env.NODE_ENV !== "development") notFound();
   const n = Number(formData.get("n"));
   if (!Number.isInteger(n) || n < 1 || n > TEST_ACCOUNT_COUNT) notFound();
-  const { me, sessionToken } = await container.authService.login({
-    email: testAccountEmail(n),
-    password: TEST_ACCOUNT_PASSWORD,
-  });
+  const { me, sessionToken } = await container.authService.login(
+    { email: testAccountEmail(n), password: TEST_ACCOUNT_PASSWORD },
+    getClientIp(await headers()),
+  );
   (await cookies()).set(SESSION_COOKIE_NAME, sessionToken, sessionCookieOptions());
   redirect(getNextRoute(me));
 }

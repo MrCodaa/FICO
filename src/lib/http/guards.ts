@@ -3,7 +3,7 @@
 import type { NextRequest } from "next/server";
 import { db } from "@/lib/db";
 import { ApiError } from "@/lib/errors";
-import { getSessionPayload } from "@/lib/auth/session";
+import { getAdminPayload, getSessionPayload } from "@/lib/auth/session";
 import { checkAdminSession } from "@/lib/auth/adminAccess";
 import { isEmailVerified } from "@/lib/auth/emailVerification";
 
@@ -69,7 +69,7 @@ export const guards: Record<GuardName, Guard> = {
     return { userId };
   },
   admin: async (req) => {
-    const result = await checkAdminSession(await getSessionPayload(req));
+    const result = await checkAdminSession(await getAdminPayload(req));
     if (result.status === "no-session") throw new ApiError("UNAUTHENTICATED", "Sesija je istekla.");
     if (result.status === "forbidden") throw new ApiError("FORBIDDEN", "Nemaš pristup.");
     return { userId: result.userId };
