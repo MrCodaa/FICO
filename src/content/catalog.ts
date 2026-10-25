@@ -11,7 +11,7 @@ export const countries: Country[] = [
   { code: "RS", name: "Srbija", region: "Zapadni Balkan" },
   { code: "HR", name: "Hrvatska", region: "Jadran" },
   { code: "ME", name: "Crna Gora", region: "Zapadni Balkan" },
-  { code: "MK", name: "Sjeverna Makedonija", region: "Zapadni Balkan" },
+  { code: "MK", name: "Makedonija", region: "Zapadni Balkan" },
   { code: "SI", name: "Slovenija", region: "Jadran" },
 ] as const;
 
@@ -24,6 +24,30 @@ export function normalizeCountryCode(code: string | null | undefined): string | 
   if (!code) return null;
   if (code in legacyCountryCodes) return legacyCountryCodes[code] ?? null;
   return code;
+}
+
+// Stara imena gradova (prije ujednačavanja na bosansku/federalnu upotrebu) -> trenutno ime u katalogu.
+// Profili u bazi čuvaju grad kao tekst, pa stari unosi i dalje prolaze validaciju i prikaz.
+export const legacyCityNames: Record<string, Record<string, string>> = {
+  BA: {
+    Brod: "Bosanski Brod",
+    Kostajnica: "Bosanska Kostajnica",
+    Kneževo: "Skender Vakuf",
+    "Kozarska Dubica": "Bosanska Dubica",
+    Šamac: "Bosanski Šamac",
+    Gradiška: "Bosanska Gradiška",
+    "Novi Grad": "Bosanski Novi",
+  },
+};
+
+/** Staro ime grada -> trenutno ime iz kataloga; sve ostalo vraća nepromijenjeno. */
+export function normalizeCityName(city: string, countryCode?: string | null): string {
+  const maps = countryCode ? [legacyCityNames[countryCode]] : Object.values(legacyCityNames);
+  for (const map of maps) {
+    const hit = map && Object.prototype.hasOwnProperty.call(map, city) ? map[city] : undefined;
+    if (hit) return hit;
+  }
+  return city;
 }
 
 export const countryCodes: readonly string[] = countries.map((c) => c.code);

@@ -9,6 +9,7 @@ import type {
   TechnicalPreference,
   Timing,
 } from "@/generated/prisma/client";
+import { normalizeCityName } from "@/content/catalog";
 import { computeAge } from "@/lib/age";
 import type { ProfileRecord, PreferenceRecord } from "./repository";
 
@@ -114,7 +115,7 @@ export function toProfileView(
     photoUrl: profile.photoUrl,
     linkedinUrl: profile.linkedinUrl,
     countryCode: profile.countryCode,
-    city: profile.city,
+    city: profile.city ? normalizeCityName(profile.city, profile.countryCode) : profile.city,
     intro: profile.intro,
     videoUrl: profile.videoUrl,
     accomplishment: profile.accomplishment,

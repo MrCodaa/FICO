@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { citiesByCountry, countries } from "@/content/catalog";
+import { citiesByCountry, countries, legacyCityNames, normalizeCityName } from "@/content/catalog";
+import { findCatalogCity } from "@/content/cities-search";
 
 // Minimalni brojevi zvaničnih jedinica lokalne samouprave (donja granica, da niko ne ispadne).
 const MIN_COUNT: Record<string, number> = {
-  BA: 140,
+  BA: 139, // 79 FBiH + 64 RS (Kupres i Trnovo isto ime u oba entiteta) + Brčko + Istočno Sarajevo; Skender Vakuf = Kneževo (jedan unos)
   RS: 188,
   HR: 540,
   ME: 25,
@@ -65,9 +66,29 @@ describe("catalog gradova", () => {
     }
   });
 
-  it("ukinute opštine Sjeverne Makedonije (spojene u Kičevo 2013) nisu u katalogu", () => {
+  it("ukinute opštine Makedonije (spojene u Kičevo 2013) nisu u katalogu", () => {
     for (const name of ["Zajas", "Oslomej", "Drugovo", "Vraneštica"]) {
       expect(citiesByCountry.MK).not.toContain(name);
     }
+  });
+
+  it("BiH koristi bosansku (predratnu) upotrebu imena, a stara imena se mapiraju na nova", () => {
+    const ba = citiesByCountry.BA ?? [];
+    for (const name of ["Bosanski Brod", "Bosanska Kostajnica", "Bosanska Dubica", "Bosanski Šamac", "Bosanska Gradiška", "Bosanski Novi", "Skender Vakuf", "Istočno Sarajevo", "Foča"]) {
+      expect(ba, name).toContain(name);
+    }
+    for (const old of ["Srpski Brod", "Srbinje", "Srpsko Sarajevo", "Srpska Kostajnica", "Kneževo", "Kozarska Dubica", "Brod", "Kostajnica", "Šamac", "Gradiška", "Novi Grad"]) {
+      expect(ba, old).not.toContain(old);
+    }
+    for (const [old, now] of Object.entries(legacyCityNames.BA ?? {})) {
+      expect(ba, now).toContain(now);
+      expect(normalizeCityName(old, "BA")).toBe(now);
+      expect(findCatalogCity(old, "BA")).toBe(now);
+    }
+    expect(normalizeCityName("Sarajevo", "BA")).toBe("Sarajevo");
+  });
+
+  it("država MK se zove Makedonija", () => {
+    expect(countries.find((c) => c.code === "MK")?.name).toBe("Makedonija");
   });
 });

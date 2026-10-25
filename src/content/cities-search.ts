@@ -1,4 +1,4 @@
-import { citiesByCountry } from "@/content/catalog";
+import { citiesByCountry, legacyCityNames } from "@/content/catalog";
 
 // Pretraga i poređenje gradova. Čista logika (bez I/O), dijele je combobox u formi
 // i Zod šema profila, pa forma i API vide isto pravilo. Grad se bira isključivo iz kataloga.
@@ -27,6 +27,10 @@ const allCities: { name: string; folded: string }[] = Object.values(citiesByCoun
 export function findCatalogCity(value: string, countryCode?: string): string | null {
   const folded = foldText(value);
   if (!folded) return null;
+  const legacy = (countryCode ? [legacyCityNames[countryCode]] : Object.values(legacyCityNames))
+    .flatMap((map) => Object.entries(map ?? {}))
+    .find(([old]) => foldText(old) === folded);
+  if (legacy) return legacy[1];
   const pool = countryCode
     ? (citiesByCountry[countryCode] ?? []).map((name) => ({ name, folded: foldText(name) }))
     : allCities;

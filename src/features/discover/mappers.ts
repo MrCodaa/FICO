@@ -1,6 +1,7 @@
 import type { DecisionType, Gender, IdeaStatus, Timing } from "@/generated/prisma/client";
 import type { ProfileRecord } from "@/features/profile/repository";
 import { effectiveStatus, toDisplayStatus } from "@/features/requests/repository";
+import { normalizeCityName } from "@/content/catalog";
 import { computeAge } from "@/lib/age";
 import type { RelationRow } from "./repository";
 
@@ -26,7 +27,7 @@ export function toProfileCard(profile: ProfileRecord, now: Date): ProfileCard {
     lastName: profile.lastName,
     photoUrl: profile.photoUrl,
     countryCode: profile.countryCode,
-    city: profile.city,
+    city: profile.city ? normalizeCityName(profile.city, profile.countryCode) : profile.city,
     // Podešavanja → "sakrij godine": drugi ne vide godine.
     age: profile.birthDate && !profile.hideAge ? computeAge(profile.birthDate, now) : null,
     gender: profile.gender,
