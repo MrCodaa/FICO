@@ -140,13 +140,13 @@ export const rawCitiesByCountry: Record<string, string[]> = {
     // Skoplje je jedan grad; njegove gradske opštine (Čair, Karpoš, Centar, Aerodrom, Gazi Baba, ...) nisu posebno navedene.
     "Skoplje",
     "Aračinovo", "Berovo", "Bitola", "Bogdanci", "Bogovinje", "Bosilovo", "Brvenica", "Čaška", "Centar Župa",
-    "Čučer-Sandevo", "Debar", "Debarca", "Delčevo", "Demir Hisar", "Demir Kapija", "Dojran", "Dolneni", "Drugovo",
+    "Čučer-Sandevo", "Debar", "Debarca", "Delčevo", "Demir Hisar", "Demir Kapija", "Dojran", "Dolneni",
     "Gevgelija", "Gostivar", "Gradsko", "Ilinden", "Jegunovce", "Karbinci", "Kavadarci", "Kičevo", "Kočani",
     "Konče", "Kratovo", "Kriva Palanka", "Krivogaštani", "Kruševo", "Kumanovo", "Lipkovo", "Lozovo",
     "Makedonska Kamenica", "Makedonski Brod", "Mavrovo i Rostuša", "Mogila", "Negotino", "Novaci", "Novo Selo",
-    "Ohrid", "Oslomej", "Pehčevo", "Petrovec", "Plasnica", "Prilep", "Probištip", "Radoviš", "Rankovce", "Resen",
+    "Ohrid", "Pehčevo", "Petrovec", "Plasnica", "Prilep", "Probištip", "Radoviš", "Rankovce", "Resen",
     "Rosoman", "Sopište", "Staro Nagoričane", "Strumica", "Struga", "Studeničani", "Sveti Nikole", "Tearce",
-    "Tetovo", "Valandovo", "Vasilevo", "Veles", "Vevčani", "Vinica", "Vrapčište", "Zajas", "Zelenikovo", "Zrnovci",
+    "Tetovo", "Valandovo", "Vasilevo", "Veles", "Vevčani", "Vinica", "Vrapčište", "Zelenikovo", "Zrnovci",
     "Štip", "Želino",
     // Dopuna
     "Češinovo-Obleševo",

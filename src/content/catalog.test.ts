@@ -37,4 +37,37 @@ describe("catalog gradova", () => {
       expect(citiesByCountry[code]?.length ?? 0, code).toBeGreaterThanOrEqual(min);
     }
   });
+
+  it("poznati granični i sporni slučajevi su u pravoj državi i nigdje drugdje", () => {
+    const placed: Record<string, string> = {
+      Neum: "BA",
+      Kupres: "BA",
+      Livno: "BA",
+      Brčko: "BA",
+      Vukovar: "HR",
+      Ilok: "HR",
+      Dubrovnik: "HR",
+      Konavle: "HR",
+      Piran: "SI",
+      Ankaran: "SI",
+      Kostel: "SI",
+      "Herceg Novi": "ME",
+      Ulcinj: "ME",
+      Bitola: "MK",
+      Ohrid: "MK",
+      Preševo: "RS",
+      "Novi Pazar": "RS",
+    };
+    for (const [name, code] of Object.entries(placed)) {
+      for (const [c, list] of Object.entries(citiesByCountry)) {
+        expect(list.includes(name), `${name} u ${c}`).toBe(c === code);
+      }
+    }
+  });
+
+  it("ukinute opštine Sjeverne Makedonije (spojene u Kičevo 2013) nisu u katalogu", () => {
+    for (const name of ["Zajas", "Oslomej", "Drugovo", "Vraneštica"]) {
+      expect(citiesByCountry.MK).not.toContain(name);
+    }
+  });
 });
