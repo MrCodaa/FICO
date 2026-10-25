@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Bell } from "lucide-react";
+import { Bell, Check } from "lucide-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { Button } from "@/components/ui/button";
 import { sr } from "@/content/sr";
 import { apiFetch, fetchCounts } from "@/lib/http/apiClient";
 import { cn } from "@/lib/utils";
+
+import { applyRead, nextUnreadCount } from "./notificationsCache";
 
 type NotificationType = keyof typeof sr.notifications.types;
 
@@ -55,9 +56,35 @@ export function NotificationBell({ className }: { className?: string }) {
     enabled: isOpen,
   });
 
+  // ids izostavljen = sve; inače samo navedena obavještenja (POST /api/notifications/read).
+  // Optimistično: stavka se odmah označi pročitanom, a brojač na zvoncu smanji.
   const markReadMutation = useMutation({
-    mutationFn: () => apiFetch<void>("/api/notifications/read", { method: "POST", json: {} }),
-    onSuccess: () => {
+    mutationFn: (ids?: string[]) =>
+      apiFetch<void>("/api/notifications/read", { method: "POST", json: ids ? { ids } : {} }),
+    onMutate: async (ids) => {
+      await Promise.all([
+        queryClient.cancelQueries({ queryKey: ["notifications"] }),
+        queryClient.cancelQueries({ queryKey: ["me", "counts"] }),
+      ]);
+      const previousList = queryClient.getQueryData<NotificationsResponse>(["notifications"]);
+      const previousCounts = queryClient.getQueryData<{ notifications: number }>(["me", "counts"]);
+      const applied = previousList ? applyRead(previousList.items, ids, new Date().toISOString()) : null;
+      if (previousList && applied) {
+        queryClient.setQueryData<NotificationsResponse>(["notifications"], { ...previousList, items: applied.items });
+      }
+      if (previousCounts) {
+        queryClient.setQueryData(["me", "counts"], {
+          ...previousCounts,
+          notifications: nextUnreadCount(previousCounts.notifications, ids, applied?.newlyRead ?? 0),
+        });
+      }
+      return { previousList, previousCounts };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previousList) queryClient.setQueryData(["notifications"], context.previousList);
+      if (context?.previousCounts) queryClient.setQueryData(["me", "counts"], context.previousCounts);
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["notifications"] });
       queryClient.invalidateQueries({ queryKey: ["me", "counts"] });
     },
@@ -102,16 +129,24 @@ export function NotificationBell({ className }: { className?: string }) {
       {isOpen && (
         <div className="bg-popover absolute top-12 right-0 z-50 flex w-96 max-w-[calc(100vw-2rem)] flex-col gap-3 rounded-md border p-4 shadow-lg">
           <div className="flex items-center justify-between gap-2">
-            <span className="font-semibold">{sr.nav.notifications}</span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={markReadMutation.isPending || unread === 0}
-              onClick={() => markReadMutation.mutate()}
-            >
-              {sr.nav.markAllRead}
-            </Button>
+            <span className="flex items-baseline gap-2">
+              <span className="font-semibold">{sr.nav.notifications}</span>
+              {unread > 0 && (
+                <span className="text-muted-foreground text-xs">
+                  {unread} {sr.nav.unreadCount}
+                </span>
+              )}
+            </span>
+            {unread > 0 && (
+              <button
+                type="button"
+                disabled={markReadMutation.isPending}
+                onClick={() => markReadMutation.mutate(undefined)}
+                className="text-primary focus-visible:ring-ring cursor-pointer rounded-sm text-sm font-medium underline-offset-4 outline-none hover:underline focus-visible:ring-2 disabled:opacity-50"
+              >
+                {sr.nav.markAllRead}
+              </button>
+            )}
           </div>
 
           {notificationsQuery.isLoading ? (
@@ -132,18 +167,58 @@ export function NotificationBell({ className }: { className?: string }) {
                     </span>
                   </>
                 );
+                const unreadItem = !item.readAt;
                 const rowClass = cn(
-                  "flex flex-col gap-0.5 rounded-md px-3 py-2.5 text-sm",
-                  !item.readAt && "bg-beige/70",
-                  href && "hover:bg-secondary",
+                  "focus-visible:ring-ring flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-md py-2.5 pr-10 pl-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset",
+                  !unreadItem && "text-muted-foreground",
                 );
-                return href ? (
-                  <Link key={item.id} href={href} className={rowClass} onClick={() => setIsOpen(false)}>
-                    {body}
-                  </Link>
-                ) : (
-                  <div key={item.id} className={rowClass}>
-                    {body}
+                const markRead = () => {
+                  if (unreadItem) markReadMutation.mutate([item.id]);
+                };
+                const openItem = () => {
+                  markRead();
+                  setIsOpen(false);
+                };
+                const content = (
+                  <>
+                    <span
+                      aria-hidden="true"
+                      className={cn(
+                        "mt-1.5 size-2.5 shrink-0 rounded-full transition-all duration-300",
+                        unreadItem ? "bg-primary scale-100" : "scale-0 bg-transparent",
+                      )}
+                    />
+                    <span className="flex min-w-0 flex-1 flex-col gap-0.5">{body}</span>
+                  </>
+                );
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "group relative flex items-center rounded-md transition-colors duration-300",
+                      unreadItem ? "bg-primary/10 hover:bg-primary/15" : "hover:bg-secondary",
+                    )}
+                  >
+                    {href ? (
+                      <Link href={href} className={rowClass} onClick={openItem}>
+                        {content}
+                      </Link>
+                    ) : (
+                      <button type="button" className={rowClass} onClick={markRead}>
+                        {content}
+                      </button>
+                    )}
+                    {unreadItem && (
+                      <button
+                        type="button"
+                        aria-label={sr.nav.markOneRead}
+                        title={sr.nav.markOneRead}
+                        onClick={markRead}
+                        className="text-muted-foreground hover:bg-background hover:text-foreground focus-visible:ring-ring absolute top-1/2 right-2 inline-flex size-7 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full opacity-0 transition-opacity outline-none group-hover:opacity-100 focus-visible:opacity-100 focus-visible:ring-2 [@media(hover:none)]:opacity-100"
+                      >
+                        <Check className="size-4" />
+                      </button>
+                    )}
                   </div>
                 );
               })}

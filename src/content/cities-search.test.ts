@@ -35,6 +35,14 @@ describe("cities-search", () => {
     expect(profileDraftSchema.parse({ city: "  sarajevo ", countryCode: "BA" }).city).toBe("Sarajevo");
   });
 
+  it("Zod šema i dalje prihvata uklonjene stare gradove iz profila, a Beograd preuzima prigradske opštine", () => {
+    expect(profileDraftSchema.parse({ city: "Gračac", countryCode: "HR" }).city).toBe("Gračac");
+    expect(profileDraftSchema.parse({ city: "Ada", countryCode: "RS" }).city).toBe("Ada");
+    expect(profileDraftSchema.parse({ city: "Obrenovac", countryCode: "RS" }).city).toBe("Beograd");
+    expect(profileDraftSchema.safeParse({ city: "Gračac", countryCode: "RS" }).success).toBe(false);
+    expect(searchCities("HR", "gračac")).toEqual([]);
+  });
+
   it("Zod šema odbija svoj grad, prazan grad i grad iz druge države", () => {
     const own = profileDraftSchema.safeParse({ city: "Mali Selo" });
     expect(own.success).toBe(false);

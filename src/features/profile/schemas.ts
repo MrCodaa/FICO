@@ -3,6 +3,7 @@ import "@/lib/zodErrorMap";
 import { countryCodes, interestCodes } from "@/content/catalog";
 import { findCatalogCity } from "@/content/cities-search";
 import { sr } from "@/content/sr";
+import { birthDateIssue } from "@/lib/age";
 import { optionalSafeText, safeText } from "@/lib/sanitize";
 import { instagramUrlSchema, linkedinUrlSchema, schedulingUrlSchema, twitterUrlSchema, videoUrlSchema } from "./urlSchemas";
 
@@ -15,7 +16,7 @@ const AREA_VALUES = ["PRODUCT", "ENGINEERING", "DESIGN", "SALES_MARKETING", "OPE
 // dijakritike, a vraća se zvanični zapis iz kataloga. Poklapanje sa državom provjerava
 // cityMatchesCountry. Ista šema za formu i API.
 const citySchema = z.string().transform((value, ctx) => {
-  const official = findCatalogCity(value);
+  const official = findCatalogCity(value, undefined, true);
   if (!official) {
     ctx.addIssue({ code: "custom", message: sr.profile.fieldErrors.byField.city });
     return z.NEVER;
@@ -25,9 +26,20 @@ const citySchema = z.string().transform((value, ctx) => {
 
 /** Grad mora pripadati izabranoj državi (kad su oba polja prisutna). */
 function cityMatchesCountry(data: { city?: string; countryCode?: string }, ctx: z.RefinementCtx) {
-  if (data.city && data.countryCode && findCatalogCity(data.city, data.countryCode) !== data.city) {
+  if (data.city && data.countryCode && findCatalogCity(data.city, data.countryCode, true) !== data.city) {
     ctx.addIssue({ code: "custom", path: ["city"], message: sr.profile.fieldErrors.byField.city });
   }
+}
+
+/**
+ * Datum rođenja: stvaran datum (ne budućnost, ne prije 1900) i najmanje 18 godina. Važi pri slanju na
+ * pregled; nacrt ostaje blag jer autosave može uhvatiti nedovršen unos godine (npr. 0020).
+ */
+function birthDateRule(value: Date, ctx: z.RefinementCtx) {
+  const issue = birthDateIssue(value, new Date());
+  if (!issue) return;
+  const byField = sr.profile.fieldErrors.byField;
+  ctx.addIssue({ code: "custom", message: issue === "underage" ? byField.birthDateUnderage : byField.birthDate });
 }
 
 const profileBaseSchema = z.object({
@@ -114,7 +126,7 @@ export const profileSubmitSchema = profileBaseSchema
   .extend({
     // Slanje na pregled MORA imati stvaran datum — preprocess odbacuje null
     // PRIJE coerce-a da z.coerce.date() ne pretvori tiho null u 1.1.1970.
-    birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date()),
+    birthDate: z.preprocess((val) => (val === null ? undefined : val), z.coerce.date().superRefine(birthDateRule)),
     // Preference.lookingFor ("Idealan co-founder") — servis ga dodaje iz Preference.
     lookingFor: optionalSafeText(1000, ML),
   })

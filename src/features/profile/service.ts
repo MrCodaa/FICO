@@ -7,9 +7,11 @@ import {
   type StorageProvider,
 } from "@/lib/storage";
 import type { ProfileStatus } from "@/generated/prisma/client";
+import type { AdminNotifier } from "@/features/admin/notifier";
 import { sr } from "@/content/sr";
 import type { ProfileRepository } from "./repository";
 import { toProfileDraft, toPreferenceDraft, toAdminProfileView } from "./mappers";
+import { hashPhoto, type PhotoHasher } from "./photoHash";
 import { profileSubmitSchema } from "./schemas";
 import type { ProfileDraftInput, PreferenceDraftInput } from "./schemas";
 
@@ -18,6 +20,10 @@ export interface ProfileServiceDeps {
   storage: StorageProvider;
   clock: Clock;
   email: EmailProvider;
+  /** Mail adminima kad profil stigne na pregled (poslije commita, ne ruši tok). */
+  adminNotifier?: AdminNotifier;
+  /** Otisci slike (SHA-256 + dHash); testovi ubacuju lažni. */
+  hashPhoto?: PhotoHasher;
 }
 
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -29,6 +35,7 @@ const appUrl = () => (process.env.APP_URL ?? "").replace(/[/]$/, "");
 
 export function createProfileService(deps: ProfileServiceDeps) {
   const { repo, storage, clock, email } = deps;
+  const photoHasher = deps.hashPhoto ?? hashPhoto;
 
   // Mail je sporedan efekat poslije commita — provider greška ne smije
   // oboriti odgovor za operaciju koja je već upisana u bazu.
@@ -81,8 +88,29 @@ export function createProfileService(deps: ProfileServiceDeps) {
       // Ime fajla je nasumično (UUID v4) i ne sadrži ni userId ni email.
       const key = `profiles/${crypto.randomUUID()}.${ext}`;
       const data = stripImageMetadata(file.buffer, detected);
+      // Otisci se računaju nad bajtovima koji se čuvaju. Provjera ide PRIJE storage.put,
+      // pa odbijena slika nikad ne dođe u storage.
+      const hashes = await photoHasher(data);
+      const { exact, similar } = await repo.findPhotoMatches(userId, hashes.sha256, hashes.dHash);
+      if (exact) {
+        throw new ApiError("VALIDATION_ERROR", sr.profile.errors.photoDuplicate, {
+          file: sr.profile.errors.photoDuplicate,
+        });
+      }
       const { url } = await storage.put({ key, data, contentType: detected });
-      const { oldPhotoUrl } = await repo.updateProfilePhoto(userId, url);
+      let oldPhotoUrl: string | null;
+      try {
+        ({ oldPhotoUrl } = await repo.updateProfilePhoto(userId, url, {
+          photoHash: hashes.sha256,
+          photoDHash: hashes.dHash,
+          // Slična (ne i identična) slika: dozvoljeno, ali se označava za admina.
+          similarTo: similar,
+          now: clock.now(),
+        }));
+      } catch (err) {
+        await storage.remove(url).catch(() => {});
+        throw err;
+      }
       if (oldPhotoUrl) {
         await storage.remove(oldPhotoUrl).catch(() => {});
       }
@@ -106,6 +134,8 @@ export function createProfileService(deps: ProfileServiceDeps) {
       }
       const ok = await repo.submitProfile(userId, clock.now());
       if (!ok) throw new ApiError("INVALID_STATUS", "Profil nije u stanju koje dozvoljava slanje.");
+      // Samo kad je prelaz stvarno upisan (ok), pa ponovljen zahtjev ne šalje drugi mail.
+      await deps.adminNotifier?.profileSubmitted(`${profile.firstName ?? ""} ${profile.lastName ?? ""}`.trim() || "bez imena");
       return "PENDING_REVIEW" as const;
     },
 
@@ -115,6 +145,12 @@ export function createProfileService(deps: ProfileServiceDeps) {
         items: items.map((p) => toAdminProfileView(p, clock.now(), { preference: p.preference ?? null, email: p.email })),
         nextCursor,
       };
+    },
+
+    async getReviewProfile(userId: string) {
+      const p = await repo.getReviewProfile(userId);
+      if (!p) throw new ApiError("NOT_FOUND", "Profil ne postoji.");
+      return toAdminProfileView(p, clock.now(), { preference: p.preference ?? null, email: p.email });
     },
 
     async approveProfile(userId: string) {

@@ -1,4 +1,4 @@
-import { rawCitiesByCountry } from "./cities-data";
+import { rawCitiesByCountry, removedCitiesByCountry } from "./cities-data";
 
 export interface Country {
   code: string;
@@ -38,7 +38,21 @@ export const legacyCityNames: Record<string, Record<string, string>> = {
     Gradiška: "Bosanska Gradiška",
     "Novi Grad": "Bosanski Novi",
   },
+  // Prigradske opštine Beograda nisu zasebni gradovi (pravilo "samo pravni gradovi").
+  RS: Object.fromEntries(
+    ["Mladenovac", "Obrenovac", "Lazarevac", "Barajevo", "Grocka", "Sopot", "Surčin"].map((name) => [name, "Beograd"]),
+  ),
 };
+
+// Uklonjeni gradovi (opštine, općine, občine koje nisu pravni gradovi) bez bližeg grada za mapiranje.
+// Stari profili ih mogu imati: čitanje i validacija ih tolerišu, ali se ne nude u izboru ni u pretrazi.
+export const removedCityNames: Record<string, string[]> = removedCitiesByCountry;
+
+/** Da li je ime uklonjeni (stari) grad u državi; bez države provjerava sve. */
+export function isRemovedCityName(city: string, countryCode?: string | null): boolean {
+  const lists = countryCode ? [removedCityNames[countryCode]] : Object.values(removedCityNames);
+  return lists.some((list) => list?.includes(city));
+}
 
 /** Staro ime grada -> trenutno ime iz kataloga; sve ostalo vraća nepromijenjeno. */
 export function normalizeCityName(city: string, countryCode?: string | null): string {

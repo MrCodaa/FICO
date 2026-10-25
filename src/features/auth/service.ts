@@ -7,6 +7,7 @@ import { signSessionToken } from "@/lib/auth/jwt";
 import { isAdminEmail } from "@/lib/auth/isAdminEmail";
 import { emailDomainExists, type EmailDomainChecker } from "@/lib/auth/emailDomain";
 import type { EmailProvider } from "@/lib/email";
+import { RATE_LIMITS, enforceRateLimit, type RateLimiter } from "@/lib/rateLimit";
 import { sr } from "@/content/sr";
 import type { AuthRepository } from "./repository";
 import { toMe } from "./mappers";
@@ -25,6 +26,8 @@ export interface AuthServiceDeps {
   clock: Clock;
   /** Provjera da domen emaila postoji (u testovima se zamjenjuje fake-om). */
   emailDomainExists?: EmailDomainChecker;
+  /** Ograničenja učestalosti (register, zaboravljena lozinka, ponovno slanje); bez njega se ne primjenjuju. */
+  rateLimiter?: RateLimiter;
   /** Slika se briše iz storage-a poslije brisanja naloga (opciono; testovi ga izostavljaju). */
   accountFiles?: { getFileUrls(userId: string): Promise<string[]>; remove(url: string): Promise<void> };
 }
@@ -69,7 +72,8 @@ export function createAuthService(deps: AuthServiceDeps) {
   }
 
   return {
-    async register(input: RegisterInput) {
+    async register(input: RegisterInput, ip?: string) {
+      if (ip) await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.registerIp, ip);
       const domain = input.email.split("@")[1] ?? "";
       if (!(await domainExists(domain))) {
         throw new ApiError("VALIDATION_ERROR", sr.auth.errors.emailDomainMissing, {
@@ -146,9 +150,11 @@ export function createAuthService(deps: AuthServiceDeps) {
       if (!ok) throw new ApiError("TOKEN_INVALID", sr.auth.errors.tokenInvalid);
     },
 
-    async resendVerification(userId: string) {
+    async resendVerification(userId: string, ip?: string) {
       const user = await repo.findMeById(userId);
       if (!user || user.emailVerifiedAt) return;
+      await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.resendEmail, user.email);
+      if (ip) await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.resendIp, ip);
       const latest = await repo.findLatestAuthToken(userId, "EMAIL_VERIFICATION");
       const now = clock.now();
       if (latest && now.getTime() - latest.createdAt.getTime() < RESEND_COOLDOWN_MS) {
@@ -157,7 +163,10 @@ export function createAuthService(deps: AuthServiceDeps) {
       await sendVerificationEmail(userId, user.email);
     },
 
-    async forgotPassword(input: { email: string }) {
+    async forgotPassword(input: { email: string }, ip?: string) {
+      // Brojači se troše bez obzira postoji li nalog, pa odgovor ne otkriva ništa.
+      await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.forgotEmail, input.email);
+      if (ip) await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.forgotIp, ip);
       const user = await repo.findUserByEmail(input.email);
       // Tiho se vraća i kad nalog ne postoji ili je deaktiviran — api.md: 204 uvijek, bez otkrivanja postojanja.
       if (!user || user.deactivatedAt) return;

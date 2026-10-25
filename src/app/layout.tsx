@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { sr } from "@/content/sr";
+import { getSiteUrl } from "@/lib/siteUrl";
 
 // next/font hostuje font lokalno (bez zahtjeva ka Google-u pri učitavanju)
 // i sprječava pomjeranje teksta dok se font učitava.
@@ -12,8 +14,22 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "FICO — Pronađi co-foundera",
-  description: "Platforma za pronalazak co-foundera na Balkanu.",
+  metadataBase: new URL(getSiteUrl()),
+  title: { default: sr.seo.siteTitle, template: `%s | ${sr.landing.brand}` },
+  description: sr.seo.description,
+  openGraph: {
+    type: "website",
+    siteName: sr.landing.brand,
+    locale: "sr_RS",
+    title: sr.seo.siteTitle,
+    description: sr.seo.description,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: sr.seo.siteTitle,
+    description: sr.seo.description,
+  },
 };
 
 export const viewport: Viewport = {

@@ -55,8 +55,8 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 | POST | `/api/auth/login` | public | `{ email, password }` | 200 `Me` + cookie; 429 `TOO_MANY_REQUESTS` dok je nalog zaključan |
 | POST | `/api/auth/logout` | auth | — | 204, briše cookie `fico_session` (ne dira `fico_admin`) |
 | POST | `/api/auth/verify-email` | public | `{ token }` | 204 |
-| POST | `/api/auth/resend-verification` | auth | — | 204; 429 ako je prethodni mail mlađi od 60 s |
-| POST | `/api/auth/forgot-password` | public | `{ email }` | 204 uvijek (ne otkriva da li nalog postoji) |
+| POST | `/api/auth/resend-verification` | auth | — | 204; 429 ako je prethodni mail mlađi od 60 s ili je potrošen limit (3 po mejlu i 10 po IP u satu) |
+| POST | `/api/auth/forgot-password` | public | `{ email }` | 204 (ne otkriva da li nalog postoji); 429 kad je potrošen limit (3 po mejlu i 10 po IP u satu, troši se i za nepostojeće mejlove) |
 | POST | `/api/auth/reset-password` | public | `{ token, password }` | 204; `tokenVersion++` odjavljuje sve sesije |
 | GET | `/api/me` | auth | — | `{ id, email, emailVerified, agreementAccepted, profileStatus, isAdmin, emailBlocked }` |
 | POST | `/api/me/email-unblock` | auth | — | 204; briše `User.emailBlockedAt/emailBlockReason` i šalje novi mejl za potvrdu (Kontrolna tabla → Odblokiraj) |
@@ -75,7 +75,7 @@ REST JSON API pod `/api`. Sesija je JWT u cookie-ju `fico_session` (`httpOnly; S
 | GET | `/api/profile` | onboarded | — | `{ profile, preference }` |
 | PATCH | `/api/profile` | onboarded | parcijalna polja profila | 200 `{ profile }`; 409 `PROFILE_LOCKED` dok je na pregledu |
 | PATCH | `/api/preference` | onboarded | parcijalna polja preferenci | 200 `{ preference }`; 409 `PROFILE_LOCKED` dok je na pregledu |
-| POST | `/api/profile/photo` | onboarded | multipart `file` (jpeg/png/webp, ≤ 4 MB) | 200 `{ photoUrl }`; stara slika se briše |
+| POST | `/api/profile/photo` | onboarded | multipart `file` (jpeg/png/webp, ≤ 4 MB) | 200 `{ photoUrl }`; stara slika se briše. 400 `VALIDATION_ERROR` (`fields.file`) ako ista slika (SHA-256) već postoji na profilu drugog korisnika; slična slika (dHash, Hamming ≤ 6) se dozvoljava, a profil dobija admin oznaku `photoFlaggedAt`/`photoFlagNote` |
 | POST | `/api/profile/submit` | onboarded | — | 200 `{ status }`; 400 `PROFILE_INCOMPLETE` sa `fields`; 409 ako nije `DRAFT` ili `REJECTED` |
 
 Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan profil strogom šemom. Obje šeme su izvedene iz iste osnove (DRY). Izmjene u statusu `APPROVED` idu odmah uživo.
@@ -85,6 +85,7 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 | Metoda | Putanja | Guard | Tijelo / upit | Odgovor |
 | --- | --- | --- | --- | --- |
 | GET | `/api/admin/profiles` | admin | `?status=PENDING_REVIEW|APPROVED|REJECTED&cursor=` | `{ items: AdminProfileView[], nextCursor }` |
+| GET | `/api/admin/profiles/:userId` | admin | — | `AdminProfileView` jednog profila (link iz upozorenja o sličnoj slici); 404 `NOT_FOUND` |
 | POST | `/api/admin/profiles/:userId/approve` | admin | — | 204 + zvonce `PROFILE_APPROVED` + mail (link na aplikaciju); 409 `INVALID_STATUS` ako nije na pregledu |
 | POST | `/api/admin/profiles/:userId/reject` | admin | `{ reason? }` (opcionalan, 0–1000; prazan = bez razloga, čuva se `null`) | 204 + zvonce `PROFILE_REJECTED` + mail (razlog ako postoji + link na ispravku); 409 `INVALID_STATUS` ako nije na pregledu |
 
@@ -110,7 +111,7 @@ Nacrt prima parcijalna polja (Zod `.partial()`), a `submit` validira kompletan p
 | POST | `/api/requests/:id/accept` | approved (primalac) | — | 200 `{ matchId }`; 409 `REQUEST_NOT_PENDING` |
 | POST | `/api/requests/:id/decline` | approved (primalac) | — | 204; 409 `REQUEST_NOT_PENDING` |
 | GET | `/api/notifications` | auth | `?cursor=` | `{ items: [{ id, type, actor: ProfileCard?, entityId, readAt, createdAt }], nextCursor }` |
-| POST | `/api/notifications/read` | auth | `{ ids?: string[] }` (bez `ids` = sve) | 204 |
+| POST | `/api/notifications/read` | auth | `{ ids?: string[] }` (bez `ids` = sve; jedno obavještenje = `ids: [id]`). Dodiruje samo obavještenja ovog korisnika (tuđi id se tiho preskače), idempotentno | 204 |
 | GET | `/api/me/counts` | auth | — | `{ notifications, requests, messages }` (nepročitano) |
 | GET | `/api/cron/expire-requests` | `Authorization: Bearer CRON_SECRET` | — | 200 `{ expired }` |
 
@@ -137,6 +138,7 @@ Ako nije član matcha ili postoji blokada, odgovor je 403 `NOT_A_MATCH`.
 | POST | `/api/reports` | approved | `{ reportedId, reason, details? }` | 201 |
 | GET | `/api/admin/reports` | admin | `?status=OPEN|RESOLVED|DISMISSED&cursor=` | `{ items, nextCursor }`, najnovije prve; stavka: `{ id, reason, details, status, createdAt, reporter: { id, name, email }, reportedId, reportedProfile: ProfileCard, reportedAdminProfile: AdminProfileView, reportedEmail, reportedDeactivated, previousReports }` (`previousReports` = prijave na istog korisnika podnijete prije ove) |
 | GET | `/api/admin/reports/count` | admin | — | `{ open }` (crvena značka u admin navigaciji) |
+| GET | `/api/admin/profiles/count` | admin | — | `{ pending }` (značka na tabu "Profili na pregledu") |
 | POST | `/api/admin/reports/:id/resolve` | admin | `{ status: RESOLVED | DISMISSED, deactivateUser?: boolean }` | 204; 404 ako je već obrađena. "Ukloni profil sa aplikacije" = `RESOLVED` + `deactivateUser: true`; "Odbaci prijavu" = `DISMISSED` |
 | POST | `/api/admin/users/:userId/deactivate` | admin | — | 204; postavlja `deactivatedAt` i u istoj transakciji zatvara (`RESOLVED`) sve otvorene prijave na tog korisnika. Deaktivovan nalog ne može da se prijavi, a nestaje iz Discovera, Zahtjeva, Poruka i obavještenja. Poslije commita korisnik dobija kratak neutralan transakcioni mail ("Tvoj FICO nalog je deaktiviran", bez detalja o prijavi ili razlogu, sa linkom na `/pomoc`); ide uvijek (van lifecycle podešavanja), poštuje `emailBlocked`, ne šalje se ako je nalog već bio deaktiviran, a greška slanja ne ruši deaktivaciju. Isto važi kad se deaktivira preko `resolve` sa `deactivateUser: true`. Samostalno brisanje/pauziranje naloga ne šalje ovaj mail |
 
@@ -181,3 +183,18 @@ Sve što mijenja više redova radi se u jednoj `prisma.$transaction`. Mailovi i 
 - **`effectiveStatus(request, now)`:** `PENDING` sa `expiresAt < now` tretira kao `EXPIRED`. Koriste ga sve liste i accept/decline.
 - **`toDisplayStatus(request, now)`:** mapiranje za pošiljaoca, opisano gore.
 - **`touchLastActive(userId)`:** ažurira `lastActiveAt` najviše jednom na sat. Poziva se iz `withRoute`.
+
+## Ograničenja učestalosti (429 `TOO_MANY_REQUESTS`)
+
+Sva na jednom mjestu u `src/lib/rateLimit/limits.ts`, fiksni prozor na tabeli `LoginAttempt` (ključ `prefix:vrijednost`, isto kao prijava i otpremanje slike; bez migracije). Poruka: "Greška: previše pokušaja. Pokušaj ponovo za N min."
+
+| Ruta | Ograničenje |
+| --- | --- |
+| `POST /api/auth/register` | 5 po IP-u na sat |
+| `POST /api/auth/forgot-password`, `POST /api/auth/resend-verification` | 3 po mejlu i 10 po IP-u na sat |
+| `POST /api/reports` | 10 po korisniku na dan |
+| `POST /api/matches/:id/messages` | 30 po korisniku u minuti (poslije provjere članstva) |
+| `POST /api/profile/photo` | 10 po korisniku na sat (zasebna implementacija u profilu) |
+| lajkovi | 20 u zadnjih 7 dana (rolling) |
+
+Mejl adminima (`ADMIN_EMAILS`): kad profil pređe u `PENDING_REVIEW` i kad se kreira nova prijava; šalje se poslije commita, greška slanja ne ruši tok, `ADMIN_NOTIFY_EMAILS=false` gasi.

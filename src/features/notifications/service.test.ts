@@ -18,6 +18,10 @@ function fakeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecord {
     firstName: "Ana",
     lastName: "Anić",
     photoUrl: null,
+    photoHash: null,
+    photoDHash: null,
+    photoFlaggedAt: null,
+    photoFlagNote: null,
     linkedinUrl: null,
     noLinkedin: false,
     countryCode: "BA",
@@ -131,6 +135,15 @@ describe("createNotificationService.markRead", () => {
     await service.markRead("viewer", ["n1", "n2"]);
 
     expect(repo.markRead).toHaveBeenCalledWith("viewer", ["n1", "n2"]);
+  });
+
+  it("označava jedno obavještenje: repo dobija tačno taj id i korisnika", async () => {
+    const repo = createFakeRepo();
+    const service = createNotificationService({ repo, clock: createFakeClock() });
+
+    await service.markRead("viewer", ["n7"]);
+
+    expect(repo.markRead).toHaveBeenCalledWith("viewer", ["n7"]);
   });
 
   it("prosljeđuje undefined kad ids nisu dati (sve se oznčava kao pročitano)", async () => {

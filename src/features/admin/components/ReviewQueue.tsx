@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -60,6 +60,7 @@ interface AdminProfile {
     interestsImportance: string | null;
   } | null;
   email: string;
+  photoSimilarTo: { userId: string; name: string } | null;
   submittedAt: string | null;
   reviewedAt: string | null;
 }
@@ -89,6 +90,53 @@ function fullNameOf(p: AdminProfile): string {
   return [p.firstName, p.lastName].filter(Boolean).join(" ") || "—";
 }
 
+const fetchProfile = (api: (sub?: string) => string, userId: string) =>
+  apiFetch<AdminProfile>(api(`/profiles/${userId}`));
+
+// Pretraga slike po adresi radi samo za javnu (Blob https) adresu, ne i za lokalni /uploads/.
+function PhotoChecks({ profile, onOpenProfile }: { profile: AdminProfile; onOpenProfile: (userId: string) => void }) {
+  const url = profile.photoUrl;
+  if (!url) return null;
+  const isPublic = /^https:///i.test(url);
+  const encoded = encodeURIComponent(url);
+  const linkClass = "text-link underline underline-offset-2";
+  return (
+    <div className="flex flex-col gap-2 rounded-md border px-4 py-3 text-sm">
+      {profile.photoSimilarTo && (
+        <p className="text-destructive font-medium">
+          {t.photoSimilar(profile.photoSimilarTo.name)}{" "}
+          <button type="button" className={linkClass} onClick={() => onOpenProfile(profile.photoSimilarTo!.userId)}>
+            {t.photoSimilarOpen}
+          </button>
+        </p>
+      )}
+      <p className="text-muted-foreground">{t.photoCheckHint}</p>
+      {isPublic ? (
+        <div className="flex flex-wrap gap-x-6 gap-y-1">
+          <a
+            className={linkClass}
+            href={`https://lens.google.com/uploadbyurl?url=${encoded}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t.photoSearchLens}
+          </a>
+          <a
+            className={linkClass}
+            href={`https://tineye.com/search?url=${encoded}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {t.photoSearchTinEye}
+          </a>
+        </div>
+      ) : (
+        <p className="text-muted-foreground">{t.photoSearchLocalOnly}</p>
+      )}
+    </div>
+  );
+}
+
 function BackButton({ onBack }: { onBack: () => void }) {
   return (
     <Button
@@ -107,10 +155,12 @@ function ReviewDetail({
   profile,
   onBack,
   onHandled,
+  onOpenProfile,
 }: {
   profile: AdminProfile;
   onBack: () => void;
   onHandled: (userId: string) => void;
+  onOpenProfile: (userId: string) => void;
 }) {
   const { api } = useAdminUrls();
   const [rejecting, setRejecting] = useState(false);
@@ -180,6 +230,8 @@ function ReviewDetail({
           <span className="font-medium">{t.previousReason}:</span> {profile.rejectionReason}
         </p>
       )}
+
+      <PhotoChecks profile={profile} onOpenProfile={onOpenProfile} />
 
       <ProfileFullView profile={profile} admin />
 
@@ -304,7 +356,14 @@ export function ReviewQueue() {
   const items = pageQueries.flatMap((q) => q.data?.items ?? []);
   const nextCursor = pageQueries[pageQueries.length - 1]?.data?.nextCursor ?? null;
   const isFetchingMore = pageQueries.some((q) => q.isFetching);
-  const selected = selectedId ? (items.find((p) => p.userId === selectedId) ?? null) : null;
+  const inList = selectedId ? (items.find((p) => p.userId === selectedId) ?? null) : null;
+  // Profil iz upozorenja o sličnoj slici ne mora biti u učitanoj listi (druga grupa).
+  const linkedQuery = useQuery({
+    queryKey: ["admin", "profile", selectedId],
+    queryFn: () => fetchProfile(api, selectedId!),
+    enabled: Boolean(selectedId) && !inList,
+  });
+  const selected = inList ?? (selectedId ? (linkedQuery.data ?? null) : null);
 
   return (
     <div className="flex min-h-screen flex-col items-center px-4 py-16 sm:px-6">
@@ -322,6 +381,7 @@ export function ReviewQueue() {
               handled();
             }}
             onHandled={handled}
+            onOpenProfile={setSelectedId}
           />
         ) : (
           <>

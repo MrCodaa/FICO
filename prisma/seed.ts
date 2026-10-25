@@ -35,6 +35,7 @@ import {
   OTHER_NOTES,
   textAt,
 } from "./seed-texts";
+import { assertSeedAllowed } from "./seed-guard";
 import { SHOWCASE_PROFILES } from "./seed-showcase";
 import { TEST_ACCOUNT_COUNT, TEST_ACCOUNT_PASSWORD, createTestAccounts, testAccountEmail } from "./seed-test-accounts";
 
@@ -194,6 +195,7 @@ const ACTIVITY_OFFSETS_DAYS = [
 ] as const;
 
 async function main(): Promise<void> {
+  assertSeedAllowed(); // lokalna baza ili ALLOW_SEED=true; nikad NODE_ENV=production
   const adapter = new PrismaPg({ connectionString: process.env.DATABASE_URL });
   const db = new PrismaClient({ adapter });
 

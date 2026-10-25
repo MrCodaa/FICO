@@ -1,4 +1,4 @@
-import { citiesByCountry, legacyCityNames } from "@/content/catalog";
+import { citiesByCountry, legacyCityNames, removedCityNames } from "@/content/catalog";
 
 // Pretraga i poređenje gradova. Čista logika (bez I/O), dijele je combobox u formi
 // i Zod šema profila, pa forma i API vide isto pravilo. Grad se bira isključivo iz kataloga.
@@ -23,8 +23,12 @@ const allCities: { name: string; folded: string }[] = Object.values(citiesByCoun
   .flat()
   .map((name) => ({ name, folded: foldText(name) }));
 
-/** Tačan grad iz kataloga (ignoriše dijakritike i velika/mala slova); country sužava izbor. */
-export function findCatalogCity(value: string, countryCode?: string): string | null {
+/**
+ * Tačan grad iz kataloga (ignoriše dijakritike i velika/mala slova); country sužava izbor.
+ * allowRemoved: prihvata i uklonjene (stare) gradove iz profila u bazi i vraća ih nepromijenjene;
+ * izbor i autocomplete to ne uključuju.
+ */
+export function findCatalogCity(value: string, countryCode?: string, allowRemoved = false): string | null {
   const folded = foldText(value);
   if (!folded) return null;
   const legacy = (countryCode ? [legacyCityNames[countryCode]] : Object.values(legacyCityNames))
@@ -34,7 +38,12 @@ export function findCatalogCity(value: string, countryCode?: string): string | n
   const pool = countryCode
     ? (citiesByCountry[countryCode] ?? []).map((name) => ({ name, folded: foldText(name) }))
     : allCities;
-  return pool.find((c) => c.folded === folded)?.name ?? null;
+  const hit = pool.find((c) => c.folded === folded)?.name;
+  if (hit || !allowRemoved) return hit ?? null;
+  const removed = (countryCode ? [removedCityNames[countryCode]] : Object.values(removedCityNames))
+    .flatMap((list) => list ?? [])
+    .find((name) => foldText(name) === folded);
+  return removed ?? null;
 }
 
 /** Prijedlozi za izabranu državu: prvo počinje sa upitom, pa početak neke riječi, pa sadrži. */

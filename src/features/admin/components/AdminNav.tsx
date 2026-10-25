@@ -21,6 +21,13 @@ export function AdminNav({ active }: { active: "profiles" | "reports" }) {
     retry: (failures, error) => !(error instanceof ApiClientError && error.status === 403) && failures < 2,
   });
   const open = count.data?.open ?? 0;
+  const pendingQuery = useQuery({
+    queryKey: ["admin", "profiles", "count"],
+    queryFn: () => apiFetch<{ pending: number }>(api("/profiles/count")),
+    refetchInterval: 60_000,
+    retry: (failures, error) => !(error instanceof ApiClientError && error.status === 403) && failures < 2,
+  });
+  const pending = pendingQuery.data?.pending ?? 0;
 
   const tabClass = (isActive: boolean) =>
     cn(
@@ -33,6 +40,14 @@ export function AdminNav({ active }: { active: "profiles" | "reports" }) {
       <div className="flex flex-wrap items-center gap-2">
         <Link href={href()} className={tabClass(active === "profiles")} aria-current={active === "profiles" ? "page" : undefined}>
           {t.navProfiles}
+          {pending > 0 && (
+            <span
+              className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-xs leading-5 font-bold text-white"
+              aria-label={t.pendingCount(pending)}
+            >
+              {pending}
+            </span>
+          )}
         </Link>
         <Link
           href={href("/prijave")}

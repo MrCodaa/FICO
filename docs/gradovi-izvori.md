@@ -1,22 +1,32 @@
-# Katalog naselja: izvori i provjera
+# Katalog gradova: pravilo i izvori
 
-Provjereno 25.10.2026. Katalog (`src/content/cities-data.ts`) sadrži samo jedinice lokalne samouprave (gradove i opštine/općine). Sela, naselja i gradske četvrti većih gradova (npr. Sarajevo Centar, Zemun, Skoplje Čair) ne ulaze. Provjera je rađena unos po unos prema spiskovima ispod.
+Ažurirano 25.10.2026. Katalog (`src/content/cities-data.ts`) sadrži SAMO GRADOVE, po pravilu države ("gradovi u kojima se u toj državi tretiraju kao grad"). Bez gradskih dijelova, kvartova, naselja, sela i opština koje nisu gradovi.
 
-| Država | Jedinica u katalogu | Zvanični broj | Izvor |
-| --- | --- | --- | --- |
-| Bosna i Hercegovina | 139 | FBiH 79 općina/gradova, RS 64 opštine/grada, Brčko Distrikt; Kupres i Trnovo postoje u oba entiteta pod istim imenom (jedan unos); Istočno Sarajevo je grad; Skender Vakuf = Kneževo (jedan unos) | Wikipedia "Municipalities of Bosnia and Herzegovina" (spisak iz zakona o lokalnoj samoupravi entiteta), uporedba sa zvaničnim entitetskim spiskovima |
-| Srbija (bez Kosova) | 152 (145 jedinica + 7 prigradskih opština Beograda koje su posebna mjesta) | 145 gradova i opština (bez Kosova i Metohije); Beograd ima 17 gradskih opština | Wikipedia (sr) "Административна подела Србије", RZS |
-| Srbija (Kosovo, privremeno) | 38 | 38 opština Kosova | Vidi SPORNO |
-| Hrvatska | 552 | 128 gradova + 428 općina = 556 (4 imena se ponavljaju: Novigrad, Otok, Privlaka, Sveta Nedelja) | Wikipedia (en/hr) "List of cities and towns in Croatia" i "Municipalities of Croatia" (stanje 2021-2023) |
-| Slovenija | 212 | 212 občina (12 mestnih) | Wikipedia (sl) "Seznam občin v Sloveniji" |
-| Crna Gora | 25 | 25 opština (uključene Tuzi i Zeta) | Zakon o teritorijalnoj organizaciji Crne Gore |
-| Makedonija | 71 | 80 opština, od toga 10 su gradske opštine Skoplja (u katalogu je jedinstveni "Skoplje") | Wikipedia "Municipalities of North Macedonia (Wikipedia naziv)" (reforma 2013) |
+| Država | Pravilo | Prije | Poslije | Izvor |
+| --- | --- | --- | --- | --- |
+| Bosna i Hercegovina | Sve opštine/općine i gradovi (opština = grad sa okolinom); bosanska imena | 139 | 139 | Wikipedia "Municipalities of Bosnia and Herzegovina", entitetski spiskovi |
+| Srbija (bez Kosova) | Samo jedinice sa pravnim statusom grada: 27 gradova + Beograd | 152 | 28 | Zakon o teritorijalnoj organizaciji RS (izmjene 2018/2020), Wikipedia (sr/en) "Градови у Србији" |
+| Srbija (Kosovo, posebna stavka) | Odluka vlasnika: svih 38 opština Kosova ostaje (opštinski centri se tretiraju kao gradovi); pravilo "pravni grad" se ne primjenjuje | 38 | 38 | Vidi SPORNO; `kosovoMunicipalities` u cities-data.ts |
+| Hrvatska | Samo 128 pravnih gradova, bez općina | 552 | 128 | Wikipedia "List of cities and towns in Croatia" |
+| Slovenija | Naselja sa statusom mesta (69), uključujući 12 mestnih občin | 212 | 69 | Wikipedia "List of towns in Slovenia" |
+| Crna Gora | Svih 25 opština (opština = grad) | 25 | 25 | Zakon o teritorijalnoj organizaciji |
+| Makedonija | Opštine koje se tretiraju kao gradovi; Skoplje jedan unos; provjereno da nema naselja ni ukinutih opština | 71 | 71 | Wikipedia "Municipalities of North Macedonia" |
+
+Ukupno u izboru za RS je 66 (28 + 38 Kosovo).
 
 ## Napomene
 
-- Makedonija: Zajas, Oslomej, Drugovo i Vraneštica ukinute su 2013. (spojene u Kičevo); uklonjeni iz kataloga. Ime države se u katalogu ne koristi ni u jednom nazivu mjesta.
-- Hrvatska: imena Novigrad, Otok, Privlaka i Sveta Nedelja postoje kao dvije jedinice, a u katalogu su jedan unos (ključ je ime).
-- Slovenija: zvanično "Novo mesto" i "Loški Potok"; u katalogu "Novo Mesto" i "Loški potok" (ključevi se ne mijenjaju jer ih profili čuvaju; pretraga ne razlikuje velika slova).
+- Srbija: uklonjeno 124 opština (npr. Ada, Aranđelovac, Smederevska Palanka, Inđija, Preševo, Bujanovac, Ćuprija, Paraćin), uključujući prigradske opštine Beograda (Mladenovac, Obrenovac, Lazarevac, Barajevo, Grocka, Sopot, Surčin). Priština je pravno srpski grad i vodi se u kosovskom bloku.
+- Hrvatska: uklonjeno 424 općine (npr. Blato, Vela Luka, Ston, Orebić, Konavle, Gračac, Medulin, Okučani). Imena Novigrad, Otok i Sveta Nedelja su jedan unos (ključ je ime).
+- Slovenija: uklonjeno 144 občine koje nisu mesta (npr. Bohinj, Kranjska Gora, Brda, Ankaran, Kostel). Ključevi se nisu mijenjali: "Novo Mesto" (zvanično Novo mesto), "Lenart" (mesto Lenart v Slovenskih goricah) i "Šempeter-Vrtojba" (mesto Šempeter pri Gorici); novi unos je "Višnja Gora".
+- Makedonija: Zajas, Oslomej, Drugovo i Vraneštica ukinute su 2013. (spojene u Kičevo); nisu u katalogu.
+
+## Stari profili (uklonjeni gradovi)
+
+Profili čuvaju grad kao tekst, pa uklonjeni gradovi ne smiju srušiti prikaz ni validaciju:
+- Prigradske opštine Beograda se mapiraju na "Beograd" kroz `legacyCityNames.RS` (prikaz i validacija; pri izmjeni profila upisuje se Beograd).
+- Svi ostali uklonjeni gradovi su u `removedCitiesByCountry` (cities-data.ts). `findCatalogCity(value, country, true)` ih prihvata i vraća nepromijenjene (koristi Zod šema profila), a `normalizeCityName` ih ne dira. Ne nude se u izboru ni u autocomplete-u. Uklonjeni grad iz druge države se i dalje odbija.
+- Testovi: `catalog.test.ts` i `cities-search.test.ts`.
 
 ## SPORNO
 
@@ -27,10 +37,10 @@ Provjereno 25.10.2026. Katalog (`src/content/cities-data.ts`) sadrži samo jedin
 | Kupres, Trnovo, Novi Grad | BiH | Isto ime u oba entiteta (Kupres i Trnovo) / više opština | Jedan unos po imenu |
 | Brčko | BiH | Distrikt van oba entiteta | Zadržano kao zasebno |
 | Neum | BiH | Jedini izlaz na more; sporne granice Klek / Mali Ston sa Hrvatskom | Ostaje u BiH |
-| Kostel, Piran | Slovenija | Granični spor sa Hrvatskom (Piranski zaljev, Dragonja, Kupa) | Ostaju u Sloveniji |
-| Konavle / Herceg Novi | Hrvatska / Crna Gora | Prevlaka riješena sporazumom | Bez promjene |
+| Kostel, Piran | Slovenija | Granični spor sa Hrvatskom (Piranski zaljev, Dragonja, Kupa) | Piran ostaje (mesto); Kostel uklonjen (nije mesto), tolerisan u starim profilima |
+| Konavle / Herceg Novi | Hrvatska / Crna Gora | Prevlaka riješena sporazumom | Konavle uklonjene (općina); Herceg Novi ostaje |
 | Vukovar, Ilok | Hrvatska | Dunavska granična pitanja sa Srbijom | Ostaju u Hrvatskoj |
-| Preševo, Bujanovac, Medveđa | Srbija | Albanska većina | Bez promjene |
+| Preševo, Bujanovac, Medveđa | Srbija | Albanska većina; nisu pravni gradovi | Uklonjeni po pravilu (tolerišu se u starim profilima) |
 | Gusinje, Plav, Rožaje, Ulcinj | Crna Gora | Albanska/bošnjačka većina | Bez promjene |
 
 ## Odluke vlasnika

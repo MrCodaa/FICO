@@ -27,7 +27,7 @@ import {
   toMorePayload,
   toPreferencePayload,
 } from "./api";
-import { STEP_KEYS, missingFields, stepCompletion, type StepKey } from "./completion";
+import { STEP_KEYS, stepCompletion, visibleMissingFields, type StepKey } from "./completion";
 import { type Draft, isDraftEmpty, makeDraft, mergeDraft, parseDraft } from "./draft";
 import { FieldErrorsContext } from "./fields";
 import { BasicStep } from "./steps/BasicStep";
@@ -186,6 +186,8 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   const [savedStep, setSavedStep] = useState<StepKey | null>(null);
   const [submitError, setSubmitError] = useState<{ code: string; fields?: Record<string, unknown> } | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  // Koraci u kojima je korisnik pokušao sačuvati/poslati; tek tada se vidi "Fali: ...".
+  const [attempted, setAttempted] = useState<ReadonlySet<StepKey>>(() => new Set());
 
   const meQuery = useQuery({ queryKey: ["me"], queryFn: fetchMe });
   const form = useForm<ProfileFormValues>({ defaultValues: initial.values });
@@ -274,7 +276,10 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   });
 
   const submitMutation = useMutation({
-    mutationFn: submitProfile,
+    mutationFn: () => {
+      setAttempted(new Set(STEP_KEYS));
+      return submitProfile();
+    },
     onSuccess: async () => {
       setSubmitError(null);
       clearDraft();
@@ -299,8 +304,8 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
   }
 
   const values = { ...emptyFormValues, ...watched } as ProfileFormValues;
-  const completion = stepCompletion(values);
-  const missing = missingFields(values, step);
+  const completion = stepCompletion(values, status);
+  const missing = visibleMissingFields(values, step, attempted);
 
   return (
     <>
@@ -392,6 +397,7 @@ function ProfileForm({ data }: { data: GetProfileResponse }) {
                       disabled={locked || saveMutation.isPending}
                       onClick={() => {
                         setSaveError(null);
+                        setAttempted((prev) => new Set(prev).add(step));
                         // LinkedIn: ili pravi link, ili označeno "Nemam LinkedIn" — prazno polje ne prolazi dalje.
                         if (step === "basic") {
                           const v = form.getValues();

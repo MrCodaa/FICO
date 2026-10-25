@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { interestCodes } from "@/content/catalog";
 
-import { missingFields, stepCompletion } from "./completion";
+import { missingFields, stepCompletion, visibleMissingFields, type StepKey } from "./completion";
 import { emptyFormValues, type ProfileFormValues } from "./types";
 
 const full: ProfileFormValues = {
@@ -30,9 +30,15 @@ const full: ProfileFormValues = {
 };
 
 describe("stepCompletion", () => {
-  it("popunjen profil: svi koraci završeni", () => {
-    const values = full;
-    expect(stepCompletion(values)).toEqual({ basic: true, more: true, preference: true, preview: true });
+  it("popunjen nacrt: tri koraka završena, Pregled nema kvačicu", () => {
+    expect(stepCompletion(full)).toEqual({ basic: true, more: true, preference: true, preview: false });
+    expect(stepCompletion(full, "DRAFT").preview).toBe(false);
+    expect(stepCompletion(full, "REJECTED").preview).toBe(false);
+  });
+
+  it("Pregled dobija kvačicu kad je profil poslat ili odobren", () => {
+    expect(stepCompletion(full, "PENDING_REVIEW").preview).toBe(true);
+    expect(stepCompletion(full, "APPROVED").preview).toBe(true);
   });
 
   it("prazan profil: ništa nije završeno", () => {
@@ -63,5 +69,29 @@ describe("stepCompletion", () => {
       "Očekivanja oko equity-ja",
       "Tvoj životni put (ukratko)",
     ]);
+  });
+});
+
+describe("visibleMissingFields", () => {
+  const none = new Set<StepKey>();
+
+  it("na praznom profilu napomena se ne vidi dok korisnik nije pokušao sačuvati", () => {
+    expect(visibleMissingFields(emptyFormValues, "basic", none)).toEqual([]);
+    expect(visibleMissingFields(emptyFormValues, "more", new Set<StepKey>(["basic"]))).toEqual([]);
+  });
+
+  it("nakon pokušaja čuvanja prikazuje polja koja fale u tom koraku", () => {
+    const shown = visibleMissingFields(emptyFormValues, "basic", new Set<StepKey>(["basic"]));
+    expect(shown).toEqual(missingFields(emptyFormValues, "basic"));
+    expect(shown.length).toBeGreaterThan(0);
+  });
+
+  it("nestaje čim se polja popune", () => {
+    expect(visibleMissingFields(full, "basic", new Set<StepKey>(["basic"]))).toEqual([]);
+  });
+
+  it("slanje cijelog profila otkriva napomene u svim koracima", () => {
+    const all = new Set<StepKey>(["basic", "more", "preference", "preview"]);
+    expect(visibleMissingFields(emptyFormValues, "more", all).length).toBeGreaterThan(0);
   });
 });

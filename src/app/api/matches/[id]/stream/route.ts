@@ -6,6 +6,9 @@ import { ApiError } from "@/lib/errors";
 // SSE rute moraju biti dinamičke — bez ovoga Next.js može pokušati statički
 // predrenderovati/keširati handler, što bi slomilo long-lived stream.
 export const dynamic = "force-dynamic";
+// Stream traje ~50 s (STREAM_DURATION_MS); zadano ograničenje funkcije na Vercelu je kraće na nekim
+// planovima pa bi se veza prekidala usred toka. 60 s ostavlja rezervu iznad 50 s.
+export const maxDuration = 60;
 
 const POLL_INTERVAL_MS = 2000;
 const STREAM_DURATION_MS = 50_000;

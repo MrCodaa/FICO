@@ -16,8 +16,21 @@ import type { ProfileRecord, PreferenceRecord } from "./repository";
 // Vlasnikov sopstveni profil/preferenca — nema skrivenih ni osjetljivih polja za
 // uklanjanje (za razliku od ProfileView koji ide drugim korisnicima), pa mapperi
 // samo prosljeđuju zapis kao DTO oblik.
-export function toProfileDraft(profile: ProfileRecord): ProfileRecord {
-  return profile;
+// Otisci slike i admin oznaka (photoHash, photoDHash, photoFlag*) se ne vraćaju vlasniku.
+export type ProfileDraft = Omit<ProfileRecord, "photoHash" | "photoDHash" | "photoFlaggedAt" | "photoFlagNote">;
+
+export function toProfileDraft(profile: ProfileRecord): ProfileDraft {
+  const { photoHash: _h, photoDHash: _d, photoFlaggedAt: _f, photoFlagNote: _n, ...draft } = profile;
+  void [_h, _d, _f, _n];
+  return draft;
+}
+
+/** "<userId>|<ime>" -> sličan profil za admina. */
+export function parsePhotoFlag(profile: Pick<ProfileRecord, "photoFlaggedAt" | "photoFlagNote">) {
+  if (!profile.photoFlaggedAt || !profile.photoFlagNote) return null;
+  const i = profile.photoFlagNote.indexOf("|");
+  if (i <= 0) return null;
+  return { userId: profile.photoFlagNote.slice(0, i), name: profile.photoFlagNote.slice(i + 1) };
 }
 
 export function toPreferenceDraft(preference: PreferenceRecord): PreferenceRecord {
@@ -81,6 +94,8 @@ export interface AdminProfileView extends ProfileView {
   hideAge: boolean;
   noLinkedin: boolean;
   reviewedAt: Date | null;
+  /** Slična ili ista slika na drugom profilu (null = nema). */
+  photoSimilarTo: { userId: string; name: string } | null;
 }
 
 export function toAdminProfileView(
@@ -94,6 +109,7 @@ export function toAdminProfileView(
     hideAge: profile.hideAge,
     noLinkedin: profile.noLinkedin,
     reviewedAt: profile.reviewedAt,
+    photoSimilarTo: parsePhotoFlag(profile),
   };
 }
 

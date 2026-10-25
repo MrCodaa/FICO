@@ -17,7 +17,7 @@ const moreKeys = new Set<string>(MORE_FIELDS);
  * Zelena kvačica po koraku, izračunata iz stvarnih vrijednosti: ista pravila
  * kojima API provjerava slanje na pregled (profileSubmitSchema + submitRules).
  * Korak je kompletan kad nijedna greška ne pada na njegova polja; Pregled je
- * kompletan kad su svi prethodni koraci kompletni.
+ * kompletan tek kad je profil poslat na pregled (PENDING_REVIEW ili APPROVED).
  */
 function failingKeys(values: ProfileFormValues): Set<string> {
   const payload = {
@@ -39,12 +39,17 @@ function failingKeys(values: ProfileFormValues): Set<string> {
   return failing;
 }
 
-export function stepCompletion(values: ProfileFormValues): Record<StepKey, boolean> {
+/** Profil je poslat na pregled (ili već odobren): tek tada Pregled dobija kvačicu. */
+export function isProfileSubmitted(status: string | null | undefined): boolean {
+  return status === "PENDING_REVIEW" || status === "APPROVED";
+}
+
+export function stepCompletion(values: ProfileFormValues, status?: string | null): Record<StepKey, boolean> {
   const failing = failingKeys(values);
   const basic = !failing.has("photoUrl") && ![...failing].some((key) => basicKeys.has(key));
   const more = ![...failing].some((key) => moreKeys.has(key));
   const preference = !failing.has("lookingFor") && preferenceDraftSchema.safeParse(toPreferencePayload(values)).success;
-  return { basic, more, preference, preview: basic && more && preference };
+  return { basic, more, preference, preview: isProfileSubmitted(status) };
 }
 
 /** Nazivi obaveznih polja koja fale u koraku (prazna lista = korak je završen). */
@@ -83,4 +88,18 @@ export function missingFields(values: ProfileFormValues, step: StepKey): string[
     return key === "lookingFor";
   });
   return keys.map((key) => labels[key]!);
+}
+
+/**
+ * Napomena "Fali: ..." se vidi tek kad je korisnik pokušao da sačuva taj korak
+ * (ili da pošalje cijeli profil) i obavezna polja još fale. Dok samo gleda ili
+ * unosi, nema je; čim polja popuni, nestaje (lista se računa iz trenutnih vrijednosti).
+ */
+export function visibleMissingFields(
+  values: ProfileFormValues,
+  step: StepKey,
+  attempted: ReadonlySet<StepKey>,
+): string[] {
+  if (!attempted.has(step)) return [];
+  return missingFields(values, step);
 }

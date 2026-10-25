@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { sr } from "@/content/sr";
+import { buildChatBlocks, dayLabel } from "@/features/chat/grouping";
 import { sendErrorMessage } from "@/features/chat/sendError";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 import { ReportBlockModal } from "@/features/safety/components/ReportBlockModal";
@@ -33,10 +34,14 @@ interface MessagesResponse {
   nextBefore: string | null;
 }
 
-function formatTime(dateStr: string): string {
+function formatClock(dateStr: string): string {
+  return new Date(dateStr).toLocaleTimeString("sr-Latn", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatFull(dateStr: string): string {
   return new Date(dateStr).toLocaleString("sr-Latn", {
     day: "numeric",
-    month: "short",
+    month: "long",
     hour: "2-digit",
     minute: "2-digit",
   });
@@ -138,6 +143,8 @@ export default function ConversationPage() {
 
   const myUserId = meQuery.data?.id;
   const messages = messagesQuery.data?.items ?? [];
+  const blocks = buildChatBlocks(messages);
+  const lastMineId = [...messages].reverse().find((m) => m.senderId === myUserId)?.id;
   const name = other ? [other.firstName, other.lastName].filter(Boolean).join(" ") : "";
 
   const handleSend = () => {
@@ -191,23 +198,66 @@ export default function ConversationPage() {
         />
       )}
 
-      <div className="bg-surface flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-5 py-5">
+      <div className="bg-surface flex min-h-0 flex-1 flex-col gap-1.5 overflow-y-auto px-5 py-5">
         {messages.length === 0 ? (
           <p className="text-muted-foreground m-auto text-center">{t.empty}</p>
         ) : (
-          messages.map((message) => {
-            const isMine = message.senderId === myUserId;
-            return (
-              <div key={message.id} className={cn("flex flex-col", isMine ? "items-end" : "items-start")}>
-                <div
-                  className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-2.5 leading-relaxed whitespace-pre-line md:max-w-[70%]",
-                    isMine ? "bg-primary text-primary-foreground" : "bg-card border",
-                  )}
-                >
-                  {message.body}
+          blocks.map((block) => {
+            if (block.kind === "day") {
+              return (
+                <div key={block.key} className="my-2 flex items-center gap-3" role="separator">
+                  <span className="bg-border h-px flex-1" />
+                  <span className="text-muted-foreground text-xs font-medium">
+                    {dayLabel(block.date, new Date(), { today: t.today, yesterday: t.yesterday })}
+                  </span>
+                  <span className="bg-border h-px flex-1" />
                 </div>
-                <span className="text-muted-foreground mt-1 text-xs">{formatTime(message.createdAt)}</span>
+              );
+            }
+            const { group } = block;
+            const isMine = group.senderId === myUserId;
+            const last = group.messages.at(-1);
+            if (!last) return null;
+            const showSeen = isMine && last.id === lastMineId && last.readAt !== null;
+            return (
+              <div key={block.key} className={cn("mt-2 flex items-end gap-2", isMine ? "flex-row-reverse" : "flex-row")}>
+                {!isMine && (
+                  <div className="w-8 shrink-0 self-start">
+                    {other && (
+                      <ProfileAvatar
+                        photoUrl={other.photoUrl}
+                        firstName={other.firstName}
+                        lastName={other.lastName}
+                        className="size-8 text-xs"
+                      />
+                    )}
+                  </div>
+                )}
+                <div className={cn("flex min-w-0 max-w-[85%] flex-col gap-0.5 md:max-w-[70%]", isMine ? "items-end" : "items-start")}>
+                  {group.messages.map((message, index) => {
+                    const first = index === 0;
+                    const isLast = index === group.messages.length - 1;
+                    return (
+                      <div
+                        key={message.id}
+                        title={formatFull(message.createdAt)}
+                        className={cn(
+                          "px-4 py-2 leading-relaxed break-words whitespace-pre-line",
+                          "rounded-2xl",
+                          isMine
+                            ? cn("bg-primary text-primary-foreground", !first && "rounded-tr-md", !isLast && "rounded-br-md")
+                            : cn("bg-card border", !first && "rounded-tl-md", !isLast && "rounded-bl-md"),
+                        )}
+                      >
+                        {message.body}
+                      </div>
+                    );
+                  })}
+                  <span className="text-muted-foreground mt-0.5 px-1 text-[11px]">
+                    {formatClock(last.createdAt)}
+                    {showSeen && ` · ${t.seen}`}
+                  </span>
+                </div>
               </div>
             );
           })

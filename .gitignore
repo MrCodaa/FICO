@@ -35,3 +35,6 @@ coverage/
 
 # lokalni upload slika (LocalStorageProvider)
 public/uploads/
+
+# referentne slike (autorsko pravo treće strane); ostaju na disku, ne idu u repo
+docs/reference/

@@ -155,6 +155,7 @@ export const sr = {
       validationError: "Ispravi označena polja",
       invalidCredentials: "Email ili lozinka nisu tačni.",
       loginLocked: (minutes: number) => `Greška: previše pokušaja. Pokušaj ponovo za ${minutes} min.`,
+      rateLimited: (minutes: number) => `Greška: previše pokušaja. Pokušaj ponovo za ${minutes} min.`,
       emailTaken: "Nalog sa ovim emailom već postoji.",
       emailDomainMissing: "Greška: domen ovog emaila ne postoji. Provjeri da li je email ispravno ukucan.",
       tokenInvalid: "Link nije validan ili je istekao.",
@@ -216,6 +217,7 @@ export const sr = {
         countryCode: "Greška: izaberi državu sa spiska.",
         linkedinUrl: "Greška: unesi pravi LinkedIn link ili označi \"Nemam LinkedIn\".",
         birthDate: "Greška: unesi ispravan datum.",
+        birthDateUnderage: "Greška: moraš imati najmanje 18 godina.",
         areas: "Greška: izaberi bar jednu oblast.",
         interests: "Greška: izaberi bar jedno interesovanje.",
       } as Record<string, string>,
@@ -306,7 +308,6 @@ export const sr = {
       },
       preference: {
         title: "Preference za co-foundera",
-        subtitle: "Sve je opciono — ostavi prazno za \"Bez preference\".",
         lookingFor: "Opiši koga tražiš",
         idea: "Preferenca oko ideje",
         ideaOptions: {
@@ -343,6 +344,7 @@ export const sr = {
       photoRateLimited: "Greška: previše pokušaja otpremanja slike. Pokušaj ponovo za sat vremena.",
       photoClientInvalid: "Greška: dozvoljeni su samo JPEG, PNG ili WebP do 4 MB.",
       photoInvalidType: "Greška: dozvoljeni formati su JPEG, PNG i WebP.",
+      photoDuplicate: "Greška: ova slika je već u upotrebi na drugom profilu. Koristi svoju fotografiju.",
       linkedinRequired: "Unesi LinkedIn profil ili označi \"Nemam LinkedIn\".",
       linkedinInvalid: "Greška: ovo nije pravi LinkedIn link. Unesi link oblika linkedin.com/in/tvoje-ime.",
       videoInvalid: "Greška: ovo nije pravi link na video. Unesi link sa YouTube-a, Vimeo-a, Loom-a ili Google Drive-a.",
@@ -456,6 +458,14 @@ export const sr = {
       reviewedAt: "Pregledano",
       previousReason: "Razlog odbijanja",
       alreadyHandled: "Ova prijava je već obrađena.",
+      photoSimilar: (name: string) => `Slična ili ista slika već postoji na profilu: ${name}`,
+      photoSimilarOpen: "Otvori taj profil",
+      photoSimilarLoading: "Učitavam profil...",
+      photoCheckHint: "Provjeri da slika nije AI-generisana ili preuzeta (koristi Pretraži sliku).",
+      photoSearchLens: "Pretraži sliku (Google Lens)",
+      photoSearchTinEye: "Pretraži sliku (TinEye)",
+      photoSearchLocalOnly:
+        "Pretraga slike radi samo kada je slika javno dostupna (Vercel Blob); lokalna adresa se ne može pretraživati.",
       error: "Nešto je pošlo po zlu. Pokušaj ponovo.",
       statusTabs: {
         PENDING_REVIEW: "Na pregledu",
@@ -464,6 +474,18 @@ export const sr = {
       },
     },
     emails: {
+      newProfile: {
+        subject: "Novi profil čeka pregled na FICO-u",
+        body: (name: string, link: string) => `Novi profil na pregledu: ${name}.
+
+Pregled: ${link}`,
+      },
+      newReport: {
+        subject: "Nova prijava profila na FICO-u",
+        body: (link: string) => `Stigla je nova prijava profila.
+
+Pregled: ${link}`,
+      },
       deactivated: {
         subject: "Tvoj FICO nalog je deaktiviran",
         body: (helpLink: string) =>
@@ -587,13 +609,16 @@ export const sr = {
     lockedHint: "Otključava se kad admin odobri tvoj profil.",
     notifications: "Obavještenja",
     notificationsEmpty: "Nema novih obavještenja.",
+    markOneRead: "Označi kao pročitano",
     markAllRead: "Označi sve kao pročitano",
+    unreadCount: "nepročitano",
     openMenu: "Otvori meni",
     closeMenu: "Zatvori meni",
   },
   footer: {
     about: "O nama",
     privacy: "Privatnost",
+    terms: "Uslovi",
     faq: "FAQ",
     help: "Pomoć",
     logout: "Odjavi se",
@@ -723,6 +748,9 @@ export const sr = {
     backToList: "Nazad na poruke",
     selectConversation: "Izaberi razgovor sa lijeve strane.",
     now: "sada",
+    today: "Danas",
+    yesterday: "Jučer",
+    seen: "Pročitano",
   },
   safety: {
     block: {
@@ -759,6 +787,7 @@ export const sr = {
     deactivateUser: "Deaktiviraj korisnika",
     navLabel: "Admin navigacija",
     navProfiles: "Profili na pregledu",
+    pendingCount: (n: number) => `${n} profila na pregledu`,
     navReports: "Prijave profila",
     openCount: (n: number) => `${n} otvorenih prijava`,
     reportedBy: "Prijavio/la",
@@ -946,6 +975,21 @@ export const sr = {
     publicBack: "Nazad na početnu",
   },
   supportEmail: "podrska@fico.app",
+  // Meta podaci javnih stranica (naslov, opis, dijeljenje na društvenim mrežama).
+  seo: {
+    siteTitle: "FICO | Pronađi co-foundera na Balkanu",
+    description:
+      "FICO povezuje osnivače sa Balkana. Napravi profil, otkrivaj kandidate uz razloge zašto se slažete i počni razgovor kad se obje strane slože. Besplatno.",
+    pages: {
+      about: "Ko stoji iza FICO-a, zašto smo ga napravili i kako funkcioniše pronalazak co-foundera na Balkanu.",
+      faq: "Odgovori na najčešća pitanja o FICO-u: ko može da se prijavi, kako radi poklapanje i kako se čuva privatnost.",
+      help: "Pomoć i kontakt za FICO: tehnički problemi, pitanja o nalogu, prijava zloupotrebe i povratne informacije.",
+      privacy: "Politika privatnosti FICO-a: koje podatke prikupljamo, zašto, koliko dugo ih čuvamo i koja prava imaš.",
+      terms: "Uslovi korištenja FICO-a: ko može koristiti platformu, pravila ponašanja i odgovornosti.",
+      login: "Prijavi se na FICO i nastavi potragu za co-founderom.",
+      register: "Napravi besplatan FICO nalog i pronađi co-foundera za svoj startup na Balkanu.",
+    },
+  },
   about: {
     title: "O nama",
     eyebrow: "FICO — Find Co-Founder za Balkan",

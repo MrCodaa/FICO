@@ -29,6 +29,9 @@ export function AppFooter({
         <Link href="/privatnost" className={linkClass}>
           {sr.footer.privacy}
         </Link>
+        <Link href="/uslovi" className={linkClass}>
+          {sr.footer.terms}
+        </Link>
         <Link href="/faq" className={linkClass}>
           {sr.footer.faq}
         </Link>

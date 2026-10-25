@@ -49,7 +49,7 @@ Ovaj dokument je pisan običnim jezikom. Sve što piše je provjereno u kodu; gd
 | `Block` | Ko je koga blokirao |
 | `Report` | Prijave profila adminu |
 
-Napomena: slike nisu u bazi. U bazi je samo link na sliku (`Profile.photoUrl`).
+Napomena: slike nisu u bazi. U bazi je samo link na sliku (`Profile.photoUrl`) i otisci slike: `photoHash` (SHA-256 sačuvanog fajla) i `photoDHash` (perceptualni dHash, 16 hex). Služe za prepoznavanje tuđe slike: isti `photoHash` na profilu drugog (ne deaktiviranog) korisnika odbija upload; dHash na Hammingovom razmaku ≤ 6 dozvoljava upload, ali postavlja `photoFlaggedAt`/`photoFlagNote` (`<userId>|<ime>`) pa admin vidi upozorenje i linkove "Pretraži sliku". Zamjena slike prepisuje otiske i briše oznaku. Postojeći profili: `npm run db:backfill-photo-hash` (dry run) / `-- --write`, na DEV bazi. AI-generisane slike se ne prepoznaju automatski, admin ih provjerava ručno.
 
 ## 3. Kako je baza zaštićena
 

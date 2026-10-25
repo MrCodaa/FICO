@@ -191,6 +191,10 @@ model Profile {
   firstName      String?
   lastName       String?
   photoUrl       String?
+  photoHash      String? // SHA-256 (hex) sačuvanog fajla slike; za prepoznavanje tuđe/iste slike
+  photoDHash     String? // dHash 64-bit (16 hex); perceptualni otisak, Hamming <= 6 = slična slika
+  photoFlaggedAt DateTime? // slična slika već postoji na drugom profilu (admin odlučuje)
+  photoFlagNote  String? // "<userId>|<ime>" sličnog profila
   linkedinUrl    String?
   noLinkedin     Boolean   @default(false)
   countryCode    String? // ISO 3166-1 alpha-2; region se izvodi iz kataloga
@@ -227,6 +231,7 @@ model Profile {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([status, countryCode])
+  @@index([photoHash])
 }
 
 /// Šta korisnik traži u co-founderu. Polje = null znači "Bez preference".

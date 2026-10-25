@@ -43,11 +43,24 @@ incognito prozoru.
    - `EMAIL_PROVIDER=console` (mejlovi se ispisuju u terminal, bez Resenda)
    - `ADMIN_EMAILS` = mejl admina
    - `ADMIN_PATH` ostavi prazno u razvoju: admin panel je tada na `http://localhost:3000/upravljanje`
-4. `npm run db:generate`, `npm run db:migrate`, `npm run db:seed`.
+4. `npm run db:generate`, `npm run db:migrate`, pa seed (vidi "Zaštita seeda" ispod).
 5. `npm run dev`, pa `http://localhost:3000/dev/login`.
 
 Ako je dev baza kopija produkcije, seed će obrisati sve `@fico.test` naloge i napraviti ih iznova.
 To je normalno (seed je idempotentan).
+
+## Zaštita seeda
+
+Seed (`prisma/seed.ts`) briše i pravi naloge, pa ima ugrađenu zaštitu (`prisma/seed-guard.ts`):
+
+- Radi samo kad `DATABASE_URL` i `DIRECT_URL` pokazuju na **lokalnu bazu** (localhost, 127.0.0.1, ::1).
+- Za dev bazu na udaljenom hostu (npr. Neon dev branch) seed radi samo uz `ALLOW_SEED=true`, koji
+  postavljaš **privremeno u komandi**, ne u `.env`:
+  - cmd: `set ALLOW_SEED=true&& npm run db:seed` (bez razmaka prije `&&`)
+  - PowerShell: `$env:ALLOW_SEED='true'; npm run db:seed`
+- Sa `NODE_ENV=production` seed se odbija uvijek, bez obzira na ostalo.
+- Nijedan host nije upisan u kod: prije `ALLOW_SEED=true` provjeri u `.env` da je to zaista dev branch,
+  a ne produkcija.
 
 ## Pravi tok (registracija → admin)
 

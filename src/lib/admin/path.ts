@@ -26,6 +26,7 @@ const RESERVED_SEGMENTS = new Set([
   "privatnost",
   "registracija",
   "reset-lozinke",
+  "uslovi",
   "zaboravljena-lozinka",
   INTERNAL_ADMIN_PREFIX.slice(1),
 ]);

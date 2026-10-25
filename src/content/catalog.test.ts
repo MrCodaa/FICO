@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 
-import { citiesByCountry, countries, legacyCityNames, normalizeCityName } from "@/content/catalog";
+import { citiesByCountry, countries, isRemovedCityName, legacyCityNames, normalizeCityName } from "@/content/catalog";
+import { kosovoMunicipalities } from "@/content/cities-data";
 import { findCatalogCity } from "@/content/cities-search";
 
-// Minimalni brojevi zvaničnih jedinica lokalne samouprave (donja granica, da niko ne ispadne).
-const MIN_COUNT: Record<string, number> = {
+// Tačni brojevi po pravilu države (vidi docs/gradovi-izvori.md).
+const EXPECTED_COUNT: Record<string, number> = {
   BA: 139, // 79 FBiH + 64 RS (Kupres i Trnovo isto ime u oba entiteta) + Brčko + Istočno Sarajevo; Skender Vakuf = Kneževo (jedan unos)
-  RS: 188,
-  HR: 540,
+  RS: 28 + 38, // 27 pravnih gradova + Beograd, plus 38 opština Kosova
+  HR: 128, // pravni gradovi
   ME: 25,
-  MK: 70,
-  SI: 212,
+  MK: 71,
+  SI: 69, // naselja sa statusom mesta
 };
 
 describe("catalog gradova", () => {
@@ -33,10 +34,44 @@ describe("catalog gradova", () => {
     }
   });
 
-  it("broj unosa ne pada ispod broja zvaničnih opština i gradova", () => {
-    for (const [code, min] of Object.entries(MIN_COUNT)) {
-      expect(citiesByCountry[code]?.length ?? 0, code).toBeGreaterThanOrEqual(min);
+  it("broj unosa je tačno broj gradova po pravilu države", () => {
+    for (const [code, count] of Object.entries(EXPECTED_COUNT)) {
+      expect(citiesByCountry[code]?.length ?? 0, code).toBe(count);
     }
+    expect(kosovoMunicipalities).toHaveLength(38);
+  });
+
+  it("Srbija: samo pravni gradovi (i Kosovo), bez opština i gradskih opština", () => {
+    const rs = citiesByCountry.RS ?? [];
+    for (const name of ["Beograd", "Zaječar", "Valjevo", "Bor", "Pirot", "Vranje", "Novi Pazar", "Užice", "Šabac"]) expect(rs, name).toContain(name);
+    for (const name of ["Ada", "Voždovac", "Mladenovac", "Obrenovac", "Lazarevac", "Barajevo", "Grocka", "Sopot", "Surčin", "Aranđelovac", "Smederevska Palanka", "Inđija"]) {
+      expect(rs, name).not.toContain(name);
+    }
+    for (const name of kosovoMunicipalities) expect(rs, name).toContain(name);
+  });
+
+  it("Hrvatska ima samo gradove, Slovenija samo mesta, bez općina i ostalih občina", () => {
+    for (const name of ["Gračac", "Konavle", "Medulin", "Blato", "Ston", "Orebić", "Vela Luka"]) expect(citiesByCountry.HR).not.toContain(name);
+    for (const name of ["Zagreb", "Popovača", "Požega", "Komiža"]) expect(citiesByCountry.HR).toContain(name);
+    for (const name of ["Ankaran", "Kostel", "Bohinj", "Brda"]) expect(citiesByCountry.SI).not.toContain(name);
+    for (const name of ["Ljubljana", "Bled", "Piran", "Višnja Gora"]) expect(citiesByCountry.SI).toContain(name);
+  });
+
+  it("uklonjeni gradovi: prihvaćeni pri čitanju i validaciji, ne nude se u katalogu", () => {
+    expect(isRemovedCityName("Gračac", "HR")).toBe(true);
+    expect(isRemovedCityName("Ada", "RS")).toBe(true);
+    expect(isRemovedCityName("Bohinj", "SI")).toBe(true);
+    expect(isRemovedCityName("Zagreb", "HR")).toBe(false);
+    expect(findCatalogCity("Gračac", "HR")).toBeNull();
+    expect(findCatalogCity("gracac", "HR", true)).toBe("Gračac");
+    expect(findCatalogCity("Ada", "RS", true)).toBe("Ada");
+    expect(findCatalogCity("Ada", "HR", true)).toBeNull();
+    expect(normalizeCityName("Gračac", "HR")).toBe("Gračac");
+    for (const sub of ["Mladenovac", "Obrenovac", "Lazarevac", "Barajevo", "Grocka", "Sopot", "Surčin"]) {
+      expect(normalizeCityName(sub, "RS")).toBe("Beograd");
+      expect(findCatalogCity(sub, "RS")).toBe("Beograd");
+    }
+    expect(normalizeCityName("Mladenovac", "HR")).toBe("Mladenovac");
   });
 
   it("poznati granični i sporni slučajevi su u pravoj državi i nigdje drugdje", () => {
@@ -48,15 +83,11 @@ describe("catalog gradova", () => {
       Vukovar: "HR",
       Ilok: "HR",
       Dubrovnik: "HR",
-      Konavle: "HR",
       Piran: "SI",
-      Ankaran: "SI",
-      Kostel: "SI",
       "Herceg Novi": "ME",
       Ulcinj: "ME",
       Bitola: "MK",
       Ohrid: "MK",
-      Preševo: "RS",
       "Novi Pazar": "RS",
     };
     for (const [name, code] of Object.entries(placed)) {

@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import type { Area, Gender, IdeaPreference, IdeaStatus, Importance, LocationScope, ProfileStatus, TechnicalPreference, Timing } from "@/generated/prisma/client";
 import { ApiError } from "@/lib/errors";
 import { sr } from "@/content/sr";
+import { hammingDistance, SIMILAR_PHOTO_MAX_DISTANCE } from "./photoHash";
 
 export interface ProfileRecord {
   userId: string;
@@ -10,6 +11,10 @@ export interface ProfileRecord {
   firstName: string | null;
   lastName: string | null;
   photoUrl: string | null;
+  photoHash: string | null;
+  photoDHash: string | null;
+  photoFlaggedAt: Date | null;
+  photoFlagNote: string | null;
   linkedinUrl: string | null;
   noLinkedin: boolean;
   countryCode: string | null;
@@ -67,13 +72,47 @@ export interface PreferenceRecord {
 // lista na pregledu dodaje uz profil.
 export type ReviewProfileRecord = ProfileRecord & { preference?: PreferenceRecord | null; email: string };
 
+/** Profil drugog korisnika koji ima istu/sličnu sliku. */
+export interface PhotoMatch {
+  userId: string;
+  name: string;
+}
+
+export interface PhotoFingerprint {
+  photoHash: string;
+  photoDHash: string | null;
+  /** Slična slika na drugom profilu (označava profil za admina); null = nema. */
+  similarTo: PhotoMatch | null;
+  now: Date;
+}
+
+function displayName(p: { firstName: string | null; lastName: string | null }): string {
+  return [p.firstName, p.lastName].filter(Boolean).join(" ") || "—";
+}
+
 export interface ProfileRepository {
   getProfileAndPreference(
     userId: string,
   ): Promise<{ profile: ProfileRecord | null; preference: PreferenceRecord | null }>;
   updateProfileDraft(userId: string, data: Record<string, unknown>): Promise<ProfileRecord>;
   updatePreferenceDraft(userId: string, data: Record<string, unknown>): Promise<PreferenceRecord>;
-  updateProfilePhoto(userId: string, photoUrl: string): Promise<{ oldPhotoUrl: string | null }>;
+  /**
+   * Profili DRUGIH korisnika (bez deaktiviranih) sa istom slikom (SHA-256) ili sličnom (dHash,
+   * Hamming <= SIMILAR_PHOTO_MAX_DISTANCE).
+   */
+  findPhotoMatches(
+    userId: string,
+    photoHash: string,
+    photoDHash: string | null,
+  ): Promise<{ exact: PhotoMatch | null; similar: PhotoMatch | null }>;
+  /** Upisuje novu sliku, njene otiske i oznaku (stare otiske i oznaku uvijek briše). */
+  updateProfilePhoto(
+    userId: string,
+    photoUrl: string,
+    fingerprint: PhotoFingerprint,
+  ): Promise<{ oldPhotoUrl: string | null }>;
+  /** Jedan profil za admin pregled (link iz upozorenja o sličnoj slici). */
+  getReviewProfile(userId: string): Promise<ReviewProfileRecord | null>;
   /** Fajlovi vezani za nalog (za brisanje iz storage-a poslije brisanja naloga). */
   getFileUrls(userId: string): Promise<string[]>;
   /** Troši jedno mjesto iz limita otpremanja (fiksni prozor). false = limit je potrošen. */
@@ -120,10 +159,55 @@ export const profileRepository: ProfileRepository = {
     return db.preference.update({ where: { userId }, data });
   },
 
-  async updateProfilePhoto(userId, photoUrl) {
+  async findPhotoMatches(userId, photoHash, photoDHash) {
+    const activeOther = { userId: { not: userId }, user: { deactivatedAt: null } };
+    const select = { userId: true, firstName: true, lastName: true } as const;
+    const exactRow = await db.profile.findFirst({ where: { ...activeOther, photoHash }, select });
+    let similarRow: { userId: string; firstName: string | null; lastName: string | null } | null = null;
+    if (photoDHash) {
+      // Poređenje u memoriji: za desetine hiljada profila je u redu (po jedan 16-znakovni niz).
+      const candidates = await db.profile.findMany({
+        where: { ...activeOther, photoDHash: { not: null } },
+        select: { ...select, photoDHash: true },
+      });
+      let best = Number.POSITIVE_INFINITY;
+      for (const c of candidates) {
+        const d = hammingDistance(photoDHash, c.photoDHash ?? "");
+        if (d <= SIMILAR_PHOTO_MAX_DISTANCE && d < best) {
+          best = d;
+          similarRow = c;
+        }
+      }
+    }
+    return {
+      exact: exactRow ? { userId: exactRow.userId, name: displayName(exactRow) } : null,
+      similar: similarRow ? { userId: similarRow.userId, name: displayName(similarRow) } : null,
+    };
+  },
+
+  async updateProfilePhoto(userId, photoUrl, fingerprint) {
     const existing = await db.profile.findUnique({ where: { userId }, select: { photoUrl: true } });
-    await db.profile.update({ where: { userId }, data: { photoUrl } });
+    await db.profile.update({
+      where: { userId },
+      data: {
+        photoUrl,
+        photoHash: fingerprint.photoHash,
+        photoDHash: fingerprint.photoDHash,
+        photoFlaggedAt: fingerprint.similarTo ? fingerprint.now : null,
+        photoFlagNote: fingerprint.similarTo ? `${fingerprint.similarTo.userId}|${fingerprint.similarTo.name}` : null,
+      },
+    });
     return { oldPhotoUrl: existing?.photoUrl ?? null };
+  },
+
+  async getReviewProfile(userId) {
+    const [profile, preference, user] = await Promise.all([
+      db.profile.findUnique({ where: { userId } }),
+      db.preference.findUnique({ where: { userId } }),
+      db.user.findUnique({ where: { id: userId }, select: { email: true } }),
+    ]);
+    if (!profile) return null;
+    return { ...profile, preference, email: user?.email ?? "" };
   },
 
   async getFileUrls(userId) {

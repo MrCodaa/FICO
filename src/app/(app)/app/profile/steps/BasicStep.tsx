@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { countries } from "@/content/catalog";
 import { sr } from "@/content/sr";
+import { birthDateIssue } from "@/lib/age";
 import { ProfileAvatar } from "@/features/profile/components/ProfileAvatar";
 import { isAcceptablePhoto } from "@/features/profile/photoCheck";
 import { isValidInstagramUrl, isValidLinkedinUrl, isValidSchedulingUrl, isValidTwitterUrl, isValidVideoUrl } from "@/features/profile/urlSchemas";
@@ -41,6 +42,16 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
     if (fieldErrors[name]) return null;
     const value = (watch(name) ?? "").trim();
     return value && !check(value) ? <p className="text-destructive text-sm">{message}</p> : null;
+  };
+  // Živa poruka za datum rođenja iz istog pravila kao Zod šema (18+, bez budućnosti i prije 1900).
+  const birthDateError = () => {
+    if (fieldErrors.birthDate) return null;
+    const raw = watch("birthDate");
+    if (!raw) return null;
+    const issue = birthDateIssue(new Date(raw), new Date());
+    if (!issue) return null;
+    const msg = issue === "underage" ? sr.profile.fieldErrors.byField.birthDateUnderage : sr.profile.fieldErrors.byField.birthDate;
+    return <p className="text-destructive text-sm">{msg}</p>;
   };
   const countryField = register("countryCode");
 
@@ -209,6 +220,7 @@ export function BasicStep({ form, email, disabled }: BasicStepProps) {
 
       <Field label={t.birthDate} htmlFor="birthDate" required>
         <Input id="birthDate" type="date" className="sm:max-w-xs" {...register("birthDate")} />
+        {birthDateError()}
       </Field>
 
       <Field label={t.schedulingUrl} htmlFor="schedulingUrl">

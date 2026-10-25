@@ -19,6 +19,7 @@ import {
   TechnicalPreference,
   Timing,
 } from "../src/generated/prisma/enums";
+import { assertSeedAllowed } from "./seed-guard";
 import {
   EQUITY_OPTIONS,
   FREE_TIME_OPTIONS,
@@ -80,6 +81,7 @@ function daysAgo(days: number): Date {
 
 /** Pravi (ne briše) 10 test naloga. Pozovi poslije brisanja starih @fico.test naloga. */
 export async function createTestAccounts(db: PrismaClient, passwordHash: string): Promise<void> {
+  assertSeedAllowed(); // i pri samostalnom pozivu: isto pravilo kao u seed.ts
   for (let n = 1; n <= TEST_ACCOUNT_COUNT; n++) {
     const p = PROFILES[n - 1];
     if (!p) throw new Error(`Seed: nema podataka za test nalog ${n}`);

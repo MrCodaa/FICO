@@ -38,6 +38,10 @@ function completeProfile(overrides: Partial<ProfileRecord> = {}): ProfileRecord 
     firstName: "Ana",
     lastName: "Anić",
     photoUrl: "https://blob.example/old.jpg",
+    photoHash: null,
+    photoDHash: null,
+    photoFlaggedAt: null,
+    photoFlagNote: null,
     linkedinUrl: "https://linkedin.com/in/ana",
     noLinkedin: false,
     countryCode: "BA",
@@ -101,7 +105,9 @@ function createFakeRepo(overrides: Partial<ProfileRepository> = {}): ProfileRepo
     getProfileAndPreference: vi.fn().mockResolvedValue({ profile: null, preference: null }),
     updateProfileDraft: vi.fn().mockResolvedValue(completeProfile()),
     updatePreferenceDraft: vi.fn().mockResolvedValue(createFakePreference()),
+    findPhotoMatches: vi.fn().mockResolvedValue({ exact: null, similar: null }),
     updateProfilePhoto: vi.fn().mockResolvedValue({ oldPhotoUrl: null }),
+    getReviewProfile: vi.fn().mockResolvedValue(null),
     getFileUrls: vi.fn().mockResolvedValue([]),
     consumeUploadSlot: vi.fn().mockResolvedValue(true),
     submitProfile: vi.fn().mockResolvedValue(true),
@@ -214,6 +220,112 @@ describe("createProfileService.uploadPhoto zaštite", () => {
       service.uploadPhoto("user-1", { buffer: Buffer.from("<svg/>"), contentType: "image/png", size: 6 }),
     ).rejects.toMatchObject({ code: "VALIDATION_ERROR" });
     expect(repo.consumeUploadSlot).not.toHaveBeenCalled();
+  });
+});
+
+describe("createProfileService.uploadPhoto otisci slike", () => {
+  const hasher = vi.fn().mockResolvedValue({ sha256: "a".repeat(64), dHash: "0f0f0f0f0f0f0f0f" });
+  const setup = (repo: ProfileRepository) => {
+    const storage = createFakeStorage();
+    const service = createProfileService({
+      repo,
+      storage,
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+      hashPhoto: hasher,
+    });
+    return { storage, service };
+  };
+  const upload = (service: ReturnType<typeof createProfileService>) =>
+    service.uploadPhoto("user-1", { buffer: PNG, contentType: "image/png", size: 10 });
+
+  it("odbija istu sliku (isti SHA-256) sa drugog profila i ništa ne čuva", async () => {
+    const repo = createFakeRepo({
+      findPhotoMatches: vi.fn().mockResolvedValue({ exact: { userId: "user-2", name: "Marko" }, similar: null }),
+    });
+    const { storage, service } = setup(repo);
+    await expect(upload(service)).rejects.toMatchObject({
+      code: "VALIDATION_ERROR",
+      message: sr.profile.errors.photoDuplicate,
+    });
+    expect(storage.put).not.toHaveBeenCalled();
+    expect(repo.updateProfilePhoto).not.toHaveBeenCalled();
+  });
+
+  it("sličnu sliku (dHash) dozvoljava ali označava profil za admina", async () => {
+    const similar = { userId: "user-2", name: "Marko Marković" };
+    const repo = createFakeRepo({ findPhotoMatches: vi.fn().mockResolvedValue({ exact: null, similar }) });
+    const { service } = setup(repo);
+    await expect(upload(service)).resolves.toBe("https://blob.example/new.jpg");
+    expect(repo.updateProfilePhoto).toHaveBeenCalledWith("user-1", "https://blob.example/new.jpg", {
+      photoHash: "a".repeat(64),
+      photoDHash: "0f0f0f0f0f0f0f0f",
+      similarTo: similar,
+      now: NOW,
+    });
+  });
+
+  it("različite slike prolaze bez oznake", async () => {
+    const repo = createFakeRepo();
+    const { service } = setup(repo);
+    await upload(service);
+    expect(repo.findPhotoMatches).toHaveBeenCalledWith("user-1", "a".repeat(64), "0f0f0f0f0f0f0f0f");
+    expect(repo.updateProfilePhoto).toHaveBeenCalledWith(
+      "user-1",
+      "https://blob.example/new.jpg",
+      expect.objectContaining({ similarTo: null }),
+    );
+  });
+
+  it("vlasnik koji ponovo šalje svoju sliku ne dobija grešku (upit isključuje njegov red)", async () => {
+    const repo = createFakeRepo();
+    const { service } = setup(repo);
+    await expect(upload(service)).resolves.toBeTruthy();
+    expect((repo.findPhotoMatches as ReturnType<typeof vi.fn>).mock.calls[0]![0]).toBe("user-1");
+  });
+
+  it("pri zamjeni slike šalje nove otiske i briše staru oznaku (similarTo: null)", async () => {
+    const repo = createFakeRepo();
+    const { service } = setup(repo);
+    await upload(service);
+    const fingerprint = (repo.updateProfilePhoto as ReturnType<typeof vi.fn>).mock.calls[0]![2];
+    expect(fingerprint.photoHash).toBe("a".repeat(64));
+    expect(fingerprint.similarTo).toBeNull();
+  });
+
+  it("ako upis u bazu padne, nova slika se uklanja iz storage-a", async () => {
+    const repo = createFakeRepo({ updateProfilePhoto: vi.fn().mockRejectedValue(new Error("db")) });
+    const { storage, service } = setup(repo);
+    await expect(upload(service)).rejects.toThrow("db");
+    expect(storage.remove).toHaveBeenCalledWith("https://blob.example/new.jpg");
+  });
+});
+
+describe("createProfileService.getReviewProfile", () => {
+  it("baca NOT_FOUND kad profil ne postoji", async () => {
+    const service = createProfileService({
+      repo: createFakeRepo(),
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
+    await expect(service.getReviewProfile("x")).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("vraća oznaku slične slike u admin pogledu", async () => {
+    const service = createProfileService({
+      repo: createFakeRepo({
+        getReviewProfile: vi.fn().mockResolvedValue({
+          ...completeProfile({ photoFlaggedAt: NOW, photoFlagNote: "user-2|Marko Marković" }),
+          email: "a@b.c",
+        }),
+      }),
+      storage: createFakeStorage(),
+      clock: createFakeClock(),
+      email: createFakeEmail(),
+    });
+    const view = await service.getReviewProfile("user-1");
+    expect(view.photoSimilarTo).toEqual({ userId: "user-2", name: "Marko Marković" });
   });
 });
 

@@ -1,6 +1,8 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
 import type { EmailService } from "@/lib/email";
+import type { AdminNotifier } from "@/features/admin/notifier";
+import { RATE_LIMITS, enforceRateLimit, type RateLimiter } from "@/lib/rateLimit";
 import { sr } from "@/content/sr";
 import type { ReportStatus } from "@/generated/prisma/client";
 import type { CreateReportInput } from "./schemas";
@@ -11,6 +13,9 @@ export interface SafetyServiceDeps {
   repo: SafetyRepository;
   clock: Clock;
   email: EmailService;
+  rateLimiter?: RateLimiter;
+  /** Mail adminima o novoj prijavi (poslije commita, ne ruši tok). */
+  adminNotifier?: AdminNotifier;
 }
 
 const appUrl = () => (process.env.APP_URL ?? "").replace(/[/]$/, "");
@@ -44,7 +49,10 @@ export function createSafetyService(deps: SafetyServiceDeps) {
     },
 
     async createReport(reporterId: string, input: CreateReportInput) {
-      return repo.createReport(reporterId, input, clock.now());
+      await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.reportUser, reporterId);
+      const report = await repo.createReport(reporterId, input, clock.now());
+      await deps.adminNotifier?.reportReceived();
+      return report;
     },
 
     async listReports(status: ReportStatus, cursor?: string, limit = 20) {

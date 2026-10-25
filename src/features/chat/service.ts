@@ -1,11 +1,13 @@
 import type { Clock } from "@/lib/clock";
 import { ApiError } from "@/lib/errors";
+import { RATE_LIMITS, enforceRateLimit, type RateLimiter } from "@/lib/rateLimit";
 import type { ChatRepository } from "./repository";
 import { toMatchSummaryView, toMessageView } from "./mappers";
 
 export interface ChatServiceDeps {
   repo: ChatRepository;
   clock: Clock;
+  rateLimiter?: RateLimiter;
 }
 
 export function createChatService(deps: ChatServiceDeps) {
@@ -39,6 +41,7 @@ export function createChatService(deps: ChatServiceDeps) {
 
     async sendMessage(userId: string, matchId: string, body: string) {
       await requireMember(userId, matchId);
+      await enforceRateLimit(deps.rateLimiter, RATE_LIMITS.chatUser, userId);
       const message = await repo.createMessage(matchId, userId, body, clock.now());
       return toMessageView(message);
     },
